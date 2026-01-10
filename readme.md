@@ -2,7 +2,7 @@
 
 A system that ingests Readwise webhook events, processes highlights asynchronously, enriches them with LLM‑based analysis, and stores structured insights reliably and cost‑efficiently.
 
-This system is an example of how to use LLMs to improve developer productivity workflows by turning unstructured inputs into actionable insights without compromising reliability or cost.
+This system is an example of how to use LLMs to improve productivity workflows by turning unstructured inputs into actionable insights without compromising reliability or cost.
 
 ---
 
