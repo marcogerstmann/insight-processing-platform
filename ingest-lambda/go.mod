@@ -1,4 +1,4 @@
-module ingress-lambda
+module ingest-lambda
 
 go 1.25
 

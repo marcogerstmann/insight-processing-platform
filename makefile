@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 
-LAMBDA_DIR := ingress-lambda
-TF_DIR := infra
+LAMBDA_DIR := ingest-lambda
+TF_DIR := terraform
 BOOTSTRAP := $(LAMBDA_DIR)/bootstrap
 
 GOOS ?= linux

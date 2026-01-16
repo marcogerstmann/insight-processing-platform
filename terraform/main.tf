@@ -6,7 +6,7 @@ locals {
 # Package Lambda (zip)
 data "archive_file" "lambda_zip" {
   type        = "zip"
-  source_file = "${path.module}/../ingress-lambda/bootstrap"
+  source_file = "${path.module}/../ingest-lambda/bootstrap"
   output_path = "${path.module}/lambda.zip"
 }
 
