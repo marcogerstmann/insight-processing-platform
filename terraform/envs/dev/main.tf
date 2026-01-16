@@ -32,7 +32,7 @@ module "lambda" {
   handler           = "bootstrap"
   runtime           = "provided.al2"
   memory_size       = 128
-  timeout           = 5
+  timeout           = 10
   log_retention_in_days = 14
 }
 
