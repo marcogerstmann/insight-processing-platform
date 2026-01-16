@@ -1,0 +1,45 @@
+# Kindle highlight
+POST {{base_url}}/readwise/webhook
+Accept: application/json
+Content-Type: application/json
+
+{
+  "id": 111111111,
+  "text": "What gets measured gets managed.",
+  "note": "A classic that still holds true.",
+  "location": 591,
+  "location_type": "location",
+  "highlighted_at": null,
+  "url": null,
+  "color": "yellow",
+  "updated": "2026-01-16T10:19:10.823009Z",
+  "book_id": 33333333,
+  "tags": [],
+  "event_type": "readwise.highlight.created",
+  "secret": "readwise-webhook-secret"
+}
+
+###
+
+# Reader highlight
+POST {{base_url}}/readwise/webhook
+Accept: application/json
+Content-Type: application/json
+
+{
+  "id": 222222222,
+  "text": "Prioritize measurable, outcome-focused metrics that align team effort with actual business value rather than vanity numbers.",
+  "note": "Should have a look more often into our ROI metrics.",
+  "location": 0,
+  "location_type": "offset",
+  "highlighted_at": "2026-01-16T10:17:46.896083Z",
+  "url": "https://read.readwise.io/read/test-rss-feed-text-12545678",
+  "color": "",
+  "updated": "2026-01-11T10:17:46.940261Z",
+  "book_id": 44444444,
+  "tags": [],
+  "event_type": "readwise.highlight.created",
+  "secret": "readwise-webhook-secret"
+}
+
+###

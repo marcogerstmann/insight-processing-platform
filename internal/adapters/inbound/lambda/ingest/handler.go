@@ -8,7 +8,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 )
 
-func Handler(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
+func Handler(_ context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
 	log.Printf("method=%s path=%s requestId=%s", req.RequestContext.HTTP.Method, req.RawPath, req.RequestContext.RequestID)
 	log.Printf("headers=%v", req.Headers)
 	fmt.Println("body=", req.Body)
