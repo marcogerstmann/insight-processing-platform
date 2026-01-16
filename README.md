@@ -38,7 +38,7 @@ Readwise Webhook
       ▼
 API Gateway
       │
-Ingress Lambda
+Ingest Lambda
   - validate
   - normalize
   - generate idempotency key

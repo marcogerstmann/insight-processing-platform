@@ -34,11 +34,11 @@ AWS provides mature, well-understood building blocks (Lambda, SQS, DynamoDB) tha
 
 ---
 
-## ADR-002: Ingress & Decoupling - API Gateway + Lambda + SQS
+## ADR-002: Ingest & Decoupling - API Gateway + Lambda + SQS
 
 ### Decision
 
-Use API Gateway and a lightweight Ingress Lambda to receive events, and SQS to decouple ingestion from processing.
+Use API Gateway and a lightweight ingest Lambda to receive events, and SQS to decouple ingestion from processing.
 
 ### Context
 
@@ -67,7 +67,7 @@ This prevents slow LLM calls from blocking ingestion and keeps the system respon
 
 ### Decision
 
-Use AWS Lambda for ingress and for the core processing worker (via container image).
+Use AWS Lambda for ingest and for the core processing worker (via container image).
 
 ### Context
 
