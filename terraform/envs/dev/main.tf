@@ -1,6 +1,6 @@
 locals {
   project = var.project 
-  name    = "${local.project}-ingress"
+  name    = "${local.project}-ingest"
 }
 
 # Package Lambda (zip)
@@ -33,6 +33,7 @@ module "lambda" {
   runtime           = "provided.al2"
   memory_size       = 128
   timeout           = 5
+  log_retention_in_days = 14
 }
 
 module "api" {
