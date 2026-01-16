@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-This document captures the **core architectural decisions*- of the Insight Processing Platform.
+This document captures the **core architectural decisions** of the Insight Processing Platform.
 
 The goal is not exhaustiveness, but **defensibility**: each decision is intentional, constrained, and reversible only with a clear trade-off.
 
@@ -38,7 +38,7 @@ AWS provides mature, well-understood building blocks (Lambda, SQS, DynamoDB) tha
 
 ### Decision
 
-Use API Gateway and a lightweight ingest Lambda to receive events, and SQS to decouple ingestion from processing.
+Use API Gateway and a lightweight ingest Lambda to receive events, and SQS to decouple ingestion phase from processing.
 
 ### Context
 
@@ -67,7 +67,7 @@ This prevents slow LLM calls from blocking ingestion and keeps the system respon
 
 ### Decision
 
-Use AWS Lambda for ingest and for the core processing worker (via container image).
+Use AWS Lambda for ingestion and for the core processing worker (via container image). The ingest Lambda enqueues events to SQS, the processing worker consumes from SQS.
 
 ### Context
 
