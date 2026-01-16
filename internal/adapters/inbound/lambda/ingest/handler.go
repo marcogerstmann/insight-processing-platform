@@ -1,4 +1,4 @@
-package main
+package ingest
 
 import (
 	"context"
@@ -6,16 +6,12 @@ import (
 	"log"
 
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/aws/aws-lambda-go/lambda"
 )
 
-func handler(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
+func Handler(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
 	log.Printf("method=%s path=%s requestId=%s", req.RequestContext.HTTP.Method, req.RawPath, req.RequestContext.RequestID)
-
 	log.Printf("headers=%v", req.Headers)
-
 	fmt.Println("body=", req.Body)
-
 	return events.APIGatewayV2HTTPResponse{
 		StatusCode: 200,
 		Headers: map[string]string{
@@ -23,8 +19,4 @@ func handler(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.AP
 		},
 		Body: `{"ok":true}`,
 	}, nil
-}
-
-func main() {
-	lambda.Start(handler)
 }

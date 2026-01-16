@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-LAMBDA_DIR := ingest-lambda
+LAMBDA_DIR := cmd/ingest-lambda
 TF_DIR := terraform
 BOOTSTRAP := $(LAMBDA_DIR)/bootstrap
 
