@@ -1,7 +1,8 @@
 SHELL := /bin/bash
 
 LAMBDA_DIR := cmd/ingest-lambda
-TF_DIR := terraform
+TF_ENV ?= dev
+TF_DIR ?= terraform/envs/$(TF_ENV)
 BOOTSTRAP := $(LAMBDA_DIR)/bootstrap
 
 GOOS ?= linux
