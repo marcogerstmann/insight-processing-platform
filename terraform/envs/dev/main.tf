@@ -1,5 +1,5 @@
 locals {
-  project = "ipp"
+  project = var.project 
   name    = "${local.project}-ingress"
 }
 
