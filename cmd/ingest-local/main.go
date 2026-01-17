@@ -7,10 +7,13 @@ import (
 	"net/http"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/joho/godotenv"
 	"github.com/mgerstmannsf/insight-processing-platform/internal/adapters/inbound/lambda/ingest"
 )
 
 func main() {
+	_ = godotenv.Load()
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/readwise/webhook", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {

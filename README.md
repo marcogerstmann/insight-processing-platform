@@ -1,12 +1,14 @@
 # Insight Processing Platform
 
+## Project description
+
 A system that ingests Readwise webhook events, processes highlights asynchronously, enriches them with LLM‑based analysis, and stores structured insights reliably and cost‑efficiently.
 
 This system uses LLMs as a controlled dependency to transform unstructured inputs into actionable insights, improving knowledge work productivity while maintaining reliability and cost predictability.
 
 ---
 
-## What this project is — and is not
+### What this project is — and is not
 
 This is not an AI product. It is an **event‑driven backend system** that uses LLMs as a controlled dependency.
 
@@ -30,7 +32,7 @@ The focus is system design, cost control, and operational clarity.
 
 ---
 
-## High‑level architecture
+### High‑level architecture
 
 ```
 Readwise Webhook
@@ -67,19 +69,19 @@ Failure paths:
 
 ---
 
-## Core design decisions (summary)
+### Core design decisions (summary)
 
-* **AWS** for managed primitives and transparent cost modeling
-* **Lambda + SQS** for decoupling, retries, and backpressure handling
-* **One core service** to avoid premature microservice complexity
-* **No Kubernetes** - unjustified control‑plane cost and operational overhead at this scale
-* **DynamoDB (On‑Demand)** for event‑driven access patterns and zero idle cost
+- **AWS** for managed primitives and transparent cost modeling
+- **Lambda + SQS** for decoupling, retries, and backpressure handling
+- **One core service** to avoid premature microservice complexity
+- **No Kubernetes** - unjustified control‑plane cost and operational overhead at this scale
+- **DynamoDB (On‑Demand)** for event‑driven access patterns and zero idle cost
 
 Each of these decisions is intentional and documented.
 
 ---
 
-## Cost philosophy
+### Cost philosophy
 
 TODO: Verify the costs
 
@@ -98,7 +100,7 @@ The main risk is not AWS - it is uncontrolled token usage.
 
 ---
 
-## What this project demonstrates
+### What this project demonstrates
 
 - Event‑driven system design
 - Idempotent ingestion and retry safety
@@ -108,7 +110,7 @@ The main risk is not AWS - it is uncontrolled token usage.
 
 ---
 
-## Non‑goals
+### Non‑goals
 
 - No Kubernetes
 - No microservice sprawl
@@ -116,3 +118,25 @@ The main risk is not AWS - it is uncontrolled token usage.
 - No AI hype demos
 
 Constraints are part of the design.
+
+## Project setup
+
+### Environment variables
+
+The following environment variables are used in the project:
+
+| Variable                | Description                                                       |
+|-------------------------|-------------------------------------------------------------------|
+| READWISE_WEBHOOK_SECRET | Shared secret used to verify incoming Readwise webhook signatures |
+
+### Local usage
+
+#### Simulate ingest Lambda locally
+
+Run the local webhook listener:
+
+```bash
+go run ./cmd/ingest-local/main.go
+```
+
+Send a test webhook event using the prepared test payloads in `./httpRequests`.
