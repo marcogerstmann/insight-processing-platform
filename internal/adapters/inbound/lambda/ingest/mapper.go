@@ -12,6 +12,7 @@ var (
 )
 
 type IngestEvent struct {
+	TenantID   string
 	Source     string
 	EventType  string
 	ReceivedAt time.Time

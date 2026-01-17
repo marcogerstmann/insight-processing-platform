@@ -18,6 +18,10 @@ var log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 	Level: slog.LevelInfo,
 }))
 
+type TenantContext struct {
+	TenantID string
+}
+
 func Handler(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
 	receivedAt := time.Now().UTC()
 
@@ -37,21 +41,21 @@ func Handler(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.AP
 		}), nil
 	}
 
-	secretExpected := strings.TrimSpace(os.Getenv("READWISE_WEBHOOK_SECRET"))
-	if secretExpected == "" {
-		log.ErrorContext(ctx, "missing environment variable", "env", "READWISE_WEBHOOK_SECRET")
-		return jsonResponse(http.StatusInternalServerError, map[string]any{
-			"error": "server_misconfigured",
-		}), nil
-	}
-	if strings.TrimSpace(payload.Secret) != secretExpected {
-		log.WarnContext(ctx, "secrets not matching",
-			"event_type", payload.EventType,
-			"highlight_id", payload.ID,
-		)
-		return jsonResponse(http.StatusUnauthorized, map[string]any{
-			"error": "unauthorized",
-		}), nil
+	tenantCtx, err := resolveTenant(ctx, payload)
+	if err != nil {
+		switch err.Error() {
+		case "unauthorized":
+			log.WarnContext(ctx, "unauthorized_webhook",
+				"event_type", payload.EventType,
+				"highlight_id", payload.ID,
+			)
+			return jsonResponse(http.StatusUnauthorized, map[string]any{"error": "unauthorized"}), nil
+		case "server_misconfigured":
+			return jsonResponse(http.StatusInternalServerError, map[string]any{"error": "server_misconfigured"}), nil
+		default:
+			log.ErrorContext(ctx, "tenant_resolution_failed", "err", err)
+			return jsonResponse(http.StatusInternalServerError, map[string]any{"error": "server_error"}), nil
+		}
 	}
 
 	ev, err := MapReadwisePayload(payload, receivedAt)
@@ -66,8 +70,11 @@ func Handler(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.AP
 		}), nil
 	}
 
-	// TODO: For now log the normalized event. Later this becomes "publish to SQS".
+	ev.TenantID = tenantCtx.TenantID
+
+	// TODO: For now log the normalized event. Later this becomes "publish to SQS"
 	log.InfoContext(ctx, "readwise ingestion ok",
+		"tenant_id", ev.TenantID,
 		"source", ev.Source,
 		"event_type", ev.EventType,
 		"highlight_id", ev.Highlight.ID,
@@ -94,6 +101,28 @@ func readBody(req events.APIGatewayV2HTTPRequest) ([]byte, error) {
 		return nil, err
 	}
 	return decoded, nil
+}
+
+func resolveTenant(ctx context.Context, payload ReadwiseWebhookDTO) (TenantContext, error) {
+	// Today: single-tenant mode, using env secret + fixed tenant id.
+	// Later: extract secret from header/query, look up tenant in DB, verify signature, etc.
+	tenantID := strings.TrimSpace(os.Getenv("DEFAULT_TENANT_ID"))
+	if tenantID == "" {
+		log.ErrorContext(ctx, "missing environment variable", "env", "DEFAULT_TENANT_ID")
+		return TenantContext{}, errors.New("server_misconfigured")
+	}
+
+	secretExpected := strings.TrimSpace(os.Getenv("READWISE_WEBHOOK_SECRET"))
+	if secretExpected == "" {
+		log.ErrorContext(ctx, "missing environment variable", "env", "READWISE_WEBHOOK_SECRET")
+		return TenantContext{}, errors.New("server_misconfigured")
+	}
+
+	if strings.TrimSpace(payload.Secret) != secretExpected {
+		return TenantContext{}, errors.New("unauthorized")
+	}
+
+	return TenantContext{TenantID: tenantID}, nil
 }
 
 func jsonResponse(status int, payload any) events.APIGatewayV2HTTPResponse {
