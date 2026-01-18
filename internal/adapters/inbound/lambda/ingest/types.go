@@ -7,8 +7,7 @@ type IngestEvent struct {
 	Source     string    `json:"source"`
 	EventType  string    `json:"event_type"`
 	ReceivedAt time.Time `json:"received_at"`
-
-	Highlight Highlight `json:"highlight"`
+	Highlight  Highlight `json:"highlight"`
 }
 
 type Highlight struct {

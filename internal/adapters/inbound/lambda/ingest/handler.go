@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/mgerstmannsf/insight-processing-platform/internal/adapters/outbound/sqs"
+	"github.com/mgerstmannsf/insight-processing-platform/internal/ports/outbound"
 )
 
 var log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
@@ -21,7 +23,7 @@ type TenantContext struct {
 	TenantID string
 }
 
-var publisher *SQSPublisher
+var publisher outbound.EventPublisher
 
 func Handler(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
 	receivedAt := time.Now().UTC()
@@ -83,28 +85,40 @@ func Handler(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.AP
 
 	idempotencyKey := BuildIdempotencyKey(ev)
 
+	body, err := json.Marshal(ev)
+	if err != nil {
+		log.ErrorContext(ctx, "failed to marshal event", "err", err)
+		return jsonResponse(http.StatusInternalServerError, map[string]any{"error": "server_error"}), nil
+	}
+
+	msg := outbound.PublishMessage{
+		Body: body,
+		Attributes: map[string]string{
+			"tenant_id":       ev.TenantID,
+			"event_type":      ev.EventType,
+			"idempotency_key": idempotencyKey,
+			"received_at":     receivedAt.UTC().Format(time.RFC3339Nano),
+		},
+	}
+
 	if publisher == nil {
-		p, err := NewSQSPublisher(ctx)
+		p, err := sqs.NewPublisher(ctx)
 		if err != nil {
-			log.ErrorContext(ctx, "sqs_publisher_init_failed", "err", err)
-			return jsonResponse(http.StatusInternalServerError, map[string]any{
-				"error": "server_misconfigured",
-			}), nil
+			log.ErrorContext(ctx, "publisher init failed", "err", err)
+			return jsonResponse(http.StatusInternalServerError, map[string]any{"error": "server_misconfigured"}), nil
 		}
 		publisher = p
 	}
 
-	if err := publisher.Publish(ctx, ev, idempotencyKey, receivedAt); err != nil {
-		log.ErrorContext(ctx, "sqs publish failed",
+	if err := publisher.Publish(ctx, msg); err != nil {
+		log.ErrorContext(ctx, "publish failed",
 			"err", err,
 			"tenant_id", ev.TenantID,
 			"idempotency_key", idempotencyKey,
 			"event_type", ev.EventType,
 			"highlight_id", ev.Highlight.ID,
 		)
-		return jsonResponse(http.StatusInternalServerError, map[string]any{
-			"error": "enqueue_failed",
-		}), nil
+		return jsonResponse(http.StatusInternalServerError, map[string]any{"error": "enqueue_failed"}), nil
 	}
 
 	log.InfoContext(ctx, "readwise ingestion enqueued",
