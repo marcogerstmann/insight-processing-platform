@@ -44,3 +44,9 @@ variable "manage_log_group" {
   description = "Whether Terraform should manage the CloudWatch log group for this Lambda"
   default     = true
 }
+
+variable "environment_variables" {
+  description = "Environment variables passed to the Lambda function"
+  type        = map(string)
+  default     = {}
+}

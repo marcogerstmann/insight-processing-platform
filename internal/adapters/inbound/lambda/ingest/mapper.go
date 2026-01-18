@@ -11,29 +11,6 @@ var (
 	ErrInvalidPayload = errors.New("invalid payload")
 )
 
-type IngestEvent struct {
-	TenantID   string
-	Source     string
-	EventType  string
-	ReceivedAt time.Time
-
-	Highlight Highlight
-}
-
-type Highlight struct {
-	ID            int64
-	BookID        int64
-	Text          string
-	Note          string
-	URL           string
-	Tags          []string
-	HighlightedAt time.Time
-	UpdatedAt     time.Time
-	Location      int
-	LocationType  string
-	Color         string
-}
-
 func MapReadwisePayload(p ReadwiseWebhookDTO, receivedAt time.Time) (IngestEvent, error) {
 	if p.ID <= 0 {
 		return IngestEvent{}, fmt.Errorf("%w: missing/invalid id", ErrInvalidPayload)
@@ -43,6 +20,13 @@ func MapReadwisePayload(p ReadwiseWebhookDTO, receivedAt time.Time) (IngestEvent
 	}
 	if strings.TrimSpace(p.Text) == "" {
 		return IngestEvent{}, fmt.Errorf("%w: missing highlight text", ErrInvalidPayload)
+	}
+
+	var tags []string
+	if len(p.Tags) > 0 {
+		tags = append([]string(nil), p.Tags...)
+	} else {
+		tags = []string{}
 	}
 
 	ev := IngestEvent{
@@ -55,7 +39,7 @@ func MapReadwisePayload(p ReadwiseWebhookDTO, receivedAt time.Time) (IngestEvent
 			Text:          p.Text,
 			Note:          p.Note,
 			URL:           p.URL,
-			Tags:          append([]string(nil), p.Tags...),
+			Tags:          tags,
 			HighlightedAt: p.HighlightedAt,
 			UpdatedAt:     p.Updated,
 			Location:      p.Location,

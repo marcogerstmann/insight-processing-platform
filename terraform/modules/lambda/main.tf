@@ -10,6 +10,10 @@ resource "aws_lambda_function" "this" {
 
   memory_size = var.memory_size
   timeout     = var.timeout
+
+  environment {
+    variables = var.environment_variables
+  }
 }
 
 resource "aws_cloudwatch_log_group" "this" {

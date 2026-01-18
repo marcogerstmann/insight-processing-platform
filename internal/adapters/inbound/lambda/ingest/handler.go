@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -22,8 +21,17 @@ type TenantContext struct {
 	TenantID string
 }
 
+var publisher *SQSPublisher
+
 func Handler(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
 	receivedAt := time.Now().UTC()
+
+	if req.Body == "" {
+		// This is likely the Readwise webhook verification request
+		return jsonResponse(http.StatusOK, map[string]any{
+			"status": "ok",
+		}), nil
+	}
 
 	bodyBytes, err := readBody(req)
 	if err != nil {
@@ -41,7 +49,7 @@ func Handler(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.AP
 		}), nil
 	}
 
-	tenantCtx, err := resolveTenant(ctx, payload)
+	tenantCtx, err := resolveTenant(payload)
 	if err != nil {
 		switch err.Error() {
 		case "unauthorized":
@@ -51,9 +59,10 @@ func Handler(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.AP
 			)
 			return jsonResponse(http.StatusUnauthorized, map[string]any{"error": "unauthorized"}), nil
 		case "server_misconfigured":
+			log.ErrorContext(ctx, "server misconfigured", "err", err)
 			return jsonResponse(http.StatusInternalServerError, map[string]any{"error": "server_misconfigured"}), nil
 		default:
-			log.ErrorContext(ctx, "tenant_resolution_failed", "err", err)
+			log.ErrorContext(ctx, "tenant resolution failed", "err", err)
 			return jsonResponse(http.StatusInternalServerError, map[string]any{"error": "server_error"}), nil
 		}
 	}
@@ -72,16 +81,37 @@ func Handler(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.AP
 
 	ev.TenantID = tenantCtx.TenantID
 
-	// TODO: For now log the normalized event. Later this becomes "publish to SQS"
-	log.InfoContext(ctx, "readwise ingestion ok",
+	idempotencyKey := BuildIdempotencyKey(ev)
+
+	if publisher == nil {
+		p, err := NewSQSPublisher(ctx)
+		if err != nil {
+			log.ErrorContext(ctx, "sqs_publisher_init_failed", "err", err)
+			return jsonResponse(http.StatusInternalServerError, map[string]any{
+				"error": "server_misconfigured",
+			}), nil
+		}
+		publisher = p
+	}
+
+	if err := publisher.Publish(ctx, ev, idempotencyKey, receivedAt); err != nil {
+		log.ErrorContext(ctx, "sqs publish failed",
+			"err", err,
+			"tenant_id", ev.TenantID,
+			"idempotency_key", idempotencyKey,
+			"event_type", ev.EventType,
+			"highlight_id", ev.Highlight.ID,
+		)
+		return jsonResponse(http.StatusInternalServerError, map[string]any{
+			"error": "enqueue_failed",
+		}), nil
+	}
+
+	log.InfoContext(ctx, "readwise ingestion enqueued",
 		"tenant_id", ev.TenantID,
-		"source", ev.Source,
+		"idempotency_key", idempotencyKey,
 		"event_type", ev.EventType,
 		"highlight_id", ev.Highlight.ID,
-		"book_id", ev.Highlight.BookID,
-		"url", ev.Highlight.URL,
-		"highlighted_at", ev.Highlight.HighlightedAt,
-		"received_at", ev.ReceivedAt,
 	)
 
 	return jsonResponse(http.StatusOK, map[string]any{
@@ -101,28 +131,6 @@ func readBody(req events.APIGatewayV2HTTPRequest) ([]byte, error) {
 		return nil, err
 	}
 	return decoded, nil
-}
-
-func resolveTenant(ctx context.Context, payload ReadwiseWebhookDTO) (TenantContext, error) {
-	// Today: single-tenant mode, using env secret + fixed tenant id.
-	// Later: extract secret from header/query, look up tenant in DB, verify signature, etc.
-	tenantID := strings.TrimSpace(os.Getenv("DEFAULT_TENANT_ID"))
-	if tenantID == "" {
-		log.ErrorContext(ctx, "missing environment variable", "env", "DEFAULT_TENANT_ID")
-		return TenantContext{}, errors.New("server_misconfigured")
-	}
-
-	secretExpected := strings.TrimSpace(os.Getenv("READWISE_WEBHOOK_SECRET"))
-	if secretExpected == "" {
-		log.ErrorContext(ctx, "missing environment variable", "env", "READWISE_WEBHOOK_SECRET")
-		return TenantContext{}, errors.New("server_misconfigured")
-	}
-
-	if strings.TrimSpace(payload.Secret) != secretExpected {
-		return TenantContext{}, errors.New("unauthorized")
-	}
-
-	return TenantContext{TenantID: tenantID}, nil
 }
 
 func jsonResponse(status int, payload any) events.APIGatewayV2HTTPResponse {
