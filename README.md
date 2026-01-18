@@ -1,38 +1,34 @@
 # Insight Processing Platform
 
-## Project description
+## One-sentence summary
 
-A system that ingests Readwise webhook events, processes highlights asynchronously, enriches them with LLM‑based analysis, and stores structured insights reliably and cost‑efficiently.
-
-This system uses LLMs as a controlled dependency to transform unstructured inputs into actionable insights, improving knowledge work productivity while maintaining reliability and cost predictability.
+A backend system that ingests Readwise webhook events, processes highlights asynchronously, enriches them with LLM-based analysis, and stores structured insights reliably and cost-efficiently.
 
 ---
 
-### What this project is — and is not
+## What this project is - and is not
 
-This is not an AI product. It is an **event‑driven backend system** that uses LLMs as a controlled dependency.
+This is **not** an AI product.
 
-LLMs are:
+It is an **event-driven backend system** that uses LLMs as a **controlled, optional dependency**.
 
+**LLMs**
 - interchangeable
-- budget‑limited
+- strictly budget-limited
 - isolated from core system reliability
 
-Readwise is:
+**Readwise**
+- data source
+- event generator
+- not the business model
 
-- a data source
-- an event generator
-- treated purely as an event source
+The value lies in **how events are processed, enriched, and operated**, not in the integration itself.
 
-The value of the system lies in how events are **processed, enriched, and stored** - not in the integration itself.
-
-The architecture is intentionally source-agnostic and remains valid if Readwise is replaced by another upstream provider.
-
-The focus is system design, cost control, and operational clarity.
+The architecture is source-agnostic and remains valid if Readwise is replaced.
 
 ---
 
-### High‑level architecture
+## Architecture (high level)
 
 ```
 Readwise Webhook
@@ -61,82 +57,65 @@ Core Processing Service (Go)
 DynamoDB
 ```
 
-Failure paths:
-
+**Failure behavior**
 - transient errors → retries
 - permanent errors → DLQ
 - LLM failure ≠ system failure
 
 ---
 
-### Core design decisions (summary)
+## Key design decisions (summary)
 
-- **AWS** for managed primitives and transparent cost modeling
-- **Lambda + SQS** for decoupling, retries, and backpressure handling
-- **One core service** to avoid premature microservice complexity
-- **No Kubernetes** - unjustified control‑plane cost and operational overhead at this scale
-- **DynamoDB (On‑Demand)** for event‑driven access patterns and zero idle cost
+- **AWS managed primitives** for reliability and transparent cost modeling
+- **API Gateway + Lambda + SQS** for decoupling, retries, and backpressure
+- **Single core service** to avoid premature microservice complexity
+- **DynamoDB (On-Demand)** for event-driven access patterns and zero idle cost
+- **No Kubernetes** — control-plane cost and operational overhead are unjustified at this scale
 
-Each of these decisions is intentional and documented.
+All decisions are intentional and documented in ADRs.
 
 ---
 
-### Cost philosophy
+## Cost philosophy
 
-TODO: Verify the costs
+Costs are designed to be **visible and boring**.
 
-This system is designed to make costs visible and boring.
+At expected load (hundreds of events per month):
 
-At current expected load (hundreds of events per month):
+> **~8 € / month**
 
-> ~8 € / month
-
-Rough breakdown:
-
+Rough order of magnitude:
 - AWS infrastructure: ~5–10 €
 - LLM usage: explicitly capped via token limits and alarms
 
-The main risk is not AWS - it is uncontrolled token usage.
+The primary cost risk is **uncontrolled tokens**, not AWS.
 
 ---
 
-### What this project demonstrates
+## What this project demonstrates
 
-- Event‑driven system design
+- Event-driven system design
 - Idempotent ingestion and retry safety
-- Explicit failure paths
-- Cost‑aware use of LLMs
+- Explicit failure paths (DLQ, fallback logic)
+- Cost-aware and failure-tolerant LLM usage
 - Operational thinking (logs, metrics, alarms)
 
+This project is optimized for **system design signal**, not feature breadth.
+
 ---
 
-### Non‑goals
+## Explicit non-goals
 
 - No Kubernetes
 - No microservice sprawl
 - No frontend focus
-- No AI hype demos
+- No AI demo hype
 
 Constraints are part of the design.
 
-## Project setup
+---
 
-### Environment variables
+## Further documentation
 
-The following environment variables are used in the project:
-
-| Variable                | Description                                                       |
-|-------------------------|-------------------------------------------------------------------|
-| READWISE_WEBHOOK_SECRET | Shared secret used to verify incoming Readwise webhook signatures |
-
-### Local usage
-
-#### Simulate ingest Lambda locally
-
-Run the local webhook listener:
-
-```bash
-go run ./cmd/ingest-local/main.go
-```
-
-Send a test webhook event using the prepared test payloads in `./httpRequests`.
+- Architectural decisions: [`docs/adr.md`](docs/adr.md)
+- Setup & development: [`docs/setup.md`](docs/setup.md)

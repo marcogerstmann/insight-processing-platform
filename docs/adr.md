@@ -6,7 +6,7 @@ The goal is not exhaustiveness, but **defensibility**: each decision is intentio
 
 ---
 
-## ADR-001: Cloud Platform - AWS
+## ADR-001: AWS as Cloud Platform
 
 ### Decision
 
@@ -29,12 +29,12 @@ AWS provides mature, well-understood building blocks (Lambda, SQS, DynamoDB) tha
 ### Consequences
 
 - Strong alignment with serverless and event-driven patterns
-- Vendor lock-in is accepted as a deliberate trade-off
+- Vendor lock-in is accepted; migration would require rethinking ingestion, queuing, and persistence layers
 - Architecture favors managed services over custom runtime control
 
 ---
 
-## ADR-002: Ingest & Decoupling - API Gateway + Lambda + SQS
+## ADR-002: Ingest & Decoupling with API Gateway + Lambda + SQS
 
 ### Decision
 
@@ -63,7 +63,7 @@ This prevents slow LLM calls from blocking ingestion and keeps the system respon
 
 ---
 
-## ADR-003: Compute Model - Serverless First
+## ADR-003: Serverless First Compute Model
 
 ### Decision
 
@@ -85,7 +85,35 @@ Lambda minimizes idle cost, removes server management, and fits naturally with e
 
 ---
 
-## ADR-004: Data Store - DynamoDB (On-Demand)
+## ADR-004: No Kubernetes
+
+### Decision
+
+Do not use Kubernetes.
+
+### Context
+
+Traffic volume is low, system size is small, and operational simplicity is a priority.
+
+### Rationale
+
+Kubernetes would introduce:
+
+- control-plane cost
+- operational complexity
+- additional failure modes
+
+These costs are unjustified for the problem domain. Lambda and managed services provide sufficient scalability and reliability.
+
+### Consequences
+
+- Less flexibility in runtime customization
+- Stronger coupling to AWS primitives
+- Lower operational burden
+
+---
+
+## ADR-005: Data Store
 
 ### Decision
 
@@ -114,63 +142,7 @@ A relational database would introduce unnecessary operational and cost overhead.
 
 ---
 
-## ADR-005: Service Topology - Single Core Service
-
-### Decision
-
-Implement all domain logic in a single core processing service.
-
-### Context
-
-The system's complexity lies in correctness, cost control, and failure handling - not in organizational scale.
-
-### Rationale
-
-A single service:
-
-- reduces cognitive overhead
-- simplifies deployment and observability
-- avoids premature microservice boundaries
-
-Decomposition can be revisited if real scaling pressures emerge.
-
-### Consequences
-
-- Clear ownership of domain logic
-- Fewer moving parts
-- Scaling is vertical and event-driven, not organizational
-
----
-
-## ADR-006: Container Orchestration - No Kubernetes
-
-### Decision
-
-Do not use Kubernetes.
-
-### Context
-
-Traffic volume is low, system size is small, and operational simplicity is a priority.
-
-### Rationale
-
-Kubernetes would introduce:
-
-- control-plane cost
-- operational complexity
-- additional failure modes
-
-These costs are unjustified for the problem domain. Lambda and managed services provide sufficient scalability and reliability.
-
-### Consequences
-
-- Less flexibility in runtime customization
-- Stronger coupling to AWS primitives
-- Lower operational burden
-
----
-
-## ADR-007: LLM Usage - Controlled Dependency
+## ADR-006: LLM Usage
 
 ### Decision
 
@@ -194,3 +166,25 @@ The system must remain correct and operational even if LLMs fail or are unavaila
 - AI enrichment is best-effort
 - Fallback processing is mandatory
 - Cost overruns are prevented by design
+
+---
+
+## ADR-007: Idempotency Strategy
+
+### Decision
+
+Ensure idempotent ingestion and processing using a deterministic event key.
+
+### Context
+
+Webhook deliveries may be retried or duplicated by upstream systems. SQS guarantees at-least-once delivery.
+
+### Rationale
+
+Idempotency prevents duplicate processing and inconsistent state without relying on exactly-once semantics.
+
+### Consequences
+
+- Duplicate events are safely ignored
+- State checks are required before persistence
+- Storage schema must support idempotency keys
