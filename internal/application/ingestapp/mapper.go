@@ -1,28 +1,24 @@
 package ingestapp
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/mgerstmannsf/insight-processing-platform/internal/adapters/inbound/lambda/ingest/dto"
+	"github.com/mgerstmannsf/insight-processing-platform/internal/application/apperr"
 	"github.com/mgerstmannsf/insight-processing-platform/internal/application/domain"
-)
-
-var (
-	ErrInvalidPayload = errors.New("invalid payload")
 )
 
 func MapReadwisePayload(p dto.ReadwiseWebhookDTO, receivedAt time.Time) (domain.IngestEvent, error) {
 	if p.ID <= 0 {
-		return domain.IngestEvent{}, fmt.Errorf("%w: missing/invalid id", ErrInvalidPayload)
+		return domain.IngestEvent{}, apperr.E(apperr.ErrInvalidPayload, fmt.Errorf("missing/invalid id"))
 	}
 	if strings.TrimSpace(p.EventType) == "" {
-		return domain.IngestEvent{}, fmt.Errorf("%w: missing event_type", ErrInvalidPayload)
+		return domain.IngestEvent{}, apperr.E(apperr.ErrInvalidPayload, fmt.Errorf("missing event_type"))
 	}
 	if strings.TrimSpace(p.Text) == "" {
-		return domain.IngestEvent{}, fmt.Errorf("%w: missing highlight text", ErrInvalidPayload)
+		return domain.IngestEvent{}, apperr.E(apperr.ErrInvalidPayload, fmt.Errorf("missing highlight text"))
 	}
 
 	var tags []string

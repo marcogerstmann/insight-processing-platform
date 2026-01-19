@@ -11,7 +11,7 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/mgerstmannsf/insight-processing-platform/internal/adapters/inbound/lambda/ingest/dto"
-	errors2 "github.com/mgerstmannsf/insight-processing-platform/internal/application/errors"
+	"github.com/mgerstmannsf/insight-processing-platform/internal/application/apperr"
 	"github.com/mgerstmannsf/insight-processing-platform/internal/application/ingestapp"
 	"github.com/mgerstmannsf/insight-processing-platform/internal/application/tenant"
 )
@@ -40,8 +40,10 @@ func (h *Handler) Handle(ctx context.Context, req events.APIGatewayV2HTTPRequest
 
 	bodyBytes, err := readBody(req)
 	if err != nil {
-		h.Log.WarnContext(ctx, "failed to read body", "err", err)
-		return jsonResponse(http.StatusBadRequest, map[string]any{"error": "invalid_request_body"}), nil
+		h.Log.WarnContext(ctx, "invalid request body", "err", err)
+		return jsonResponse(http.StatusBadRequest, map[string]any{
+			"error": "invalid_request_body",
+		}), nil
 	}
 
 	var payload dto.ReadwiseWebhookDTO
@@ -53,14 +55,15 @@ func (h *Handler) Handle(ctx context.Context, req events.APIGatewayV2HTTPRequest
 	tenantCtx, err := h.Tenant.ResolveFromReadwise(payload)
 	if err != nil {
 		switch {
-		case errors.Is(err, errors2.ErrUnauthorized):
+		case errors.Is(err, apperr.ErrUnauthorized):
 			h.Log.WarnContext(ctx, "unauthorized_webhook",
 				"event_type", payload.EventType,
 				"highlight_id", payload.ID,
+				"err", err,
 			)
 			return jsonResponse(http.StatusUnauthorized, map[string]any{"error": "unauthorized"}), nil
 
-		case errors.Is(err, errors2.ErrServerMisconfigured):
+		case errors.Is(err, apperr.ErrServerMisconfigured):
 			h.Log.ErrorContext(ctx, "server misconfigured", "err", err)
 			return jsonResponse(http.StatusInternalServerError, map[string]any{"error": "server_misconfigured"}), nil
 
@@ -86,11 +89,13 @@ func (h *Handler) Handle(ctx context.Context, req events.APIGatewayV2HTTPRequest
 
 func readBody(req events.APIGatewayV2HTTPRequest) ([]byte, error) {
 	if req.Body == "" {
-		return nil, errors2.NewError(nil, "empty body")
+		return nil, errors.New("empty body")
 	}
+
 	if !req.IsBase64Encoded {
 		return []byte(req.Body), nil
 	}
+
 	return base64.StdEncoding.DecodeString(req.Body)
 }
 
