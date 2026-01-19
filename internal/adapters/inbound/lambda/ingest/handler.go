@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/mgerstmannsf/insight-processing-platform/internal/adapters/inbound/lambda/ingest/dto"
 	"github.com/mgerstmannsf/insight-processing-platform/internal/application/apperr"
 	"github.com/mgerstmannsf/insight-processing-platform/internal/application/ingestapp"
 	"github.com/mgerstmannsf/insight-processing-platform/internal/application/tenant"
@@ -46,13 +45,16 @@ func (h *Handler) Handle(ctx context.Context, req events.APIGatewayV2HTTPRequest
 		}), nil
 	}
 
-	var payload dto.ReadwiseWebhookDTO
+	var payload ReadwiseWebhookDTO
 	if err := json.Unmarshal(bodyBytes, &payload); err != nil {
 		h.Log.WarnContext(ctx, "failed to parse json", "err", err)
 		return jsonResponse(http.StatusBadRequest, map[string]any{"error": "invalid_json"}), nil
 	}
 
-	tenantCtx, err := h.Tenant.ResolveFromReadwise(payload)
+	tenantCtx, err := h.Tenant.Resolve(tenant.ResolveInput{
+		Source: "readwise",
+		Secret: payload.Secret,
+	})
 	if err != nil {
 		switch {
 		case errors.Is(err, apperr.ErrUnauthorized):
@@ -73,7 +75,12 @@ func (h *Handler) Handle(ctx context.Context, req events.APIGatewayV2HTTPRequest
 		}
 	}
 
-	if err := h.Ingest.EnqueueReadwise(ctx, payload, receivedAt, tenantCtx.TenantID); err != nil {
+	domain, err := mapReadwiseDTOToDomain(payload, receivedAt, tenantCtx.TenantID)
+	if err != nil {
+		return events.APIGatewayV2HTTPResponse{}, err
+	}
+
+	if err := h.Ingest.EnqueueReadwise(ctx, domain, receivedAt, tenantCtx.TenantID); err != nil {
 		h.Log.ErrorContext(ctx, "enqueue failed", "err", err, "tenant_id", tenantCtx.TenantID)
 		return jsonResponse(http.StatusInternalServerError, map[string]any{"error": "enqueue_failed"}), nil
 	}

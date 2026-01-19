@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/mgerstmannsf/insight-processing-platform/internal/adapters/inbound/lambda/ingest/dto"
+	"github.com/mgerstmannsf/insight-processing-platform/internal/domain"
 	"github.com/mgerstmannsf/insight-processing-platform/internal/ports/outbound"
 )
 
@@ -17,11 +17,7 @@ func NewService(p outbound.EventPublisher) *Service {
 	return &Service{Publisher: p}
 }
 
-func (s *Service) EnqueueReadwise(ctx context.Context, payload dto.ReadwiseWebhookDTO, receivedAt time.Time, tenantID string) error {
-	ev, err := mapReadwisePayload(payload, receivedAt)
-	if err != nil {
-		return err
-	}
+func (s *Service) EnqueueReadwise(ctx context.Context, ev domain.IngestEvent, receivedAt time.Time, tenantID string) error {
 	ev.TenantID = tenantID
 
 	idempotencyKey := buildIdempotencyKey(ev)
