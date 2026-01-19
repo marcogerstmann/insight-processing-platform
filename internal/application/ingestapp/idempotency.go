@@ -1,13 +1,15 @@
-package ingest
+package ingestapp
 
 import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"time"
+
+	"github.com/mgerstmannsf/insight-processing-platform/internal/application/domain"
 )
 
-func BuildIdempotencyKey(ev IngestEvent) string {
+func BuildIdempotencyKey(ev domain.IngestEvent) string {
 	u := ev.Highlight.UpdatedAt.UTC().Format(time.RFC3339)
 	h := fmt.Sprintf("%s|%s|%s|%d|%s",
 		ev.TenantID,

@@ -1,25 +1,28 @@
-package ingest
+package ingestapp
 
 import (
 	"errors"
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/mgerstmannsf/insight-processing-platform/internal/adapters/inbound/lambda/ingest/dto"
+	"github.com/mgerstmannsf/insight-processing-platform/internal/application/domain"
 )
 
 var (
 	ErrInvalidPayload = errors.New("invalid payload")
 )
 
-func MapReadwisePayload(p ReadwiseWebhookDTO, receivedAt time.Time) (IngestEvent, error) {
+func MapReadwisePayload(p dto.ReadwiseWebhookDTO, receivedAt time.Time) (domain.IngestEvent, error) {
 	if p.ID <= 0 {
-		return IngestEvent{}, fmt.Errorf("%w: missing/invalid id", ErrInvalidPayload)
+		return domain.IngestEvent{}, fmt.Errorf("%w: missing/invalid id", ErrInvalidPayload)
 	}
 	if strings.TrimSpace(p.EventType) == "" {
-		return IngestEvent{}, fmt.Errorf("%w: missing event_type", ErrInvalidPayload)
+		return domain.IngestEvent{}, fmt.Errorf("%w: missing event_type", ErrInvalidPayload)
 	}
 	if strings.TrimSpace(p.Text) == "" {
-		return IngestEvent{}, fmt.Errorf("%w: missing highlight text", ErrInvalidPayload)
+		return domain.IngestEvent{}, fmt.Errorf("%w: missing highlight text", ErrInvalidPayload)
 	}
 
 	var tags []string
@@ -29,11 +32,11 @@ func MapReadwisePayload(p ReadwiseWebhookDTO, receivedAt time.Time) (IngestEvent
 		tags = []string{}
 	}
 
-	ev := IngestEvent{
+	ev := domain.IngestEvent{
 		Source:     "readwise",
 		EventType:  p.EventType,
 		ReceivedAt: receivedAt,
-		Highlight: Highlight{
+		Highlight: domain.Highlight{
 			ID:            p.ID,
 			BookID:        p.BookID,
 			Text:          p.Text,

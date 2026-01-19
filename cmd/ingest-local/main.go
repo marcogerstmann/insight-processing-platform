@@ -4,15 +4,37 @@ import (
 	"context"
 	"io"
 	"log"
+	"log/slog"
 	"net/http"
+	"os"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/joho/godotenv"
+
 	"github.com/mgerstmannsf/insight-processing-platform/internal/adapters/inbound/lambda/ingest"
+	"github.com/mgerstmannsf/insight-processing-platform/internal/adapters/outbound/sqs"
+	"github.com/mgerstmannsf/insight-processing-platform/internal/application/ingestapp"
+	"github.com/mgerstmannsf/insight-processing-platform/internal/application/tenant"
 )
 
 func main() {
 	_ = godotenv.Load()
+
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
+
+	ctx := context.Background()
+
+	publisher, err := sqs.NewPublisher(ctx)
+	if err != nil {
+		log.Fatalf("publisher init failed: %v", err)
+	}
+
+	ingestSvc := ingestapp.NewService(publisher)
+	tenantResolver := tenant.NewResolver( /* config */ )
+
+	handler := ingest.NewHandler(logger, tenantResolver, ingestSvc)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/readwise/webhook", func(w http.ResponseWriter, r *http.Request) {
@@ -37,16 +59,15 @@ func main() {
 			IsBase64Encoded: false,
 		}
 
-		// Copy headers (simple; API GW uses lowercased keys sometimes, but this is fine for local)
 		for k, v := range r.Header {
 			if len(v) > 0 {
 				req.Headers[k] = v[0]
 			}
 		}
 
-		resp, err := ingest.Handler(context.Background(), req)
+		resp, err := handler.Handle(ctx, req)
 		if err != nil {
-			log.Printf("handler error: %v", err)
+			logger.Error("handler error", "err", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
