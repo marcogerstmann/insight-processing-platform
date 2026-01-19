@@ -18,13 +18,13 @@ func NewService(p outbound.EventPublisher) *Service {
 }
 
 func (s *Service) EnqueueReadwise(ctx context.Context, payload dto.ReadwiseWebhookDTO, receivedAt time.Time, tenantID string) error {
-	ev, err := MapReadwisePayload(payload, receivedAt)
+	ev, err := mapReadwisePayload(payload, receivedAt)
 	if err != nil {
 		return err
 	}
 	ev.TenantID = tenantID
 
-	idempotencyKey := BuildIdempotencyKey(ev)
+	idempotencyKey := buildIdempotencyKey(ev)
 
 	body, err := json.Marshal(ev)
 	if err != nil {

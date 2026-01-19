@@ -9,7 +9,7 @@ import (
 	"github.com/mgerstmannsf/insight-processing-platform/internal/domain"
 )
 
-func BuildIdempotencyKey(ev domain.IngestEvent) string {
+func buildIdempotencyKey(ev domain.IngestEvent) string {
 	u := ev.Highlight.UpdatedAt.UTC().Format(time.RFC3339)
 	h := fmt.Sprintf("%s|%s|%s|%d|%s",
 		ev.TenantID,

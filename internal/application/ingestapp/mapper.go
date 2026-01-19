@@ -10,7 +10,7 @@ import (
 	domain2 "github.com/mgerstmannsf/insight-processing-platform/internal/domain"
 )
 
-func MapReadwisePayload(p dto.ReadwiseWebhookDTO, receivedAt time.Time) (domain2.IngestEvent, error) {
+func mapReadwisePayload(p dto.ReadwiseWebhookDTO, receivedAt time.Time) (domain2.IngestEvent, error) {
 	if p.ID <= 0 {
 		return domain2.IngestEvent{}, apperr.E(apperr.ErrInvalidPayload, fmt.Errorf("missing/invalid id"))
 	}
