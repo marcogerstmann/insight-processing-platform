@@ -33,7 +33,7 @@ func (s *Service) EnqueueReadwise(ctx context.Context, ev domain.IngestEvent, re
 			"tenant_id":       tenantID,
 			"event_type":      ev.EventType,
 			"idempotency_key": idempotencyKey,
-			"received_at":     receivedAt.UTC().Format(time.RFC3339Nano),
+			"received_at":     receivedAt.UTC().Format(time.RFC3339),
 		},
 	}
 
