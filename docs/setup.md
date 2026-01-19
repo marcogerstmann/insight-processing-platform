@@ -14,4 +14,4 @@
 go run ./cmd/ingest-local/main.go
 ```
 
-Prepared test payloads live in `./httpRequests.`
+Prepared test payloads live in `./dev/http`

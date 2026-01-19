@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mgerstmannsf/insight-processing-platform/internal/application/domain"
+	"github.com/mgerstmannsf/insight-processing-platform/internal/domain"
 )
 
 func BuildIdempotencyKey(ev domain.IngestEvent) string {

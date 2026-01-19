@@ -26,7 +26,7 @@ func main() {
 
 	ctx := context.Background()
 
-	publisher, err := sqs.NewPublisher(ctx)
+	publisher, err := sqs.NewSQSEventPublisher(ctx)
 	if err != nil {
 		log.Fatalf("publisher init failed: %v", err)
 	}
