@@ -10,6 +10,8 @@ resource "aws_lambda_function" "this" {
 
   memory_size = var.memory_size
   timeout     = var.timeout
+  
+  architectures = ["arm64"]
 
   environment {
     variables = var.environment_variables
