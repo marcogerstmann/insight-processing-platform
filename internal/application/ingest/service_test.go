@@ -64,12 +64,12 @@ func TestEnqueueReadwise_PublishesMessage(t *testing.T) {
 	}
 
 	attrs := msg.Attributes
-	if attrs["tenant_id"] != tenantID {
-		t.Fatalf("tenant_id attr mismatch: got %q want %q", attrs["tenant_id"], tenantID)
+	if attrs["tenantId"] != tenantID {
+		t.Fatalf("tenantId attr mismatch: got %q want %q", attrs["tenantId"], tenantID)
 	}
 	expectedIdem := buildIdempotencyKey(evForKey)
-	if attrs["idempotency_key"] != expectedIdem {
-		t.Fatalf("idempotency_key mismatch: got %q want %q", attrs["idempotency_key"], expectedIdem)
+	if attrs["idempotencyKey"] != expectedIdem {
+		t.Fatalf("idempotencyKey attr mismatch: got %q want %q", attrs["idempotencyKey"], expectedIdem)
 	}
 }
 

@@ -25,14 +25,14 @@ func (h *Handler) Handle(ctx context.Context, e events.SQSEvent) error {
 			var perr PermanentError
 			if errors.As(err, &perr) {
 				h.log.WarnContext(ctx, "permanent error mapping sqs message (dropping)",
-					"message_id", rec.MessageId,
+					"messageId", rec.MessageId,
 					"err", err,
 				)
 				continue
 			}
 
 			h.log.ErrorContext(ctx, "unexpected error mapping sqs message (retrying)",
-				"message_id", rec.MessageId,
+				"messageId", rec.MessageId,
 				"err", err,
 			)
 			return err
@@ -41,18 +41,18 @@ func (h *Handler) Handle(ctx context.Context, e events.SQSEvent) error {
 		res, err := h.svc.Process(ctx, ev)
 		if err != nil {
 			h.log.ErrorContext(ctx, "worker processing failed (retrying)",
-				"message_id", rec.MessageId,
-				"tenant_id", ev.TenantID,
-				"highlight_id", ev.Highlight.ID,
+				"messageId", rec.MessageId,
+				"tenantId", ev.TenantID,
+				"highlightId", ev.Highlight.ID,
 				"err", err,
 			)
 			return err
 		}
 
 		h.log.InfoContext(ctx, "worker processed message",
-			"message_id", rec.MessageId,
-			"tenant_id", ev.TenantID,
-			"highlight_id", ev.Highlight.ID,
+			"messageId", rec.MessageId,
+			"tenantId", ev.TenantID,
+			"highlightId", ev.Highlight.ID,
 			"inserted", res.Inserted,
 		)
 	}

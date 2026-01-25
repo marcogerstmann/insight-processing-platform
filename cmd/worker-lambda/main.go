@@ -14,7 +14,7 @@ func main() {
 		Level: slog.LevelInfo,
 	}))
 
-	repo := newNoopRepo(log)
+	repo := worker.NewNoopRepo(log)
 	svc := worker.NewService(repo)
 
 	h := workersqs.NewHandler(svc, log)

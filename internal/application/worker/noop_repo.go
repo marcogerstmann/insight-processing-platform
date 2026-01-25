@@ -1,4 +1,4 @@
-package main
+package worker
 
 import (
 	"context"
@@ -10,22 +10,22 @@ import (
 )
 
 // TODO delete once real persistence is implemented
-type noopRepo struct {
+type NoopRepo struct {
 	mu   sync.Mutex
 	seen map[string]struct{}
 	log  *slog.Logger
 }
 
-var _ outbound.InsightRepository = (*noopRepo)(nil)
+var _ outbound.InsightRepository = (*NoopRepo)(nil)
 
-func newNoopRepo(log *slog.Logger) *noopRepo {
-	return &noopRepo{
+func NewNoopRepo(log *slog.Logger) *NoopRepo {
+	return &NoopRepo{
 		seen: make(map[string]struct{}),
 		log:  log,
 	}
 }
 
-func (r *noopRepo) PutIfAbsent(
+func (r *NoopRepo) PutIfAbsent(
 	_ context.Context,
 	insight domain.Insight,
 ) (bool, error) {
@@ -35,9 +35,9 @@ func (r *noopRepo) PutIfAbsent(
 	if _, exists := r.seen[insight.IdempotencyKey]; exists {
 		r.log.Info(
 			"noop repo deduplicated insight",
-			"tenant_id", insight.TenantID,
-			"highlight_id", insight.HighlightID,
-			"idempotency_key", insight.IdempotencyKey,
+			"tenantId", insight.TenantID,
+			"highlightId", insight.HighlightID,
+			"idempotencyKey", insight.IdempotencyKey,
 		)
 		return false, nil
 	}
@@ -46,9 +46,9 @@ func (r *noopRepo) PutIfAbsent(
 
 	r.log.Info(
 		"noop repo inserted insight",
-		"tenant_id", insight.TenantID,
-		"highlight_id", insight.HighlightID,
-		"idempotency_key", insight.IdempotencyKey,
+		"tenantId", insight.TenantID,
+		"highlightId", insight.HighlightID,
+		"idempotencyKey", insight.IdempotencyKey,
 	)
 
 	return true, nil

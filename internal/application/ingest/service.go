@@ -29,8 +29,8 @@ func (s *Service) EnqueueReadwise(ctx context.Context, ev domain.IngestEvent, te
 	msg := outbound.PublishMessage{
 		Body: body,
 		Attributes: map[string]string{
-			"idempotency_key": idempotencyKey,
-			"tenant_id":       tenantID,
+			"idempotencyKey": idempotencyKey,
+			"tenantId":       tenantID,
 		},
 	}
 
