@@ -11,9 +11,9 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/joho/godotenv"
 
-	"github.com/mgerstmannsf/insight-processing-platform/internal/adapters/inbound/lambda/ingest"
+	ingestlambda "github.com/mgerstmannsf/insight-processing-platform/internal/adapters/inbound/lambda/ingest"
 	"github.com/mgerstmannsf/insight-processing-platform/internal/adapters/outbound/sqs"
-	"github.com/mgerstmannsf/insight-processing-platform/internal/application/ingestapp"
+	"github.com/mgerstmannsf/insight-processing-platform/internal/application/ingest"
 	"github.com/mgerstmannsf/insight-processing-platform/internal/application/tenant"
 )
 
@@ -31,10 +31,10 @@ func main() {
 		log.Fatalf("publisher init failed: %v", err)
 	}
 
-	ingestSvc := ingestapp.NewService(publisher)
+	ingestSvc := ingest.NewService(publisher)
 	tenantResolver := tenant.NewResolver( /* config */ )
 
-	handler := ingest.NewHandler(logger, tenantResolver, ingestSvc)
+	handler := ingestlambda.NewHandler(logger, tenantResolver, ingestSvc)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/readwise/webhook", func(w http.ResponseWriter, r *http.Request) {

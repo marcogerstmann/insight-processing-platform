@@ -1,4 +1,4 @@
-package ingestapp
+package ingest
 
 import (
 	"context"

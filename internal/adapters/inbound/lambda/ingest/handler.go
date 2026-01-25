@@ -11,17 +11,17 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/mgerstmannsf/insight-processing-platform/internal/application/apperr"
-	"github.com/mgerstmannsf/insight-processing-platform/internal/application/ingestapp"
+	"github.com/mgerstmannsf/insight-processing-platform/internal/application/ingest"
 	"github.com/mgerstmannsf/insight-processing-platform/internal/application/tenant"
 )
 
 type Handler struct {
 	Log    *slog.Logger
 	Tenant *tenant.Resolver
-	Ingest *ingestapp.Service
+	Ingest *ingest.Service
 }
 
-func NewHandler(log *slog.Logger, tr *tenant.Resolver, ingest *ingestapp.Service) *Handler {
+func NewHandler(log *slog.Logger, tr *tenant.Resolver, ingest *ingest.Service) *Handler {
 	return &Handler{
 		Log:    log,
 		Tenant: tr,

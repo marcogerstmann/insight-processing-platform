@@ -11,6 +11,9 @@ CGO_ENABLED ?= 0
 
 .PHONY: build-lambda-ingest tf-init tf-apply tf-destroy deploy
 
+test:
+	go test ./... -v
+
 build-lambda-ingest:
 	cd $(LAMBDA_DIR) && \
 	GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=$(CGO_ENABLED) \

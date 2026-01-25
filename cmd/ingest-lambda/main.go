@@ -6,9 +6,9 @@ import (
 	"os"
 
 	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/mgerstmannsf/insight-processing-platform/internal/adapters/inbound/lambda/ingest"
+	ingestlambda "github.com/mgerstmannsf/insight-processing-platform/internal/adapters/inbound/lambda/ingest"
 	"github.com/mgerstmannsf/insight-processing-platform/internal/adapters/outbound/sqs"
-	"github.com/mgerstmannsf/insight-processing-platform/internal/application/ingestapp"
+	"github.com/mgerstmannsf/insight-processing-platform/internal/application/ingest"
 	"github.com/mgerstmannsf/insight-processing-platform/internal/application/tenant"
 )
 
@@ -25,10 +25,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	ingestSvc := ingestapp.NewService(publisher)
+	ingestSvc := ingest.NewService(publisher)
 	tenantResolver := tenant.NewResolver()
 
-	h := ingest.NewHandler(log, tenantResolver, ingestSvc)
+	h := ingestlambda.NewHandler(log, tenantResolver, ingestSvc)
 
 	lambda.Start(h.Handle)
 }
