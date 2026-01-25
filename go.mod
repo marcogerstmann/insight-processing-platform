@@ -1,4 +1,4 @@
-module github.com/mgerstmannsf/insight-processing-platform
+module github.com/marcogerstmann/insight-processing-platform
 
 go 1.25
 

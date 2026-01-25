@@ -5,8 +5,8 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/mgerstmannsf/insight-processing-platform/internal/domain"
-	"github.com/mgerstmannsf/insight-processing-platform/internal/ports/outbound"
+	"github.com/marcogerstmann/insight-processing-platform/internal/domain"
+	"github.com/marcogerstmann/insight-processing-platform/internal/ports/outbound"
 )
 
 // TODO delete once real persistence is implemented

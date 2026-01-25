@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mgerstmannsf/insight-processing-platform/internal/application/apperr"
-	"github.com/mgerstmannsf/insight-processing-platform/internal/domain"
+	"github.com/marcogerstmann/insight-processing-platform/internal/application/apperr"
+	"github.com/marcogerstmann/insight-processing-platform/internal/domain"
 )
 
 func mapReadwiseDTOToDomain(p ReadwiseWebhookDTO, receivedAt time.Time, tenantID string) (domain.IngestEvent, error) {

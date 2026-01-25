@@ -3,7 +3,7 @@ package outbound
 import (
 	"context"
 
-	"github.com/mgerstmannsf/insight-processing-platform/internal/domain"
+	"github.com/marcogerstmann/insight-processing-platform/internal/domain"
 )
 
 type InsightRepository interface {

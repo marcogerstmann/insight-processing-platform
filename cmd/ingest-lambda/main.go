@@ -6,10 +6,10 @@ import (
 	"os"
 
 	"github.com/aws/aws-lambda-go/lambda"
-	ingestlambda "github.com/mgerstmannsf/insight-processing-platform/internal/adapters/inbound/apigw/ingest"
-	"github.com/mgerstmannsf/insight-processing-platform/internal/adapters/outbound/sqs"
-	"github.com/mgerstmannsf/insight-processing-platform/internal/application/ingest"
-	"github.com/mgerstmannsf/insight-processing-platform/internal/application/tenant"
+	ingestlambda "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/apigw/ingest"
+	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/sqs"
+	"github.com/marcogerstmann/insight-processing-platform/internal/application/ingest"
+	"github.com/marcogerstmann/insight-processing-platform/internal/application/tenant"
 )
 
 func main() {

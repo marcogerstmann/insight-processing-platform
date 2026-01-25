@@ -5,8 +5,8 @@ import (
 	"os"
 
 	"github.com/aws/aws-lambda-go/lambda"
-	workersqs "github.com/mgerstmannsf/insight-processing-platform/internal/adapters/inbound/sqs/worker"
-	"github.com/mgerstmannsf/insight-processing-platform/internal/application/worker"
+	workersqs "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/sqs/worker"
+	"github.com/marcogerstmann/insight-processing-platform/internal/application/worker"
 )
 
 func main() {

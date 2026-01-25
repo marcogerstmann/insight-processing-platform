@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/mgerstmannsf/insight-processing-platform/internal/domain"
-	"github.com/mgerstmannsf/insight-processing-platform/internal/ports/outbound"
+	"github.com/marcogerstmann/insight-processing-platform/internal/domain"
+	"github.com/marcogerstmann/insight-processing-platform/internal/ports/outbound"
 )
 
 type Service struct {

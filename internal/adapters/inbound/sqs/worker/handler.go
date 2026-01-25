@@ -6,7 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/mgerstmannsf/insight-processing-platform/internal/application/worker"
+	"github.com/marcogerstmann/insight-processing-platform/internal/application/worker"
 )
 
 type Handler struct {

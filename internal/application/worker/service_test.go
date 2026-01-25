@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mgerstmannsf/insight-processing-platform/internal/domain"
+	"github.com/marcogerstmann/insight-processing-platform/internal/domain"
 )
 
 type mockRepo struct {

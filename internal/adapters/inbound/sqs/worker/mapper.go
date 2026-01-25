@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/mgerstmannsf/insight-processing-platform/internal/domain"
+	"github.com/marcogerstmann/insight-processing-platform/internal/domain"
 )
 
 type PermanentError struct{ Err error }

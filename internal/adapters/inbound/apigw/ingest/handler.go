@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/mgerstmannsf/insight-processing-platform/internal/application/apperr"
-	"github.com/mgerstmannsf/insight-processing-platform/internal/application/ingest"
-	"github.com/mgerstmannsf/insight-processing-platform/internal/application/tenant"
+	"github.com/marcogerstmann/insight-processing-platform/internal/application/apperr"
+	"github.com/marcogerstmann/insight-processing-platform/internal/application/ingest"
+	"github.com/marcogerstmann/insight-processing-platform/internal/application/tenant"
 )
 
 type Handler struct {

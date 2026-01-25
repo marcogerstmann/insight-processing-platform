@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mgerstmannsf/insight-processing-platform/internal/domain"
-	"github.com/mgerstmannsf/insight-processing-platform/internal/ports/outbound"
+	"github.com/marcogerstmann/insight-processing-platform/internal/domain"
+	"github.com/marcogerstmann/insight-processing-platform/internal/ports/outbound"
 )
 
 type mockPublisher struct {
@@ -54,6 +54,7 @@ func TestEnqueueReadwise_PublishesMessage(t *testing.T) {
 
 	evForKey := ingestEvent
 	evForKey.TenantID = tenantID
+	evForKey.IdempotencyKey = buildIdempotencyKey(evForKey)
 	expectedBody, err := json.Marshal(evForKey)
 	if err != nil {
 		t.Fatalf("failed to marshal expected body: %v", err)

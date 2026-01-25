@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/mgerstmannsf/insight-processing-platform/internal/application/apperr"
+	"github.com/marcogerstmann/insight-processing-platform/internal/application/apperr"
 )
 
 type Resolver struct {
