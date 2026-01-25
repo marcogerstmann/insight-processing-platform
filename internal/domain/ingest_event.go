@@ -3,10 +3,10 @@ package domain
 import "time"
 
 type IngestEvent struct {
-	TenantID       string
-	Source         string
-	EventType      string
-	ReceivedAt     time.Time
-	IdempotencyKey string
+	TenantID       string    `json:"tenantId"`
+	Source         string    `json:"source"`
+	EventType      string    `json:"eventType"`
+	ReceivedAt     time.Time `json:"receivedAt"`
+	IdempotencyKey string    `json:"idempotencyKey"`
 	Highlight      Highlight `json:"highlight"`
 }

@@ -3,24 +3,24 @@ package worker
 import "time"
 
 type MessageDTO struct {
-	TenantID       string       `json:"tenant_id"`
+	TenantID       string       `json:"tenantId"`
 	Source         string       `json:"source"`
-	EventType      string       `json:"event_type"`
-	ReceivedAt     time.Time    `json:"received_at"`
-	IdempotencyKey string       `json:"idempotency_key"`
+	EventType      string       `json:"eventType"`
+	ReceivedAt     time.Time    `json:"receivedAt"`
+	IdempotencyKey string       `json:"idempotencyKey"`
 	Highlight      HighlightDTO `json:"highlight"`
 }
 
 type HighlightDTO struct {
 	ID            int64      `json:"id"`
-	BookID        int64      `json:"book_id"`
+	BookID        int64      `json:"bookId"`
 	Text          string     `json:"text"`
 	Note          string     `json:"note"`
 	URL           *string    `json:"url"`
 	Tags          []string   `json:"tags"`
-	HighlightedAt *time.Time `json:"highlighted_at"`
+	HighlightedAt *time.Time `json:"highlightedAt"`
 	UpdatedAt     time.Time  `json:"updated_at"`
 	Location      int        `json:"location"`
-	LocationType  string     `json:"location_type"`
+	LocationType  string     `json:"locationType"`
 	Color         string     `json:"color"`
 }
