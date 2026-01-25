@@ -17,14 +17,17 @@ func permanentf(format string, args ...any) error {
 }
 
 func MapMessageDTOToDomain(dto MessageDTO) (domain.IngestEvent, error) {
+	if strings.TrimSpace(dto.IdempotencyKey) == "" {
+		return domain.IngestEvent{}, permanentf("missing idempotency key")
+	}
 	if strings.TrimSpace(dto.Source) == "" {
 		return domain.IngestEvent{}, permanentf("missing source")
 	}
 	if strings.TrimSpace(dto.EventType) == "" {
-		return domain.IngestEvent{}, permanentf("missing event_type")
+		return domain.IngestEvent{}, permanentf("missing event type")
 	}
 	if dto.Highlight.ID <= 0 {
-		return domain.IngestEvent{}, permanentf("invalid highlight.id")
+		return domain.IngestEvent{}, permanentf("invalid highlight id")
 	}
 
 	return domain.IngestEvent{

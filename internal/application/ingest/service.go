@@ -18,8 +18,8 @@ func NewService(p outbound.EventPublisher) *Service {
 
 func (s *Service) EnqueueReadwise(ctx context.Context, ev domain.IngestEvent, tenantID string) error {
 	ev.TenantID = tenantID
-
 	idempotencyKey := buildIdempotencyKey(ev)
+	ev.IdempotencyKey = idempotencyKey
 
 	body, err := json.Marshal(ev)
 	if err != nil {
