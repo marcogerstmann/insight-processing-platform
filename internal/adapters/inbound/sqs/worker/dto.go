@@ -1,8 +1,17 @@
-package domain
+package worker
 
 import "time"
 
-type Highlight struct {
+type MessageDTO struct {
+	TenantID       string       `json:"tenant_id"`
+	Source         string       `json:"source"`
+	EventType      string       `json:"event_type"`
+	ReceivedAt     time.Time    `json:"received_at"`
+	IdempotencyKey string       `json:"idempotency_key"`
+	Highlight      HighlightDTO `json:"highlight"`
+}
+
+type HighlightDTO struct {
 	ID            int64      `json:"id"`
 	BookID        int64      `json:"book_id"`
 	Text          string     `json:"text"`

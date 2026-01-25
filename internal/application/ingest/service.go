@@ -3,7 +3,6 @@ package ingest
 import (
 	"context"
 	"encoding/json"
-	"time"
 
 	"github.com/mgerstmannsf/insight-processing-platform/internal/domain"
 	"github.com/mgerstmannsf/insight-processing-platform/internal/ports/outbound"
@@ -17,7 +16,7 @@ func NewService(p outbound.EventPublisher) *Service {
 	return &Service{Publisher: p}
 }
 
-func (s *Service) EnqueueReadwise(ctx context.Context, ev domain.IngestEvent, receivedAt time.Time, tenantID string) error {
+func (s *Service) EnqueueReadwise(ctx context.Context, ev domain.IngestEvent, tenantID string) error {
 	ev.TenantID = tenantID
 
 	idempotencyKey := buildIdempotencyKey(ev)
@@ -30,10 +29,8 @@ func (s *Service) EnqueueReadwise(ctx context.Context, ev domain.IngestEvent, re
 	msg := outbound.PublishMessage{
 		Body: body,
 		Attributes: map[string]string{
-			"tenant_id":       tenantID,
-			"event_type":      ev.EventType,
 			"idempotency_key": idempotencyKey,
-			"received_at":     receivedAt.UTC().Format(time.RFC3339),
+			"tenant_id":       tenantID,
 		},
 	}
 

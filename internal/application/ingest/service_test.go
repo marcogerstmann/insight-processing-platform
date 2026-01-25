@@ -29,7 +29,6 @@ func TestEnqueueReadwise_PublishesMessage(t *testing.T) {
 	s := NewService(mp)
 
 	updatedAt := time.Date(2026, 1, 2, 15, 4, 5, 0, time.UTC)
-	receivedAt := time.Date(2026, 1, 3, 10, 11, 12, 0, time.UTC)
 
 	ingestEvent := domain.IngestEvent{
 		Source:    "readwise",
@@ -42,7 +41,7 @@ func TestEnqueueReadwise_PublishesMessage(t *testing.T) {
 
 	tenantID := "tenant-123"
 
-	err := s.EnqueueReadwise(ctx, ingestEvent, receivedAt, tenantID)
+	err := s.EnqueueReadwise(ctx, ingestEvent, tenantID)
 	if err != nil {
 		t.Fatalf("EnqueueReadwise returned unexpected error: %v", err)
 	}
@@ -67,15 +66,9 @@ func TestEnqueueReadwise_PublishesMessage(t *testing.T) {
 	if attrs["tenant_id"] != tenantID {
 		t.Fatalf("tenant_id attr mismatch: got %q want %q", attrs["tenant_id"], tenantID)
 	}
-	if attrs["event_type"] != ingestEvent.EventType {
-		t.Fatalf("event_type attr mismatch: got %q want %q", attrs["event_type"], ingestEvent.EventType)
-	}
 	expectedIdem := buildIdempotencyKey(evForKey)
 	if attrs["idempotency_key"] != expectedIdem {
 		t.Fatalf("idempotency_key mismatch: got %q want %q", attrs["idempotency_key"], expectedIdem)
-	}
-	if attrs["received_at"] != receivedAt.UTC().Format(time.RFC3339) {
-		t.Fatalf("received_at mismatch: got %q want %q", attrs["received_at"], receivedAt.UTC().Format(time.RFC3339))
 	}
 }
 
@@ -93,7 +86,7 @@ func TestEnqueueReadwise_PublisherErrorPropagated(t *testing.T) {
 		},
 	}
 
-	err := s.EnqueueReadwise(ctx, ev, time.Now(), "tenant-x")
+	err := s.EnqueueReadwise(ctx, ev, "tenant-x")
 	if err == nil {
 		t.Fatalf("expected error to be propagated from publisher")
 	}

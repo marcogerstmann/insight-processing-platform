@@ -11,7 +11,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/joho/godotenv"
 
-	ingestlambda "github.com/mgerstmannsf/insight-processing-platform/internal/adapters/inbound/lambda/ingest"
+	ingestlambda "github.com/mgerstmannsf/insight-processing-platform/internal/adapters/inbound/apigw/ingest"
 	"github.com/mgerstmannsf/insight-processing-platform/internal/adapters/outbound/sqs"
 	"github.com/mgerstmannsf/insight-processing-platform/internal/application/ingest"
 	"github.com/mgerstmannsf/insight-processing-platform/internal/application/tenant"
