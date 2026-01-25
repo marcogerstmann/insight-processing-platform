@@ -1,5 +1,5 @@
 locals {
-  project = var.project 
+  project = var.project
   name    = "${local.project}-ingest"
 }
 
@@ -11,34 +11,39 @@ data "archive_file" "lambda_zip" {
 }
 
 module "iam" {
-  source               = "../../modules/iam"
-  name                 = local.name
-  assume_role_policy   = jsonencode({
+  source = "../../modules/iam"
+  name   = local.name
+  assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Effect = "Allow"
+      Effect    = "Allow"
       Principal = { Service = "lambda.amazonaws.com" }
-      Action = "sts:AssumeRole"
+      Action    = "sts:AssumeRole"
     }]
   })
 }
 
 module "lambda" {
-  source            = "../../modules/lambda"
-  name              = local.name
-  role_arn          = module.ingest_lambda_role.role_arn
-  filename          = data.archive_file.lambda_zip.output_path
-  source_code_hash  = data.archive_file.lambda_zip.output_base64sha256
-  handler           = "bootstrap"
-  runtime           = "provided.al2"
-  memory_size       = 128
-  timeout           = 10
+  source                = "../../modules/lambda"
+  name                  = local.name
+  role_arn              = module.ingest_lambda_role.role_arn
+  filename              = data.archive_file.lambda_zip.output_path
+  source_code_hash      = data.archive_file.lambda_zip.output_base64sha256
+  handler               = "bootstrap"
+  runtime               = "provided.al2"
+  memory_size           = 128
+  timeout               = 10
   log_retention_in_days = 14
+
+  environment_variables = {
+    DEFAULT_TENANT_ID = "test-tenant-id"
+    INGEST_QUEUE_URL  = module.ingest_queue.queue_url
+  }
 }
 
 module "api" {
-  source          = "../../modules/api-gateway"
-  name            = "${local.name}-api"
+  source            = "../../modules/api-gateway"
+  name              = "${local.name}-api"
   lambda_invoke_arn = module.lambda.lambda_arn
 }
 
@@ -51,8 +56,8 @@ resource "aws_lambda_permission" "allow_apigw" {
 }
 
 module "ingest_queue" {
-  source = "../../modules/sqs"
-  name   = "ipp-dev-ingest-events"
+  source                     = "../../modules/sqs"
+  name                       = "ipp-dev-ingest-events"
   visibility_timeout_seconds = 120
   max_receive_count          = 5
 }
@@ -71,9 +76,9 @@ data "aws_iam_policy_document" "lambda_assume_role" {
 }
 
 module "ingest_lambda_role" {
-  source = "../../modules/iam"
-  name                    = "ipp-dev-ingest-lambda-role"
-  assume_role_policy      = data.aws_iam_policy_document.lambda_assume_role.json
+  source                     = "../../modules/iam"
+  name                       = "ipp-dev-ingest-lambda-role"
+  assume_role_policy         = data.aws_iam_policy_document.lambda_assume_role.json
   basic_execution_policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
   sqs_send_arns = [
     module.ingest_queue.queue_arn
