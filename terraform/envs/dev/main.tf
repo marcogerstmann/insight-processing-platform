@@ -3,6 +3,9 @@ locals {
   name    = "${local.project}-ingest"
 }
 
+data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
+
 # -----------------------------
 # Ingest Lambda (ZIP packaging)
 # -----------------------------
@@ -65,8 +68,9 @@ module "lambda" {
   log_retention_in_days = 14
 
   environment_variables = {
-    DEFAULT_TENANT_ID = "test-tenant-id"
-    INGEST_QUEUE_URL  = module.ingest_queue.queue_url
+    DEFAULT_TENANT_ID           = "test-tenant-id"
+    INGEST_QUEUE_URL            = module.ingest_queue.queue_url
+    READWISE_WEBHOOK_SECRET_SSM = "/ipp/dev/readwise/webhook_secret"
   }
 }
 
@@ -126,6 +130,23 @@ resource "aws_iam_role_policy" "worker_sqs_consume" {
           "sqs:ChangeMessageVisibility"
         ]
         Resource = module.ingest_queue.queue_arn
+      }
+    ]
+  })
+}
+
+# AWS Systems Manager Parameter Store for secrets
+resource "aws_iam_role_policy" "ingest_ssm_read" {
+  name = "ipp-dev-ingest-ssm-read"
+  role = module.ingest_lambda_role.role_name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["ssm:GetParameter"]
+        Resource = "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/ipp/dev/readwise/webhook_secret"
       }
     ]
   })

@@ -82,7 +82,7 @@ func (h *Handler) Handle(ctx context.Context, req events.APIGatewayV2HTTPRequest
 
 	if err := h.Ingest.EnqueueReadwise(ctx, domain, tenantCtx.TenantID); err != nil {
 		h.Log.ErrorContext(ctx, "enqueue failed", "err", err, "tenant_id", tenantCtx.TenantID)
-		return jsonResponse(http.StatusInternalServerError, map[string]any{"error": "enqueue_failed"}), nil
+		return jsonResponse(http.StatusInternalServerError, map[string]any{"error": "enqueue failed"}), nil
 	}
 
 	h.Log.InfoContext(ctx, "readwise ingestion enqueued",

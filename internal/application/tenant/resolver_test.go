@@ -28,10 +28,10 @@ func TestResolver_Resolve_NoWebhookSecret(t *testing.T) {
 	r := NewResolver()
 	_, err := r.Resolve(ResolveInput{Source: "readwise", Secret: "irrelevant"})
 	if err == nil {
-		t.Fatalf("expected unauthorized error when webhook secret not configured")
+		t.Fatalf("expected server misconfigured error when webhook secret not configured")
 	}
-	if !errors.Is(err, apperr.ErrUnauthorized) {
-		t.Fatalf("unexpected error kind: got %v want apperr.ErrUnauthorized", err)
+	if !errors.Is(err, apperr.ErrServerMisconfigured) {
+		t.Fatalf("unexpected error kind: got %v want apperr.ErrServerMisconfigured", err)
 	}
 }
 
