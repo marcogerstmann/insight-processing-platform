@@ -101,10 +101,6 @@ resource "aws_ecr_repository" "worker" {
   }
 }
 
-locals {
-  worker_image_uri = "${aws_ecr_repository.worker.repository_url}:latest"
-}
-
 # IAM Role: Worker Lambda (consume from SQS)
 module "worker_lambda_role" {
   source                     = "../../modules/iam"
@@ -136,12 +132,17 @@ resource "aws_iam_role_policy" "worker_sqs_consume" {
 }
 
 # Worker Lambda Function (Image)
+variable "worker_image_uri" {
+  type        = string
+  description = "Full ECR image URI for the worker Lambda"
+}
+
 resource "aws_lambda_function" "worker" {
   function_name = "${local.name}-worker"
   role          = module.worker_lambda_role.role_arn
 
   package_type = "Image"
-  image_uri    = local.worker_image_uri
+  image_uri    = var.worker_image_uri
 
   timeout     = 30
   memory_size = 256
