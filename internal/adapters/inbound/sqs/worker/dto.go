@@ -19,7 +19,7 @@ type HighlightDTO struct {
 	URL           *string    `json:"url"`
 	Tags          []string   `json:"tags"`
 	HighlightedAt *time.Time `json:"highlightedAt"`
-	UpdatedAt     time.Time  `json:"updated_at"`
+	UpdatedAt     time.Time  `json:"updatedAt"`
 	Location      int        `json:"location"`
 	LocationType  string     `json:"locationType"`
 	Color         string     `json:"color"`

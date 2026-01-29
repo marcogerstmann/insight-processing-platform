@@ -15,7 +15,7 @@ func mapReadwiseDTOToDomain(p ReadwiseWebhookDTO, receivedAt time.Time, tenantID
 		return domain.IngestEvent{}, apperr.E(apperr.ErrInvalidPayload, errors.New("missing/invalid highlight id"))
 	}
 	if strings.TrimSpace(p.EventType) == "" {
-		return domain.IngestEvent{}, apperr.E(apperr.ErrInvalidPayload, errors.New("missing event_type"))
+		return domain.IngestEvent{}, apperr.E(apperr.ErrInvalidPayload, errors.New("missing eventType"))
 	}
 	if strings.TrimSpace(p.Text) == "" {
 		return domain.IngestEvent{}, apperr.E(apperr.ErrInvalidPayload, fmt.Errorf("empty highlight text (id=%d)", p.ID))

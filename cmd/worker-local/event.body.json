@@ -1,0 +1,20 @@
+{
+  "tenantId": "test-tenant-id",
+  "source": "readwise",
+  "eventType": "readwise.highlight.created",
+  "receivedAt": "2026-01-25T15:42:19.316279469Z",
+  "idempotencyKey": "test-idempotency-key",
+  "highlight": {
+    "id": 12345,
+    "bookId": 98765,
+    "text": "The only way to do great work is to love what you do.",
+    "note": "",
+    "url": "https://read.readwise.io/read/01kftx3xnj63tdephegncdgcjj",
+    "tags": [],
+    "highlightedAt": "2026-01-25T15:42:17.060572Z",
+    "updatedAt": "2026-01-25T15:42:17.127281Z",
+    "location": 0,
+    "locationType": "offset",
+    "color": ""
+  }
+}

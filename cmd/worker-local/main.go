@@ -21,27 +21,55 @@ func main() {
 
 	log := newLogger()
 
-	eventPath := filepath.Clean("./cmd/worker-local/event.json")
+	bodyPath := filepath.Clean("./cmd/worker-local/event.body.json")
 
-	b, err := os.ReadFile(eventPath)
+	bodyBytes, err := os.ReadFile(bodyPath)
 	if err != nil {
-		log.Error("failed to read event file", "path", eventPath, "err", err)
+		log.Error("failed to read body fixture", "path", bodyPath, "err", err)
 		os.Exit(1)
 	}
 
-	var ev events.SQSEvent
-	if err := json.Unmarshal(b, &ev); err != nil {
-		log.Error("failed to unmarshal SQSEvent", "path", eventPath, "err", err)
+	var tmp map[string]any
+	if err := json.Unmarshal(bodyBytes, &tmp); err != nil {
+		log.Error("body fixture contains invalid JSON", "path", bodyPath, "err", err)
 		os.Exit(1)
+	}
+
+	tenantID := strings.TrimSpace(getString(tmp, "tenantId"))
+	idempotencyKey := strings.TrimSpace(getString(tmp, "idempotencyKey"))
+
+	ev := events.SQSEvent{
+		Records: []events.SQSMessage{
+			{
+				MessageId:     "local-test-message-1",
+				ReceiptHandle: "local-receipt-handle",
+				Body:          string(bodyBytes),
+				Attributes: map[string]string{
+					"ApproximateReceiveCount": "1",
+				},
+				MessageAttributes: map[string]events.SQSMessageAttribute{
+					"tenantId": {
+						StringValue: awsString(tenantID),
+						DataType:    "String",
+					},
+					"idempotencyKey": {
+						StringValue: awsString(idempotencyKey),
+						DataType:    "String",
+					},
+				},
+				EventSource:    "aws:sqs",
+				EventSourceARN: "arn:aws:sqs:eu-central-1:123456789012:local-queue",
+				AWSRegion:      "eu-central-1",
+			},
+		},
 	}
 
 	noopRepo := worker.NewNoopRepo(log)
 	svc := worker.NewService(noopRepo)
-
 	h := workersqs.NewHandler(svc, log)
 
 	log.Info("invoking worker handler (local)",
-		"event_file", eventPath,
+		"fixture", bodyPath,
 		"records", len(ev.Records),
 	)
 
@@ -51,6 +79,22 @@ func main() {
 	}
 
 	log.Info("worker handler finished successfully")
+}
+
+func getString(m map[string]any, k string) string {
+	v, ok := m[k]
+	if !ok {
+		return ""
+	}
+	s, _ := v.(string)
+	return s
+}
+
+func awsString(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }
 
 func newLogger() *slog.Logger {
