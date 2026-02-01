@@ -3,6 +3,7 @@ package ingest
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -27,17 +28,10 @@ func mapReadwiseDTOToDomain(p ReadwiseWebhookDTO, receivedAt time.Time, tenantID
 		EventType:  p.EventType,
 		ReceivedAt: receivedAt.UTC(),
 		Highlight: domain.Highlight{
-			ID:            p.ID,
-			BookID:        p.BookID,
-			Text:          p.Text,
-			Note:          p.Note,
-			URL:           p.URL,
-			Tags:          p.Tags,
-			HighlightedAt: p.HighlightedAt,
-			UpdatedAt:     p.Updated,
-			Location:      p.Location,
-			LocationType:  p.LocationType,
-			Color:         p.Color,
+			ID:   strconv.FormatInt(p.ID, 10),
+			Text: p.Text,
+			Note: &p.Note,
+			URL:  p.URL,
 		},
 	}
 

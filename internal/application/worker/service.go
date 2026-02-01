@@ -11,13 +11,11 @@ import (
 
 type Service struct {
 	repo persistence.InsightRepository
-	now  func() time.Time
 }
 
 func NewService(repo persistence.InsightRepository) *Service {
 	return &Service{
 		repo: repo,
-		now:  func() time.Time { return time.Now().UTC() },
 	}
 }
 
@@ -37,23 +35,13 @@ func (s *Service) Process(ctx context.Context, ev domain.IngestEvent) (Result, e
 }
 
 func (s *Service) buildInsight(ev domain.IngestEvent) domain.Insight {
-	now := s.now()
-
 	text := strings.TrimSpace(ev.Highlight.Text)
-	note := strings.TrimSpace(ev.Highlight.Note)
 
 	return domain.Insight{
-		CreatedAt:      now,
-		UpdatedAt:      now,
-		IdempotencyKey: ev.IdempotencyKey,
 		TenantID:       ev.TenantID,
-		HighlightID:    ev.Highlight.ID,
+		IdempotencyKey: ev.IdempotencyKey,
 		Source:         ev.Source,
-		EventType:      ev.EventType,
-		ReceivedAt:     ev.ReceivedAt,
 		Text:           text,
-		Note:           note,
-		URL:            *ev.Highlight.URL,
-		Tags:           ev.Highlight.Tags,
+		CreatedAt:      time.Now(),
 	}
 }

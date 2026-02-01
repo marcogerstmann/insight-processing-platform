@@ -2,6 +2,7 @@ package worker
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/marcogerstmann/insight-processing-platform/internal/domain"
@@ -37,17 +38,10 @@ func MapMessageDTOToDomain(dto MessageDTO) (domain.IngestEvent, error) {
 		ReceivedAt:     dto.ReceivedAt,
 		IdempotencyKey: dto.IdempotencyKey,
 		Highlight: domain.Highlight{
-			ID:            dto.Highlight.ID,
-			BookID:        dto.Highlight.BookID,
-			Text:          dto.Highlight.Text,
-			Note:          dto.Highlight.Note,
-			URL:           dto.Highlight.URL,
-			HighlightedAt: dto.Highlight.HighlightedAt,
-			UpdatedAt:     dto.Highlight.UpdatedAt,
-			Tags:          dto.Highlight.Tags,
-			Location:      dto.Highlight.Location,
-			LocationType:  dto.Highlight.LocationType,
-			Color:         dto.Highlight.Color,
+			ID:   strconv.FormatInt(dto.Highlight.ID, 10),
+			Text: dto.Highlight.Text,
+			Note: &dto.Highlight.Note,
+			URL:  dto.Highlight.URL,
 		},
 	}, nil
 }

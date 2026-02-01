@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"testing"
-	"time"
 
 	"github.com/marcogerstmann/insight-processing-platform/internal/domain"
 	"github.com/marcogerstmann/insight-processing-platform/internal/ports/outbound/event"
@@ -28,14 +27,11 @@ func TestEnqueueReadwise_PublishesMessage(t *testing.T) {
 	mp := &mockPublisher{}
 	s := NewService(mp)
 
-	updatedAt := time.Date(2026, 1, 2, 15, 4, 5, 0, time.UTC)
-
 	ingestEvent := domain.IngestEvent{
 		Source:    "readwise",
 		EventType: "create",
 		Highlight: domain.Highlight{
-			ID:        42,
-			UpdatedAt: updatedAt,
+			ID: "42",
 		},
 	}
 
@@ -82,8 +78,7 @@ func TestEnqueueReadwise_PublisherErrorPropagated(t *testing.T) {
 		Source:    "readwise",
 		EventType: "create",
 		Highlight: domain.Highlight{
-			ID:        1,
-			UpdatedAt: time.Now(),
+			ID: "42",
 		},
 	}
 

@@ -36,7 +36,6 @@ func (r *NoopRepo) PutIfAbsent(
 		r.log.Info(
 			"noop repo deduplicated insight",
 			"tenantId", insight.TenantID,
-			"highlightId", insight.HighlightID,
 			"idempotencyKey", insight.IdempotencyKey,
 		)
 		return false, nil
@@ -47,7 +46,6 @@ func (r *NoopRepo) PutIfAbsent(
 	r.log.Info(
 		"noop repo inserted insight",
 		"tenantId", insight.TenantID,
-		"highlightId", insight.HighlightID,
 		"idempotencyKey", insight.IdempotencyKey,
 	)
 
