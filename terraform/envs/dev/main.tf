@@ -55,17 +55,16 @@ module "ingest_lambda_role" {
 # -----------------------------
 # Ingest Lambda Function (ZIP)
 # -----------------------------
-module "lambda" {
-  source                = "../../modules/lambda-zip"
-  name                  = local.name
-  role_arn              = module.ingest_lambda_role.role_arn
-  filename              = data.archive_file.lambda_zip.output_path
-  source_code_hash      = data.archive_file.lambda_zip.output_base64sha256
-  handler               = "bootstrap"
-  runtime               = "provided.al2"
-  memory_size           = 128
-  timeout               = 10
-  log_retention_in_days = 14
+module "ingest_lambda" {
+  source           = "../../modules/lambda-zip"
+  name             = local.name
+  role_arn         = module.ingest_lambda_role.role_arn
+  filename         = data.archive_file.lambda_zip.output_path
+  source_code_hash = data.archive_file.lambda_zip.output_base64sha256
+  handler          = "bootstrap"
+  runtime          = "provided.al2"
+  memory_size      = 128
+  timeout          = 10
 
   environment_variables = {
     DEFAULT_TENANT_ID           = "test-tenant-id"
@@ -80,13 +79,13 @@ module "lambda" {
 module "api" {
   source            = "../../modules/api-gateway"
   name              = "${local.name}-api"
-  lambda_invoke_arn = module.lambda.lambda_arn
+  lambda_invoke_arn = module.ingest_lambda.lambda_arn
 }
 
 resource "aws_lambda_permission" "allow_apigw" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
-  function_name = module.lambda.lambda_function_name
+  function_name = module.ingest_lambda.lambda_function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${module.api.execution_arn}/*/*"
 }
@@ -113,7 +112,7 @@ module "worker_lambda_role" {
   basic_execution_policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
-# Inline policy to allow SQS consumption (minimal permissions)
+# Inline policy to allow SQS consumption
 resource "aws_iam_role_policy" "worker_sqs_consume" {
   name = "ipp-dev-worker-sqs-consume"
   role = module.worker_lambda_role.role_name
@@ -146,7 +145,7 @@ resource "aws_iam_role_policy" "ingest_ssm_read" {
       {
         Effect   = "Allow"
         Action   = ["ssm:GetParameter"]
-        Resource = "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/ipp/dev/readwise/webhook_secret"
+        Resource = "arn:aws:ssm:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:parameter/ipp/dev/readwise/webhook_secret"
       }
     ]
   })
@@ -158,29 +157,21 @@ variable "worker_image_uri" {
   description = "Full ECR image URI for the worker Lambda"
 }
 
-resource "aws_lambda_function" "worker" {
-  function_name = "${local.name}-worker"
-  role          = module.worker_lambda_role.role_arn
-
-  package_type = "Image"
-  image_uri    = var.worker_image_uri
-
+module "worker_lambda" {
+  source      = "../../modules/lambda-image"
+  name        = "${local.name}-worker"
+  role_arn    = module.worker_lambda_role.role_arn
+  image_uri   = var.worker_image_uri
   timeout     = 30
   memory_size = 256
 
-  environment {
-    variables = {}
-  }
-
-  depends_on = [
-    aws_iam_role_policy.worker_sqs_consume
-  ]
+  environment_variables = {}
 }
 
 # SQS -> Worker Lambda trigger
 resource "aws_lambda_event_source_mapping" "worker_from_sqs" {
   event_source_arn = module.ingest_queue.queue_arn
-  function_name    = aws_lambda_function.worker.arn
+  function_name    = module.worker_lambda.function_arn
 
   batch_size = 1
   enabled    = true

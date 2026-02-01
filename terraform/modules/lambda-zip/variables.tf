@@ -33,18 +33,6 @@ variable "timeout" {
   default = 5
 }
 
-variable "log_retention_in_days" {
-  type        = number
-  description = "CloudWatch log retention for the Lambda log group"
-  default     = 14
-}
-
-variable "manage_log_group" {
-  type        = bool
-  description = "Whether Terraform should manage the CloudWatch log group for this Lambda"
-  default     = true
-}
-
 variable "environment_variables" {
   description = "Environment variables passed to the Lambda function"
   type        = map(string)
