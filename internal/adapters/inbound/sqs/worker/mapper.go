@@ -2,7 +2,6 @@ package worker
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/marcogerstmann/insight-processing-platform/internal/domain"
@@ -27,9 +26,6 @@ func MapMessageDTOToDomain(dto MessageDTO) (domain.IngestEvent, error) {
 	if strings.TrimSpace(dto.EventType) == "" {
 		return domain.IngestEvent{}, permanentf("missing event type")
 	}
-	if dto.Highlight.ID <= 0 {
-		return domain.IngestEvent{}, permanentf("invalid highlight id")
-	}
 
 	return domain.IngestEvent{
 		TenantID:       dto.TenantID,
@@ -38,7 +34,7 @@ func MapMessageDTOToDomain(dto MessageDTO) (domain.IngestEvent, error) {
 		ReceivedAt:     dto.ReceivedAt,
 		IdempotencyKey: dto.IdempotencyKey,
 		Highlight: domain.Highlight{
-			ID:   strconv.FormatInt(dto.Highlight.ID, 10),
+			ID:   dto.Highlight.ID,
 			Text: dto.Highlight.Text,
 			Note: &dto.Highlight.Note,
 			URL:  dto.Highlight.URL,
