@@ -9,3 +9,9 @@ variable "project" {
   type        = string
   default     = "ipp"
 }
+
+variable "env" {
+  description = "Deployment environment"
+  type        = string
+  default     = "dev"
+}

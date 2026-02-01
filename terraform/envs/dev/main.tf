@@ -186,7 +186,9 @@ module "worker_lambda" {
   timeout     = 30
   memory_size = 256
 
-  environment_variables = {}
+  environment_variables = {
+    TABLE_NAME_INSIGHTS = module.dynamodb_insights.table_name
+  }
 }
 
 # SQS -> Worker Lambda trigger
@@ -196,4 +198,37 @@ resource "aws_lambda_event_source_mapping" "worker_from_sqs" {
 
   batch_size = 1
   enabled    = true
+}
+
+# DynamoDB table for insights
+module "dynamodb_insights" {
+  source = "../../modules/dynamodb"
+
+  name = "${var.project}-insights"
+
+  tags = {
+    Project = var.project
+    Env     = var.env
+  }
+}
+
+resource "aws_iam_policy" "worker_dynamodb" {
+  name = "${var.project}-${var.env}-worker-dynamodb"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "PutInsightIfAbsent"
+        Effect = "Allow"
+        Action = ["dynamodb:PutItem"]
+        Resource = module.dynamodb_insights.table_arn
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "worker_dynamodb" {
+  role       = module.worker_lambda_role.role_name
+  policy_arn = aws_iam_policy.worker_dynamodb.arn
 }
