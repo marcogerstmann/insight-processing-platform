@@ -104,6 +104,27 @@ resource "aws_ecr_repository" "worker" {
   }
 }
 
+resource "aws_ecr_lifecycle_policy" "worker" {
+  repository = aws_ecr_repository.worker.name
+
+  policy = jsonencode({
+    rules = [
+      {
+        rulePriority = 1
+        description  = "Keep last 3 images"
+        selection = {
+          tagStatus   = "any"
+          countType   = "imageCountMoreThan"
+          countNumber = 3
+        }
+        action = {
+          type = "expire"
+        }
+      }
+    ]
+  })
+}
+
 # IAM Role: Worker Lambda (consume from SQS)
 module "worker_lambda_role" {
   source                     = "../../modules/iam"
