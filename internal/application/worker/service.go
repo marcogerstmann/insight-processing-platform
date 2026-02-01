@@ -6,15 +6,15 @@ import (
 	"time"
 
 	"github.com/marcogerstmann/insight-processing-platform/internal/domain"
-	"github.com/marcogerstmann/insight-processing-platform/internal/ports/outbound"
+	"github.com/marcogerstmann/insight-processing-platform/internal/ports/outbound/persistence"
 )
 
 type Service struct {
-	repo outbound.InsightRepository
+	repo persistence.InsightRepository
 	now  func() time.Time
 }
 
-func NewService(repo outbound.InsightRepository) *Service {
+func NewService(repo persistence.InsightRepository) *Service {
 	return &Service{
 		repo: repo,
 		now:  func() time.Time { return time.Now().UTC() },

@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/marcogerstmann/insight-processing-platform/internal/domain"
-	"github.com/marcogerstmann/insight-processing-platform/internal/ports/outbound"
+	"github.com/marcogerstmann/insight-processing-platform/internal/ports/outbound/persistence"
 )
 
 // TODO delete once real persistence is implemented
@@ -16,7 +16,7 @@ type NoopRepo struct {
 	log  *slog.Logger
 }
 
-var _ outbound.InsightRepository = (*NoopRepo)(nil)
+var _ persistence.InsightRepository = (*NoopRepo)(nil)
 
 func NewNoopRepo(log *slog.Logger) *NoopRepo {
 	return &NoopRepo{

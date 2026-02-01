@@ -5,14 +5,14 @@ import (
 	"encoding/json"
 
 	"github.com/marcogerstmann/insight-processing-platform/internal/domain"
-	"github.com/marcogerstmann/insight-processing-platform/internal/ports/outbound"
+	"github.com/marcogerstmann/insight-processing-platform/internal/ports/outbound/event"
 )
 
 type Service struct {
-	Publisher outbound.EventPublisher
+	Publisher event.EventPublisher
 }
 
-func NewService(p outbound.EventPublisher) *Service {
+func NewService(p event.EventPublisher) *Service {
 	return &Service{Publisher: p}
 }
 
@@ -26,7 +26,7 @@ func (s *Service) EnqueueReadwise(ctx context.Context, ev domain.IngestEvent, te
 		return err
 	}
 
-	msg := outbound.PublishMessage{
+	msg := event.PublishMessage{
 		Body: body,
 		Attributes: map[string]string{
 			"idempotencyKey": idempotencyKey,

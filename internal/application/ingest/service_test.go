@@ -8,16 +8,16 @@ import (
 	"time"
 
 	"github.com/marcogerstmann/insight-processing-platform/internal/domain"
-	"github.com/marcogerstmann/insight-processing-platform/internal/ports/outbound"
+	"github.com/marcogerstmann/insight-processing-platform/internal/ports/outbound/event"
 )
 
 type mockPublisher struct {
-	lastMsg     outbound.PublishMessage
+	lastMsg     event.PublishMessage
 	called      bool
 	errToReturn error
 }
 
-func (f *mockPublisher) Publish(_ context.Context, m outbound.PublishMessage) error {
+func (f *mockPublisher) Publish(_ context.Context, m event.PublishMessage) error {
 	f.called = true
 	f.lastMsg = m
 	return f.errToReturn
