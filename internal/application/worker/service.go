@@ -46,6 +46,7 @@ func (s *Service) Process(ctx context.Context, ev domain.IngestEvent) (Result, e
 		return Result{Inserted: true}, nil
 	}
 
+	// TODO: enrichment is not yet implemented
 	enriched, err := s.enricher.Enrich(ctx, insight)
 	if err != nil {
 		return Result{}, err
