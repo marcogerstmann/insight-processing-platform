@@ -1,20 +1,13 @@
 {
+  "idempotency_key": "test-idempotency-key",
   "tenant_id": "test-tenant-id",
   "source": "readwise",
   "event_type": "readwise.highlight.created",
   "received_at": "2026-01-25T15:42:19.316279469Z",
-  "idempotency_key": "test-idempotency-key",
   "highlight": {
-    "id": 12345,
-    "book_id": 98765,
+    "id": "12345",
     "text": "The only way to do great work is to love what you do.",
     "note": "",
-    "url": "https://read.readwise.io/read/01kftx3xnj63tdephegncdgcjj",
-    "tags": [],
-    "highlighted_at": "2026-01-25T15:42:17.060572Z",
-    "updated_at": "2026-01-25T15:42:17.127281Z",
-    "location": 0,
-    "location_type": "offset",
-    "color": ""
+    "url": "https://read.readwise.io/read/01kh40hhyevhdq3ax81s2k84fz"
   }
 }
