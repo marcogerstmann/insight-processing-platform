@@ -7,16 +7,16 @@ import (
 	"testing"
 
 	"github.com/marcogerstmann/insight-processing-platform/internal/domain"
-	"github.com/marcogerstmann/insight-processing-platform/internal/ports/outbound/event"
+	"github.com/marcogerstmann/insight-processing-platform/internal/ports/outbound"
 )
 
 type mockPublisher struct {
-	lastMsg     event.PublishMessage
+	lastMsg     outbound.PublishMessage
 	called      bool
 	errToReturn error
 }
 
-func (f *mockPublisher) Publish(_ context.Context, m event.PublishMessage) error {
+func (f *mockPublisher) Publish(_ context.Context, m outbound.PublishMessage) error {
 	f.called = true
 	f.lastMsg = m
 	return f.errToReturn
@@ -60,12 +60,12 @@ func TestEnqueueReadwise_PublishesMessage(t *testing.T) {
 	}
 
 	attrs := msg.Attributes
-	if attrs["tenantId"] != tenantID {
-		t.Fatalf("tenantId attr mismatch: got %q want %q", attrs["tenantId"], tenantID)
+	if attrs["tenant_id"] != tenantID {
+		t.Fatalf("tenantId attr mismatch: got %q want %q", attrs["tenant_id"], tenantID)
 	}
 	expectedIdem := buildIdempotencyKey(evForKey)
-	if attrs["idempotencyKey"] != expectedIdem {
-		t.Fatalf("idempotencyKey attr mismatch: got %q want %q", attrs["idempotencyKey"], expectedIdem)
+	if attrs["idempotency_key"] != expectedIdem {
+		t.Fatalf("idempotency_key attr mismatch: got %q want %q", attrs["idempotency_key"], expectedIdem)
 	}
 }
 

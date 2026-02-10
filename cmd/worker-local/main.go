@@ -35,8 +35,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	tenantID := strings.TrimSpace(getString(tmp, "tenantId"))
-	idempotencyKey := strings.TrimSpace(getString(tmp, "idempotencyKey"))
+	tenantID := strings.TrimSpace(getString(tmp, "tenant_id"))
+	idempotencyKey := strings.TrimSpace(getString(tmp, "idempotency_key"))
 
 	ev := events.SQSEvent{
 		Records: []events.SQSMessage{
@@ -48,11 +48,11 @@ func main() {
 					"ApproximateReceiveCount": "1",
 				},
 				MessageAttributes: map[string]events.SQSMessageAttribute{
-					"tenantId": {
+					"tenant_id": {
 						StringValue: awsString(tenantID),
 						DataType:    "String",
 					},
-					"idempotencyKey": {
+					"idempotency_key": {
 						StringValue: awsString(idempotencyKey),
 						DataType:    "String",
 					},
@@ -65,7 +65,7 @@ func main() {
 	}
 
 	noopRepo := worker.NewNoopRepo(log)
-	svc := worker.NewService(noopRepo)
+	svc := worker.NewService(noopRepo, nil)
 	h := workersqs.NewHandler(svc, log)
 
 	log.Info("invoking worker handler (local)",

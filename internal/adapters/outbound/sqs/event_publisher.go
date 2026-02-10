@@ -9,7 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/aws/aws-sdk-go-v2/service/sqs/types"
-	port "github.com/marcogerstmann/insight-processing-platform/internal/ports/outbound/event"
+	port "github.com/marcogerstmann/insight-processing-platform/internal/ports/outbound"
 )
 
 type SQSEvenPublisher struct {

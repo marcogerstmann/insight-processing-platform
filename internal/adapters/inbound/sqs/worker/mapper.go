@@ -28,11 +28,11 @@ func MapMessageDTOToDomain(dto MessageDTO) (domain.IngestEvent, error) {
 	}
 
 	return domain.IngestEvent{
+		IdempotencyKey: dto.IdempotencyKey,
 		TenantID:       dto.TenantID,
 		Source:         dto.Source,
 		EventType:      dto.EventType,
 		ReceivedAt:     dto.ReceivedAt,
-		IdempotencyKey: dto.IdempotencyKey,
 		Highlight: domain.Highlight{
 			ID:   dto.Highlight.ID,
 			Text: dto.Highlight.Text,

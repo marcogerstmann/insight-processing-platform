@@ -1,4 +1,4 @@
-package persistence
+package outbound
 
 import (
 	"context"
@@ -8,4 +8,5 @@ import (
 
 type InsightRepository interface {
 	PutIfAbsent(ctx context.Context, insight domain.Insight) (inserted bool, err error)
+	Update(ctx context.Context, insight domain.Insight) error
 }

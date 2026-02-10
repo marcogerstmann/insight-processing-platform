@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/marcogerstmann/insight-processing-platform/internal/domain"
-	"github.com/marcogerstmann/insight-processing-platform/internal/ports/outbound/persistence"
+	"github.com/marcogerstmann/insight-processing-platform/internal/ports/outbound"
 )
 
 // TODO delete once real persistence is implemented
@@ -16,7 +16,7 @@ type NoopRepo struct {
 	log  *slog.Logger
 }
 
-var _ persistence.InsightRepository = (*NoopRepo)(nil)
+var _ outbound.InsightRepository = (*NoopRepo)(nil)
 
 func NewNoopRepo(log *slog.Logger) *NoopRepo {
 	return &NoopRepo{
@@ -25,17 +25,14 @@ func NewNoopRepo(log *slog.Logger) *NoopRepo {
 	}
 }
 
-func (r *NoopRepo) PutIfAbsent(
-	_ context.Context,
-	insight domain.Insight,
-) (bool, error) {
+func (r *NoopRepo) PutIfAbsent(_ context.Context, insight domain.Insight) (bool, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if _, exists := r.seen[insight.IdempotencyKey]; exists {
 		r.log.Info(
 			"noop repo deduplicated insight",
-			"tenantId", insight.TenantID,
+			"tenantID", insight.TenantID,
 			"idempotencyKey", insight.IdempotencyKey,
 		)
 		return false, nil
@@ -45,9 +42,18 @@ func (r *NoopRepo) PutIfAbsent(
 
 	r.log.Info(
 		"noop repo inserted insight",
-		"tenantId", insight.TenantID,
+		"tenantID", insight.TenantID,
 		"idempotencyKey", insight.IdempotencyKey,
 	)
 
 	return true, nil
+}
+
+func (r *NoopRepo) Update(_ context.Context, insight domain.Insight) error {
+	r.log.Info(
+		"noop repo updated insight",
+		"tenantID", insight.TenantID,
+		"idempotencyKey", insight.IdempotencyKey,
+	)
+	return nil
 }
