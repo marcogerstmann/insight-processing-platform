@@ -2,7 +2,7 @@
 
 ## One-sentence summary
 
-A backend system that ingests Readwise webhook events, processes highlights asynchronously, enriches them with LLM-based analysis, and stores structured insights reliably and cost-efficiently.
+An event-driven backend system that ingests webhook events, processes them asynchronously, and stores structured insights using idempotent, reliable pipelines.
 
 ---
 
