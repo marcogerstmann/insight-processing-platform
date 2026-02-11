@@ -4,8 +4,6 @@
 
 An event-driven backend system that ingests webhook events, processes them asynchronously, optionally enriches them with LLM-based analysis, and stores structured insights using idempotent, reliable pipelines.
 
----
-
 ## What this project is - and is not
 
 This is **not** an AI product.
@@ -26,9 +24,9 @@ The value lies in **how events are processed, enriched, and operated**, not in t
 
 The architecture is source-agnostic and remains valid if Readwise is replaced.
 
----
+## High-level architecture overview
 
-## Architecture (high level)
+![Insight Processing Platform architecture](docs/architecture.png)
 
 ```
 Readwise Webhook
@@ -62,8 +60,6 @@ DynamoDB
 - permanent errors → DLQ
 - LLM failure ≠ system failure
 
----
-
 ## Key design decisions (summary)
 
 - **AWS managed primitives** for reliability and transparent cost modeling
@@ -73,8 +69,6 @@ DynamoDB
 - **No Kubernetes**: control-plane cost and operational overhead are unjustified at this scale
 
 All decisions are intentional and documented in ADRs.
-
----
 
 ## Cost philosophy
 
@@ -90,8 +84,6 @@ Rough order of magnitude:
 
 The primary cost risk is **uncontrolled tokens**, not AWS.
 
----
-
 ## What this project demonstrates
 
 - Event-driven system design
@@ -102,8 +94,6 @@ The primary cost risk is **uncontrolled tokens**, not AWS.
 
 This project is optimized for **system design signal**, not feature breadth.
 
----
-
 ## Explicit non-goals
 
 - No Kubernetes
@@ -112,8 +102,6 @@ This project is optimized for **system design signal**, not feature breadth.
 - No AI demo hype
 
 Constraints are part of the design.
-
----
 
 ## Further documentation
 
