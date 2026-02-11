@@ -2,7 +2,7 @@
 
 ## One-sentence summary
 
-An event-driven backend system that ingests webhook events, processes them asynchronously, and stores structured insights using idempotent, reliable pipelines.
+An event-driven backend system that ingests webhook events, processes them asynchronously, optionally enriches them with LLM-based analysis, and stores structured insights using idempotent, reliable pipelines.
 
 ---
 
