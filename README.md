@@ -70,7 +70,7 @@ DynamoDB
 - **API Gateway + Lambda + SQS** for decoupling, retries, and backpressure
 - **Single core service** to avoid premature microservice complexity
 - **DynamoDB (On-Demand)** for event-driven access patterns and zero idle cost
-- **No Kubernetes** — control-plane cost and operational overhead are unjustified at this scale
+- **No Kubernetes**: control-plane cost and operational overhead are unjustified at this scale
 
 All decisions are intentional and documented in ADRs.
 
