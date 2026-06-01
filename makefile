@@ -19,19 +19,26 @@ WORKER_TAG ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo manual)
 WORKER_REPO ?= $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/$(PROJECT)-worker
 WORKER_FUNCTION ?= $(PROJECT)-worker
 
-.PHONY: test ingest-build worker-build worker-push tf-init tf-apply tf-destroy worker-deploy
+.PHONY: test ingest-build worker-build worker-push tf-init tf-apply tf-destroy worker-deploy tf-backend-bootstrap
 
 test:
 	go test ./... -v
 	
+# The S3 backend uses an older AWS SDK that doesn't resolve the CLI's credential
+# chain (SSO/profile helpers). Bridge the CLI-resolved creds into env vars it reads.
+TF_AWS_CREDS = eval "$$(aws configure export-credentials --format env)"
+
+tf-backend-bootstrap:
+	bash terraform/scripts/bootstrap-backend.sh
+
 tf-init:
-	cd $(TF_DIR) && terraform init
+	cd $(TF_DIR) && $(TF_AWS_CREDS) && terraform init
 
 tf-apply: tf-init ingest-build
-	cd $(TF_DIR) && terraform apply -var="worker_image_uri=$(WORKER_REPO):$(WORKER_TAG)"
+	cd $(TF_DIR) && $(TF_AWS_CREDS) && terraform apply -var="worker_image_uri=$(WORKER_REPO):$(WORKER_TAG)"
 
 tf-destroy: tf-init
-	cd $(TF_DIR) && terraform destroy
+	cd $(TF_DIR) && $(TF_AWS_CREDS) && terraform destroy
 
 ingest-build:
 	cd cmd/ingest-lambda && \
@@ -40,6 +47,7 @@ ingest-build:
 
 worker-build:
 	docker buildx build --platform linux/amd64 \
+		--provenance=false --sbom=false \
 		--load \
 		-t $(PROJECT)-worker:$(WORKER_TAG) \
 		-f cmd/worker-lambda/Dockerfile .
