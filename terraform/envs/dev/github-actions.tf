@@ -142,11 +142,7 @@ data "aws_iam_policy_document" "github_actions_permissions" {
       "lambda:AddPermission",
       "lambda:RemovePermission",
       "lambda:GetPolicy",
-      "lambda:CreateEventSourceMapping",
-      "lambda:UpdateEventSourceMapping",
-      "lambda:DeleteEventSourceMapping",
-      "lambda:GetEventSourceMapping",
-      "lambda:ListEventSourceMappings",
+      "lambda:GetFunctionCodeSigningConfig",
       "lambda:ListTags",
       "lambda:ListVersionsByFunction",
       "lambda:TagResource",
@@ -154,6 +150,23 @@ data "aws_iam_policy_document" "github_actions_permissions" {
     ]
     resources = [
       "arn:aws:lambda:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:function:ipp-*",
+    ]
+  }
+
+  # Event source mappings use a separate ARN format (event-source-mapping:<uuid>)
+  # that doesn't match the function ARN pattern above.
+  statement {
+    sid    = "LambdaESMManage"
+    effect = "Allow"
+    actions = [
+      "lambda:CreateEventSourceMapping",
+      "lambda:UpdateEventSourceMapping",
+      "lambda:DeleteEventSourceMapping",
+      "lambda:GetEventSourceMapping",
+      "lambda:ListEventSourceMappings",
+    ]
+    resources = [
+      "arn:aws:lambda:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:event-source-mapping:*",
     ]
   }
 
@@ -283,7 +296,6 @@ data "aws_iam_policy_document" "github_actions_permissions" {
     actions = [
       "logs:CreateLogGroup",
       "logs:DeleteLogGroup",
-      "logs:DescribeLogGroups",
       "logs:PutRetentionPolicy",
       "logs:DeleteRetentionPolicy",
       "logs:ListTagsLogGroup",
@@ -293,6 +305,16 @@ data "aws_iam_policy_document" "github_actions_permissions" {
     resources = [
       "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/ipp-*",
     ]
+  }
+
+  # DescribeLogGroups is called with a prefix filter by the Terraform AWS provider,
+  # which AWS resolves to a root resource ARN — the log group prefix scope above
+  # doesn't cover it, so it requires * here.
+  statement {
+    sid       = "LogsDescribe"
+    effect    = "Allow"
+    actions   = ["logs:DescribeLogGroups"]
+    resources = ["*"]
   }
 }
 
