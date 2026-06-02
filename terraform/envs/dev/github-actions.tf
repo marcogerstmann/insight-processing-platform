@@ -164,6 +164,9 @@ data "aws_iam_policy_document" "github_actions_permissions" {
       "lambda:DeleteEventSourceMapping",
       "lambda:GetEventSourceMapping",
       "lambda:ListEventSourceMappings",
+      "lambda:ListTags",
+      "lambda:TagResource",
+      "lambda:UntagResource",
     ]
     resources = [
       "arn:aws:lambda:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:event-source-mapping:*",
@@ -299,8 +302,11 @@ data "aws_iam_policy_document" "github_actions_permissions" {
       "logs:PutRetentionPolicy",
       "logs:DeleteRetentionPolicy",
       "logs:ListTagsLogGroup",
+      "logs:ListTagsForResource",
       "logs:TagLogGroup",
+      "logs:TagResource",
       "logs:UntagLogGroup",
+      "logs:UntagResource",
     ]
     resources = [
       "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/ipp-*",
