@@ -62,7 +62,7 @@ module "ingest_lambda" {
   filename         = data.archive_file.lambda_zip.output_path
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
   handler          = "bootstrap"
-  runtime          = "provided.al2"
+  runtime          = "provided.al2023"
   memory_size      = 128
   timeout          = 10
 
