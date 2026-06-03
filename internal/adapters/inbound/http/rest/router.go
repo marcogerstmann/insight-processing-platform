@@ -2,7 +2,7 @@ package rest
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/rest/insight"
+	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/insight"
 )
 
 func NewRouter(insightHandler *insight.Handler) *gin.Engine {
