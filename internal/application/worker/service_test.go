@@ -42,6 +42,10 @@ func (s *spyRepo) Update(_ context.Context, insight domain.Insight) error {
 	return s.updateErr
 }
 
+func (s *spyRepo) ListByTenantID(_ context.Context, _ string) ([]domain.Insight, error) {
+	return []domain.Insight{}, nil
+}
+
 type spyEnricher struct {
 	log *callLog
 

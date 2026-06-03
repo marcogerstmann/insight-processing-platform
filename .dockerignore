@@ -12,7 +12,6 @@ terraform
 **/build
 
 **/*.zip
-**/lambda.zip
 
 **/*.log
 

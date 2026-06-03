@@ -290,6 +290,30 @@ data "aws_iam_policy_document" "github_actions_permissions" {
   }
 
   # ------------------------------------------------------------------
+  # Cognito — Terraform manages the user pool and app client for REST API auth
+  # ------------------------------------------------------------------
+  statement {
+    sid    = "CognitoManage"
+    effect = "Allow"
+    actions = [
+      "cognito-idp:CreateUserPool",
+      "cognito-idp:DeleteUserPool",
+      "cognito-idp:DescribeUserPool",
+      "cognito-idp:UpdateUserPool",
+      "cognito-idp:CreateUserPoolClient",
+      "cognito-idp:DeleteUserPoolClient",
+      "cognito-idp:DescribeUserPoolClient",
+      "cognito-idp:UpdateUserPoolClient",
+      "cognito-idp:ListTagsForResource",
+      "cognito-idp:TagResource",
+      "cognito-idp:UntagResource",
+    ]
+    resources = [
+      "arn:aws:cognito-idp:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:userpool/*",
+    ]
+  }
+
+  # ------------------------------------------------------------------
   # CloudWatch Logs — Lambda execution roles emit logs; Terraform may
   # manage log group retention settings via the Lambda modules.
   # ------------------------------------------------------------------

@@ -90,6 +90,38 @@ func (r *InsightAdapter) PutIfAbsent(ctx context.Context, insight domain.Insight
 	return false, err
 }
 
+func (r *InsightAdapter) ListByTenantID(ctx context.Context, tenantID string) ([]domain.Insight, error) {
+	out, err := r.client.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(r.tableName),
+		KeyConditionExpression: aws.String("#pk = :pk"),
+		ExpressionAttributeNames: map[string]string{
+			"#pk": "pk",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":pk": &types.AttributeValueMemberS{Value: pk(tenantID)},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: paginate via LastEvaluatedKey for large tenants
+	insights := make([]domain.Insight, 0, len(out.Items))
+	for _, item := range out.Items {
+		var dynItem dynamoInsightItem
+		if err := attributevalue.UnmarshalMap(item, &dynItem); err != nil {
+			return nil, err
+		}
+		insights = append(insights, domain.Insight{
+			TenantID:       dynItem.TenantID,
+			IdempotencyKey: dynItem.IdempotencyKey,
+			Source:         dynItem.Source,
+			Text:           dynItem.Text,
+		})
+	}
+	return insights, nil
+}
+
 func (r *InsightAdapter) Update(ctx context.Context, insight domain.Insight) error {
 	key, err := attributevalue.MarshalMap(map[string]string{
 		"pk": pk(insight.TenantID),

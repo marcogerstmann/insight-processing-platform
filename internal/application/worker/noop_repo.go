@@ -57,3 +57,8 @@ func (r *NoopRepo) Update(_ context.Context, insight domain.Insight) error {
 	)
 	return nil
 }
+
+func (r *NoopRepo) ListByTenantID(_ context.Context, tenantID string) ([]domain.Insight, error) {
+	r.log.Info("noop repo list insights", "tenantID", tenantID)
+	return []domain.Insight{}, nil
+}
