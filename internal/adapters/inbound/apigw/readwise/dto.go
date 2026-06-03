@@ -1,8 +1,8 @@
-package ingest
+package readwise
 
 import "time"
 
-type ReadwiseWebhookDTO struct {
+type WebhookDTO struct {
 	ID            int64      `json:"id"`
 	Text          string     `json:"text"`
 	Note          string     `json:"note"`
