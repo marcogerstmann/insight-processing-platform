@@ -103,6 +103,27 @@ resource "aws_ecr_repository" "worker" {
   }
 }
 
+resource "aws_ecr_repository_policy" "worker" {
+  repository = aws_ecr_repository.worker.name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "LambdaECRImageRetrievalPolicy"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+        Action = [
+          "ecr:BatchGetImage",
+          "ecr:GetDownloadUrlForLayer"
+        ]
+      }
+    ]
+  })
+}
+
 resource "aws_ecr_lifecycle_policy" "worker" {
   repository = aws_ecr_repository.worker.name
 
@@ -210,7 +231,7 @@ module  "worker_lambda" {
     TABLE_NAME_INSIGHTS = module.dynamodb_insights.table_name
   }
 
-  depends_on = [aws_iam_role_policy.worker_ecr_pull]
+  depends_on = [aws_iam_role_policy.worker_ecr_pull, aws_ecr_repository_policy.worker]
 }
 
 # SQS -> Worker Lambda trigger
