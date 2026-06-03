@@ -132,6 +132,27 @@ module "worker_lambda_role" {
   basic_execution_policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
+# Inline policy to allow ECR image pull (required for container image Lambda)
+resource "aws_iam_role_policy" "worker_ecr_pull" {
+  name = "ipp-dev-worker-ecr-pull"
+  role = module.worker_lambda_role.role_name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:BatchGetImage",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchCheckLayerAvailability"
+        ]
+        Resource = aws_ecr_repository.worker.arn
+      }
+    ]
+  })
+}
+
 # Inline policy to allow SQS consumption
 resource "aws_iam_role_policy" "worker_sqs_consume" {
   name = "ipp-dev-worker-sqs-consume"

@@ -192,6 +192,7 @@ data "aws_iam_policy_document" "github_actions_permissions" {
       "iam:GetRolePolicy",
       "iam:ListRolePolicies",
       "iam:ListAttachedRolePolicies",
+      "iam:ListInstanceProfilesForRole",
       "iam:TagRole",
       "iam:UntagRole",
       "iam:ListRoleTags",
