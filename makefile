@@ -6,14 +6,14 @@ export
 TF_ENV ?= dev
 TF_DIR ?= terraform/envs/$(TF_ENV)
 
-PROJECT ?= ipp-ingest
+PROJECT ?= ipp-dev
 
 WORKER_IMAGE ?= $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/$(PROJECT)-worker
 
 CGO_ENABLED ?= 0
 
-INGEST_GOOS ?= linux
-INGEST_GOARCH ?= amd64
+READWISE_GOOS ?= linux
+READWISE_GOARCH ?= amd64
 
 REST_GOOS ?= linux
 REST_GOARCH ?= amd64
@@ -22,7 +22,7 @@ WORKER_TAG ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo manual)
 WORKER_REPO ?= $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/$(PROJECT)-worker
 WORKER_FUNCTION ?= $(PROJECT)-worker
 
-.PHONY: test ingest-build rest-build worker-build worker-push tf-init tf-apply tf-destroy deploy tf-backend-bootstrap
+.PHONY: test readwise-build rest-build worker-build worker-push tf-init tf-apply tf-destroy deploy tf-backend-bootstrap
 
 # ============================================================
 # General
@@ -44,19 +44,19 @@ tf-backend-bootstrap:
 tf-init:
 	cd $(TF_DIR) && $(TF_AWS_CREDS) && terraform init
 
-tf-apply: tf-init ingest-build rest-build
+tf-apply: tf-init readwise-build rest-build
 	cd $(TF_DIR) && $(TF_AWS_CREDS) && terraform apply -var="worker_image_uri=$(WORKER_REPO):$(WORKER_TAG)"
 
 tf-destroy: tf-init
 	cd $(TF_DIR) && $(TF_AWS_CREDS) && terraform destroy
 
 # ============================================================
-# Ingest Lambda
+# Readwise Lambda
 # ============================================================
 
-ingest-build:
-	cd cmd/ingest-lambda && \
-	GOOS=$(INGEST_GOOS) GOARCH=$(INGEST_GOARCH) CGO_ENABLED=$(CGO_ENABLED) \
+readwise-build:
+	cd cmd/readwise-lambda && \
+	GOOS=$(READWISE_GOOS) GOARCH=$(READWISE_GOARCH) CGO_ENABLED=$(CGO_ENABLED) \
 	go build -trimpath -ldflags="-s -w" -o bootstrap main.go
 
 # ============================================================

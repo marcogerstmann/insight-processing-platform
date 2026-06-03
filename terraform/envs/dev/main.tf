@@ -1,18 +1,17 @@
 locals {
   project = var.project
-  name    = "${local.project}-ingest"
 }
 
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
 # -----------------------------
-# Ingest Lambda (ZIP packaging)
+# Readwise Webhook Lambda (ZIP packaging)
 # -----------------------------
-data "archive_file" "ingest_lambda_zip" {
+data "archive_file" "readwise_lambda_zip" {
   type        = "zip"
-  source_file = "${path.module}/../../../cmd/ingest-lambda/bootstrap"
-  output_path = "${path.module}/ingest-lambda.zip"
+  source_file = "${path.module}/../../../cmd/readwise-lambda/bootstrap"
+  output_path = "${path.module}/readwise-lambda.zip"
 }
 
 data "aws_iam_policy_document" "lambda_assume_role" {
@@ -39,11 +38,11 @@ module "ingest_queue" {
 }
 
 # -----------------------------
-# IAM Role: Ingest Lambda (send to SQS)
+# IAM Role: Readwise Lambda (send to SQS)
 # -----------------------------
-module "ingest_lambda_role" {
+module "readwise_lambda_role" {
   source                     = "../../modules/iam"
-  name                       = "ipp-dev-ingest-lambda-role"
+  name                       = "ipp-dev-readwise-lambda-role"
   assume_role_policy         = data.aws_iam_policy_document.lambda_assume_role.json
   basic_execution_policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 
@@ -53,14 +52,14 @@ module "ingest_lambda_role" {
 }
 
 # -----------------------------
-# Ingest Lambda Function (ZIP)
+# Readwise Webhook Lambda Function (ZIP)
 # -----------------------------
-module "ingest_lambda" {
+module "readwise_lambda" {
   source           = "../../modules/lambda-zip"
-  name             = local.name
-  role_arn         = module.ingest_lambda_role.role_arn
-  filename         = data.archive_file.ingest_lambda_zip.output_path
-  source_code_hash = data.archive_file.ingest_lambda_zip.output_base64sha256
+  name             = "ipp-readwise"
+  role_arn         = module.readwise_lambda_role.role_arn
+  filename         = data.archive_file.readwise_lambda_zip.output_path
+  source_code_hash = data.archive_file.readwise_lambda_zip.output_base64sha256
   handler          = "bootstrap"
   runtime          = "provided.al2023"
   memory_size      = 128
@@ -74,20 +73,20 @@ module "ingest_lambda" {
 }
 
 # -----------------------------
-# API Gateway -> Ingest Lambda
+# API Gateway -> Readwise Webhook Lambda
 # -----------------------------
-module "api" {
+module "readwise_webhook_api" {
   source            = "../../modules/api-gateway"
-  name              = "${local.name}-api"
-  lambda_invoke_arn = module.ingest_lambda.lambda_arn
+  name              = "ipp-readwise-api"
+  lambda_invoke_arn = module.readwise_lambda.lambda_arn
 }
 
-resource "aws_lambda_permission" "allow_apigw" {
+resource "aws_lambda_permission" "allow_readwise_apigw" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
-  function_name = module.ingest_lambda.lambda_function_name
+  function_name = module.readwise_lambda.lambda_function_name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "${module.api.execution_arn}/*/*"
+  source_arn    = "${module.readwise_webhook_api.execution_arn}/*/*"
 }
 
 # -----------------------------
@@ -96,7 +95,7 @@ resource "aws_lambda_permission" "allow_apigw" {
 
 # ECR Repository for worker image
 resource "aws_ecr_repository" "worker" {
-  name                 = "${local.name}-worker"
+  name                 = "ipp-dev-worker"
   image_tag_mutability = "MUTABLE"
 
   image_scanning_configuration {
@@ -156,9 +155,9 @@ resource "aws_iam_role_policy" "worker_sqs_consume" {
 }
 
 # AWS Systems Manager Parameter Store for secrets
-resource "aws_iam_role_policy" "ingest_ssm_read" {
-  name = "ipp-dev-ingest-ssm-read"
-  role = module.ingest_lambda_role.role_name
+resource "aws_iam_role_policy" "readwise_ssm_read" {
+  name = "ipp-dev-readwise-ssm-read"
+  role = module.readwise_lambda_role.role_name
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -180,7 +179,7 @@ variable "worker_image_uri" {
 
 module  "worker_lambda" {
   source      = "../../modules/lambda-image"
-  name        = "${local.name}-worker"
+  name        = "ipp-dev-worker"
   role_arn    = module.worker_lambda_role.role_arn
   image_uri   = var.worker_image_uri
   timeout     = 30

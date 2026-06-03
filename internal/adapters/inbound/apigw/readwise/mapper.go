@@ -1,4 +1,4 @@
-package ingest
+package readwise
 
 import (
 	"errors"
@@ -11,7 +11,7 @@ import (
 	"github.com/marcogerstmann/insight-processing-platform/internal/domain"
 )
 
-func mapReadwiseDTOToDomain(p ReadwiseWebhookDTO, receivedAt time.Time, tenantID string) (domain.IngestEvent, error) {
+func mapReadwiseDTOToDomain(p WebhookDTO, receivedAt time.Time, tenantID string) (domain.IngestEvent, error) {
 	if p.ID <= 0 {
 		return domain.IngestEvent{}, apperr.E(apperr.ErrInvalidPayload, errors.New("missing/invalid highlight id"))
 	}
