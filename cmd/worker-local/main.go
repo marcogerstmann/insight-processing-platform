@@ -12,7 +12,8 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 
 	workersqs "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/sqs/worker"
-	"github.com/marcogerstmann/insight-processing-platform/internal/application/worker"
+	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/memory"
+	"github.com/marcogerstmann/insight-processing-platform/internal/application/insight"
 )
 
 func main() {
@@ -64,8 +65,8 @@ func main() {
 		},
 	}
 
-	noopRepo := worker.NewNoopRepo(log)
-	svc := worker.NewService(noopRepo, nil)
+	noopRepo := memory.NewNoopRepo(log)
+	svc := insight.NewService(noopRepo, nil)
 	h := workersqs.NewHandler(svc, log)
 
 	log.Info("invoking worker handler (local)",

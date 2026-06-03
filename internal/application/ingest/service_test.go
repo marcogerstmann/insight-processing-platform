@@ -7,22 +7,22 @@ import (
 	"testing"
 
 	"github.com/marcogerstmann/insight-processing-platform/internal/domain"
-	"github.com/marcogerstmann/insight-processing-platform/internal/ports/outbound"
+	"github.com/marcogerstmann/insight-processing-platform/internal/ports"
 )
 
 type mockPublisher struct {
-	lastMsg     outbound.PublishMessage
+	lastMsg     ports.PublishMessage
 	called      bool
 	errToReturn error
 }
 
-func (f *mockPublisher) Publish(_ context.Context, m outbound.PublishMessage) error {
+func (f *mockPublisher) Publish(_ context.Context, m ports.PublishMessage) error {
 	f.called = true
 	f.lastMsg = m
 	return f.errToReturn
 }
 
-func TestEnqueueReadwise_PublishesMessage(t *testing.T) {
+func TestEnqueue_PublishesMessage(t *testing.T) {
 	ctx := context.Background()
 	mp := &mockPublisher{}
 	s := NewService(mp)
@@ -37,7 +37,7 @@ func TestEnqueueReadwise_PublishesMessage(t *testing.T) {
 
 	tenantID := "tenant-123"
 
-	err := s.EnqueueReadwise(ctx, ingestEvent, tenantID)
+	err := s.Enqueue(ctx, ingestEvent, tenantID)
 	if err != nil {
 		t.Fatalf("EnqueueReadwise returned unexpected error: %v", err)
 	}
@@ -69,7 +69,7 @@ func TestEnqueueReadwise_PublishesMessage(t *testing.T) {
 	}
 }
 
-func TestEnqueueReadwise_PublisherErrorPropagated(t *testing.T) {
+func TestEnqueue_PublisherErrorPropagated(t *testing.T) {
 	ctx := context.Background()
 	mp := &mockPublisher{errToReturn: errors.New("publish failed")}
 	s := NewService(mp)
@@ -82,7 +82,7 @@ func TestEnqueueReadwise_PublisherErrorPropagated(t *testing.T) {
 		},
 	}
 
-	err := s.EnqueueReadwise(ctx, ev, "tenant-x")
+	err := s.Enqueue(ctx, ev, "tenant-x")
 	if err == nil {
 		t.Fatalf("expected error to be propagated from publisher")
 	}

@@ -15,6 +15,7 @@ import (
 	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest"
 	restinsight "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/insight"
 	dynamodbadapter "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/dynamodb"
+	"github.com/marcogerstmann/insight-processing-platform/internal/application/insight"
 )
 
 var ginLambda *ginadapter.GinLambdaV2
@@ -34,7 +35,8 @@ func init() {
 
 	dynamoClient := awsdynamodb.NewFromConfig(awsCfg)
 	insightAdapter := dynamodbadapter.NewInsightAdapter(dynamoClient, tableName)
-	insightHandler := restinsight.NewHandler(insightAdapter, logger)
+	insightSvc := insight.NewService(insightAdapter, nil)
+	insightHandler := restinsight.NewHandler(insightSvc, logger)
 
 	ginLambda = ginadapter.NewV2(rest.NewRouter(insightHandler))
 }

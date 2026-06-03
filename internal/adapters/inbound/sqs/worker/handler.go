@@ -5,15 +5,15 @@ import (
 	"log/slog"
 
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/marcogerstmann/insight-processing-platform/internal/application/worker"
+	"github.com/marcogerstmann/insight-processing-platform/internal/application/insight"
 )
 
 type Handler struct {
-	svc *worker.Service
+	svc insight.InsightService
 	log *slog.Logger
 }
 
-func NewHandler(svc *worker.Service, log *slog.Logger) *Handler {
+func NewHandler(svc insight.InsightService, log *slog.Logger) *Handler {
 	return &Handler{svc: svc, log: log}
 }
 

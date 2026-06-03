@@ -6,16 +6,16 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/marcogerstmann/insight-processing-platform/internal/ports/outbound"
+	appinsight "github.com/marcogerstmann/insight-processing-platform/internal/application/insight"
 )
 
 type Handler struct {
-	repo outbound.InsightRepository
-	log  *slog.Logger
+	svc appinsight.InsightService
+	log *slog.Logger
 }
 
-func NewHandler(repo outbound.InsightRepository, log *slog.Logger) *Handler {
-	return &Handler{repo: repo, log: log}
+func NewHandler(svc appinsight.InsightService, log *slog.Logger) *Handler {
+	return &Handler{svc: svc, log: log}
 }
 
 func (h *Handler) ListByTenantID(c *gin.Context) {
@@ -25,7 +25,7 @@ func (h *Handler) ListByTenantID(c *gin.Context) {
 		return
 	}
 
-	insights, err := h.repo.ListByTenantID(c.Request.Context(), tenantID)
+	insights, err := h.svc.ListByTenantID(c.Request.Context(), tenantID)
 	if err != nil {
 		h.log.ErrorContext(c.Request.Context(), "failed to list insights", "tenant_id", tenantID, "err", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal_server_error"})

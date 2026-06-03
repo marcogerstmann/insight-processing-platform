@@ -1,4 +1,4 @@
-package worker
+package insight
 
 import (
 	"context"
@@ -6,35 +6,42 @@ import (
 	"strings"
 
 	"github.com/marcogerstmann/insight-processing-platform/internal/domain"
-	"github.com/marcogerstmann/insight-processing-platform/internal/ports/outbound"
+	"github.com/marcogerstmann/insight-processing-platform/internal/ports"
 )
 
 var errMissingID = errors.New("missing id")
 
-type Service struct {
-	repo     outbound.InsightRepository
-	enricher outbound.InsightEnricher
+type Result struct {
+	Inserted bool
 }
 
-func NewService(repo outbound.InsightRepository, enricher outbound.InsightEnricher) *Service {
+type InsightService interface {
+	Process(ctx context.Context, ev domain.IngestEvent) (Result, error)
+	ListByTenantID(ctx context.Context, tenantID string) ([]domain.Insight, error)
+}
+
+type Service struct {
+	repo     ports.InsightRepository
+	enricher ports.InsightEnricher
+}
+
+func NewService(repo ports.InsightRepository, enricher ports.InsightEnricher) *Service {
 	return &Service{
 		repo:     repo,
 		enricher: enricher,
 	}
 }
 
-type Result struct {
-	Inserted bool
-}
+var _ InsightService = (*Service)(nil)
 
 func (s *Service) Process(ctx context.Context, ev domain.IngestEvent) (Result, error) {
 	if strings.TrimSpace(ev.ID) == "" {
 		return Result{}, errMissingID
 	}
 
-	insight := s.buildInsight(ev)
+	i := s.buildInsight(ev)
 
-	inserted, err := s.repo.PutIfAbsent(ctx, insight)
+	inserted, err := s.repo.PutIfAbsent(ctx, i)
 	if err != nil {
 		return Result{}, err
 	}
@@ -47,7 +54,7 @@ func (s *Service) Process(ctx context.Context, ev domain.IngestEvent) (Result, e
 	}
 
 	// TODO: enrichment is not yet implemented
-	enriched, err := s.enricher.Enrich(ctx, insight)
+	enriched, err := s.enricher.Enrich(ctx, i)
 	if err != nil {
 		return Result{}, err
 	}
@@ -57,6 +64,10 @@ func (s *Service) Process(ctx context.Context, ev domain.IngestEvent) (Result, e
 	}
 
 	return Result{Inserted: true}, nil
+}
+
+func (s *Service) ListByTenantID(ctx context.Context, tenantID string) ([]domain.Insight, error) {
+	return s.repo.ListByTenantID(ctx, tenantID)
 }
 
 func (s *Service) buildInsight(ev domain.IngestEvent) domain.Insight {
