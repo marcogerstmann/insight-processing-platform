@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/marcogerstmann/insight-processing-platform/internal/application/apperr"
+	"github.com/marcogerstmann/insight-processing-platform/internal/apperr"
 	"github.com/marcogerstmann/insight-processing-platform/internal/domain"
 )
 

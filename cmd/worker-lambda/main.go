@@ -11,7 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	workersqs "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/sqs/worker"
 	dynamoAdapters "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/dynamodb"
-	"github.com/marcogerstmann/insight-processing-platform/internal/application/worker"
+	"github.com/marcogerstmann/insight-processing-platform/internal/application/insight"
 )
 
 func main() {
@@ -30,7 +30,7 @@ func main() {
 	dbclient := dynamodb.NewFromConfig(awsCfg)
 
 	insightRepo := dynamoAdapters.NewInsightAdapter(dbclient, mustEnv("TABLE_NAME_INSIGHTS"))
-	svc := worker.NewService(insightRepo, nil)
+	svc := insight.NewService(insightRepo, nil)
 
 	h := workersqs.NewHandler(svc, log)
 	lambda.Start(h.Handle)

@@ -13,6 +13,7 @@ import (
 	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest"
 	restinsight "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/insight"
 	dynamodbadapter "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/dynamodb"
+	"github.com/marcogerstmann/insight-processing-platform/internal/application/insight"
 )
 
 func main() {
@@ -33,8 +34,9 @@ func main() {
 
 	dynamoClient := awsdynamodb.NewFromConfig(awsCfg)
 	insightAdapter := dynamodbadapter.NewInsightAdapter(dynamoClient, tableName)
+	insightSvc := insight.NewService(insightAdapter, nil)
 
-	insightHandler := restinsight.NewHandler(insightAdapter, logger)
+	insightHandler := restinsight.NewHandler(insightSvc, logger)
 	router := rest.NewRouter(insightHandler)
 
 	addr := ":8081"

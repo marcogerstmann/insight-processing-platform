@@ -1,4 +1,4 @@
-package worker
+package memory
 
 import (
 	"context"
@@ -6,17 +6,17 @@ import (
 	"sync"
 
 	"github.com/marcogerstmann/insight-processing-platform/internal/domain"
-	"github.com/marcogerstmann/insight-processing-platform/internal/ports/outbound"
+	"github.com/marcogerstmann/insight-processing-platform/internal/ports"
 )
 
-// TODO delete once real persistence is implemented
+// TODO delete once real persistence is implemented in all environments
 type NoopRepo struct {
 	mu   sync.Mutex
 	seen map[string]struct{}
 	log  *slog.Logger
 }
 
-var _ outbound.InsightRepository = (*NoopRepo)(nil)
+var _ ports.InsightRepository = (*NoopRepo)(nil)
 
 func NewNoopRepo(log *slog.Logger) *NoopRepo {
 	return &NoopRepo{

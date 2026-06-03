@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/marcogerstmann/insight-processing-platform/internal/application/apperr"
+	"github.com/marcogerstmann/insight-processing-platform/internal/apperr"
 	"github.com/marcogerstmann/insight-processing-platform/internal/application/ingest"
 	"github.com/marcogerstmann/insight-processing-platform/internal/application/tenant"
 )
@@ -18,14 +18,14 @@ import (
 type Handler struct {
 	Log    *slog.Logger
 	Tenant *tenant.Resolver
-	Ingest *ingest.Service
+	Ingest ingest.IngestService
 }
 
-func NewHandler(log *slog.Logger, tr *tenant.Resolver, ingest *ingest.Service) *Handler {
+func NewHandler(log *slog.Logger, tr *tenant.Resolver, ing ingest.IngestService) *Handler {
 	return &Handler{
 		Log:    log,
 		Tenant: tr,
-		Ingest: ingest,
+		Ingest: ing,
 	}
 }
 
@@ -80,7 +80,7 @@ func (h *Handler) Handle(ctx context.Context, req events.APIGatewayV2HTTPRequest
 		return events.APIGatewayV2HTTPResponse{}, err
 	}
 
-	if err := h.Ingest.EnqueueReadwise(ctx, domain, tenantCtx.TenantID); err != nil {
+	if err := h.Ingest.Enqueue(ctx, domain, tenantCtx.TenantID); err != nil {
 		h.Log.ErrorContext(ctx, "enqueue failed", "err", err, "tenant_id", tenantCtx.TenantID)
 		return jsonResponse(http.StatusInternalServerError, map[string]any{"error": "enqueue failed"}), nil
 	}

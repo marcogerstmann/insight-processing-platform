@@ -5,18 +5,24 @@ import (
 	"encoding/json"
 
 	"github.com/marcogerstmann/insight-processing-platform/internal/domain"
-	"github.com/marcogerstmann/insight-processing-platform/internal/ports/outbound"
+	"github.com/marcogerstmann/insight-processing-platform/internal/ports"
 )
 
-type Service struct {
-	Publisher outbound.EventPublisher
+type IngestService interface {
+	Enqueue(ctx context.Context, ev domain.IngestEvent, tenantID string) error
 }
 
-func NewService(p outbound.EventPublisher) *Service {
+type Service struct {
+	Publisher ports.EventPublisher
+}
+
+var _ IngestService = (*Service)(nil)
+
+func NewService(p ports.EventPublisher) *Service {
 	return &Service{Publisher: p}
 }
 
-func (s *Service) EnqueueReadwise(ctx context.Context, ev domain.IngestEvent, tenantID string) error {
+func (s *Service) Enqueue(ctx context.Context, ev domain.IngestEvent, tenantID string) error {
 	ev.TenantID = tenantID
 	id := buildIdempotencyKey(ev)
 	ev.ID = id
@@ -26,7 +32,7 @@ func (s *Service) EnqueueReadwise(ctx context.Context, ev domain.IngestEvent, te
 		return err
 	}
 
-	msg := outbound.PublishMessage{
+	msg := ports.PublishMessage{
 		Body: body,
 		Attributes: map[string]string{
 			"idempotency_key": id,

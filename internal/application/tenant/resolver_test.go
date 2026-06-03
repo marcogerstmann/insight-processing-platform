@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/marcogerstmann/insight-processing-platform/internal/application/apperr"
+	"github.com/marcogerstmann/insight-processing-platform/internal/apperr"
 )
 
 func TestResolver_Resolve_Success(t *testing.T) {
