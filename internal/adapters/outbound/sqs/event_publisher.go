@@ -12,12 +12,12 @@ import (
 	port "github.com/marcogerstmann/insight-processing-platform/internal/ports"
 )
 
-type SQSEvenPublisher struct {
+type SQSEventPublisher struct {
 	client   *sqs.Client
 	queueURL string
 }
 
-func NewSQSEventPublisher(ctx context.Context) (*SQSEvenPublisher, error) {
+func NewSQSEventPublisher(ctx context.Context) (*SQSEventPublisher, error) {
 	queueURL := os.Getenv("INGEST_QUEUE_URL")
 	if queueURL == "" {
 		return nil, errors.New("missing env INGEST_QUEUE_URL")
@@ -28,13 +28,13 @@ func NewSQSEventPublisher(ctx context.Context) (*SQSEvenPublisher, error) {
 		return nil, err
 	}
 
-	return &SQSEvenPublisher{
+	return &SQSEventPublisher{
 		client:   sqs.NewFromConfig(cfg),
 		queueURL: queueURL,
 	}, nil
 }
 
-func (p *SQSEvenPublisher) Publish(ctx context.Context, msg port.PublishMessage) error {
+func (p *SQSEventPublisher) Publish(ctx context.Context, msg port.PublishMessage) error {
 	attrs := make(map[string]types.MessageAttributeValue, len(msg.Attributes))
 	for k, v := range msg.Attributes {
 		attrs[k] = types.MessageAttributeValue{

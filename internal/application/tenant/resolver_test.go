@@ -11,7 +11,7 @@ func TestResolver_Resolve_Success(t *testing.T) {
 	t.Setenv("DEFAULT_TENANT_ID", "tenant-foo")
 	t.Setenv("READWISE_WEBHOOK_SECRET", "s3cr3t")
 
-	r := NewResolver()
+	r := NewResolver(nil)
 	ctx, err := r.Resolve(ResolveInput{Source: "readwise", Secret: "s3cr3t"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -25,7 +25,7 @@ func TestResolver_Resolve_NoWebhookSecret(t *testing.T) {
 	t.Setenv("DEFAULT_TENANT_ID", "tenant-foo")
 	t.Setenv("READWISE_WEBHOOK_SECRET", "")
 
-	r := NewResolver()
+	r := NewResolver(nil)
 	_, err := r.Resolve(ResolveInput{Source: "readwise", Secret: "irrelevant"})
 	if err == nil {
 		t.Fatalf("expected server misconfigured error when webhook secret not configured")
@@ -39,7 +39,7 @@ func TestResolver_Resolve_BadSecret(t *testing.T) {
 	t.Setenv("DEFAULT_TENANT_ID", "tenant-foo")
 	t.Setenv("READWISE_WEBHOOK_SECRET", "expected")
 
-	r := NewResolver()
+	r := NewResolver(nil)
 	_, err := r.Resolve(ResolveInput{Source: "readwise", Secret: "wrong"})
 	if err == nil {
 		t.Fatalf("expected unauthorized error for wrong secret")
@@ -53,7 +53,7 @@ func TestResolver_Resolve_NoDefaultTenant(t *testing.T) {
 	t.Setenv("DEFAULT_TENANT_ID", "")
 	t.Setenv("READWISE_WEBHOOK_SECRET", "s3cr3t")
 
-	r := NewResolver()
+	r := NewResolver(nil)
 	_, err := r.Resolve(ResolveInput{Source: "readwise", Secret: "s3cr3t"})
 	if err == nil {
 		t.Fatalf("expected server misconfigured error when DEFAULT_TENANT_ID is empty")
@@ -67,7 +67,7 @@ func TestResolver_Resolve_UnknownSource(t *testing.T) {
 	t.Setenv("DEFAULT_TENANT_ID", "tenant-foo")
 	t.Setenv("READWISE_WEBHOOK_SECRET", "s3cr3t")
 
-	r := NewResolver()
+	r := NewResolver(nil)
 	_, err := r.Resolve(ResolveInput{Source: "unknown", Secret: "does-not-matter"})
 	if err == nil {
 		t.Fatalf("expected unauthorized error for unknown source")
