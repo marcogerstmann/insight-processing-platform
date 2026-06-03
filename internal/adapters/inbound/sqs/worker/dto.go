@@ -3,12 +3,12 @@ package worker
 import "time"
 
 type MessageDTO struct {
-	TenantID       string       `json:"tenant_id"`
-	Source         string       `json:"source"`
-	EventType      string       `json:"event_type"`
-	ReceivedAt     time.Time    `json:"received_at"`
-	IdempotencyKey string       `json:"idempotency_key"`
-	Highlight      HighlightDTO `json:"highlight"`
+	TenantID   string       `json:"tenant_id"`
+	Source     string       `json:"source"`
+	EventType  string       `json:"event_type"`
+	ReceivedAt time.Time    `json:"received_at"`
+	ID         string       `json:"id"`
+	Highlight  HighlightDTO `json:"highlight"`
 }
 
 type HighlightDTO struct {

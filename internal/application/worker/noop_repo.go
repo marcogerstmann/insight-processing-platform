@@ -29,21 +29,21 @@ func (r *NoopRepo) PutIfAbsent(_ context.Context, insight domain.Insight) (bool,
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if _, exists := r.seen[insight.IdempotencyKey]; exists {
+	if _, exists := r.seen[insight.ID]; exists {
 		r.log.Info(
 			"noop repo deduplicated insight",
 			"tenantID", insight.TenantID,
-			"idempotencyKey", insight.IdempotencyKey,
+			"id", insight.ID,
 		)
 		return false, nil
 	}
 
-	r.seen[insight.IdempotencyKey] = struct{}{}
+	r.seen[insight.ID] = struct{}{}
 
 	r.log.Info(
 		"noop repo inserted insight",
+		"id", insight.ID,
 		"tenantID", insight.TenantID,
-		"idempotencyKey", insight.IdempotencyKey,
 	)
 
 	return true, nil
@@ -52,8 +52,8 @@ func (r *NoopRepo) PutIfAbsent(_ context.Context, insight domain.Insight) (bool,
 func (r *NoopRepo) Update(_ context.Context, insight domain.Insight) error {
 	r.log.Info(
 		"noop repo updated insight",
+		"id", insight.ID,
 		"tenantID", insight.TenantID,
-		"idempotencyKey", insight.IdempotencyKey,
 	)
 	return nil
 }
