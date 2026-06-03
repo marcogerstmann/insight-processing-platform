@@ -70,16 +70,16 @@ DynamoDB
 
 All decisions are intentional and documented in ADRs.
 
-## Cost philosophy
+## Cost
 
-Costs are designed to be **visible and boring**.
+To be verified.
 
 At expected load (hundreds of events per month):
 
 > **~8 € / month**
 
 Rough order of magnitude:
-- AWS infrastructure: ~5–10 €
+- AWS infrastructure: ~3–8 €
 - LLM usage: explicitly capped via token limits and alarms
 
 The primary cost risk is **uncontrolled tokens**, not AWS.
