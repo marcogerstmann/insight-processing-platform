@@ -50,7 +50,7 @@ func TestEnqueueReadwise_PublishesMessage(t *testing.T) {
 
 	evForKey := ingestEvent
 	evForKey.TenantID = tenantID
-	evForKey.IdempotencyKey = buildIdempotencyKey(evForKey)
+	evForKey.ID = buildIdempotencyKey(evForKey)
 	expectedBody, err := json.Marshal(evForKey)
 	if err != nil {
 		t.Fatalf("failed to marshal expected body: %v", err)

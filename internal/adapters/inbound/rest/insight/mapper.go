@@ -4,9 +4,9 @@ import "github.com/marcogerstmann/insight-processing-platform/internal/domain"
 
 func mapInsightToDTO(i domain.Insight) InsightResponseDTO {
 	return InsightResponseDTO{
-		IdempotencyKey: i.IdempotencyKey,
-		Source:         i.Source,
-		Text:           i.Text,
+		ID:     i.ID,
+		Source: i.Source,
+		Text:   i.Text,
 	}
 }
 

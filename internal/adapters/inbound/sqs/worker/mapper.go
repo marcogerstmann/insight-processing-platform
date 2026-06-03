@@ -31,7 +31,7 @@ func MapRecordToDomain(rec events.SQSMessage) (domain.IngestEvent, error) {
 	if err != nil {
 		return domain.IngestEvent{}, err
 	}
-	idk, err := getRequiredAttr(rec, attrIdempotencyKey)
+	id, err := getRequiredAttr(rec, attrIdempotencyKey)
 	if err != nil {
 		return domain.IngestEvent{}, err
 	}
@@ -40,12 +40,12 @@ func MapRecordToDomain(rec events.SQSMessage) (domain.IngestEvent, error) {
 	if strings.TrimSpace(dto.TenantID) != "" && dto.TenantID != tenantID {
 		return domain.IngestEvent{}, PermanentError{Err: fmt.Errorf("tenant_id mismatch: body=%q attr=%q", dto.TenantID, tenantID)}
 	}
-	if strings.TrimSpace(dto.IdempotencyKey) != "" && dto.IdempotencyKey != idk {
-		return domain.IngestEvent{}, PermanentError{Err: fmt.Errorf("idempotency_key mismatch: body=%q attr=%q", dto.IdempotencyKey, idk)}
+	if strings.TrimSpace(dto.ID) != "" && dto.ID != id {
+		return domain.IngestEvent{}, PermanentError{Err: fmt.Errorf("id mismatch: body=%q attr=%q", dto.ID, id)}
 	}
 
+	ev.ID = id
 	ev.TenantID = tenantID
-	ev.IdempotencyKey = idk
 
 	return ev, nil
 }

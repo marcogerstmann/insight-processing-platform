@@ -1,8 +1,8 @@
 package domain
 
 type Insight struct {
-	TenantID       string
-	IdempotencyKey string
-	Source         string
-	Text           string
+	ID       string
+	TenantID string
+	Source   string
+	Text     string
 }

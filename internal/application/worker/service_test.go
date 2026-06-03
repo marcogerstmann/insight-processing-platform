@@ -70,15 +70,15 @@ func (s *spyEnricher) Enrich(_ context.Context, insight domain.Insight) (domain.
 }
 
 func isZeroInsight(i domain.Insight) bool {
-	return i.IdempotencyKey == ""
+	return i.ID == ""
 }
 
 func makeEvent(idk string) domain.IngestEvent {
 	return domain.IngestEvent{
-		TenantID:       "t-1",
-		Source:         "readwise",
-		EventType:      "highlight.created",
-		IdempotencyKey: idk,
+		TenantID:  "t-1",
+		Source:    "readwise",
+		EventType: "highlight.created",
+		ID:        idk,
 		Highlight: domain.Highlight{
 			ID:   "h-1",
 			Text: "  hello world  ",
@@ -86,7 +86,7 @@ func makeEvent(idk string) domain.IngestEvent {
 	}
 }
 
-func TestService_Process_HardGuard_EmptyIdempotencyKey(t *testing.T) {
+func TestService_Process_HardGuard_EmptyID(t *testing.T) {
 	log := &callLog{}
 	repo := &spyRepo{log: log}
 	enr := &spyEnricher{log: log}
@@ -96,8 +96,8 @@ func TestService_Process_HardGuard_EmptyIdempotencyKey(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected error, got nil")
 	}
-	if !errors.Is(err, errMissingIdempotencyKey) {
-		t.Fatalf("expected errMissingIdempotencyKey, got %v", err)
+	if !errors.Is(err, errMissingID) {
+		t.Fatalf("expected errMissingID, got %v", err)
 	}
 	if len(log.entries) != 0 {
 		t.Fatalf("expected no calls, got %v", log.entries)
@@ -238,7 +238,7 @@ func TestService_Process_NilEnricher_SkipsEnrichAndUpdate(t *testing.T) {
 	}
 }
 
-func TestService_Process_PropagatesTrimmedTextAndIdempotencyKey(t *testing.T) {
+func TestService_Process_PropagatesTrimmedTextAndID(t *testing.T) {
 	log := &callLog{}
 	repo := &spyRepo{log: log, putInserted: true}
 	enr := &spyEnricher{log: log}
@@ -249,14 +249,14 @@ func TestService_Process_PropagatesTrimmedTextAndIdempotencyKey(t *testing.T) {
 		t.Fatalf("unexpected err: %v", err)
 	}
 
-	if repo.gotPutInsight.IdempotencyKey != "idk-prop" {
-		t.Fatalf("expected idempotency key propagated into PutIfAbsent insight, got %q", repo.gotPutInsight.IdempotencyKey)
+	if repo.gotPutInsight.ID != "idk-prop" {
+		t.Fatalf("expected id propagated into PutIfAbsent insight, got %q", repo.gotPutInsight.ID)
 	}
 	if repo.gotPutInsight.Text != "hello world" {
 		t.Fatalf("expected trimmed text, got %q", repo.gotPutInsight.Text)
 	}
-	if enr.gotInsight.IdempotencyKey != "idk-prop" {
-		t.Fatalf("expected idempotency key propagated into enricher, got %q", enr.gotInsight.IdempotencyKey)
+	if enr.gotInsight.ID != "idk-prop" {
+		t.Fatalf("expected id propagated into enricher, got %q", enr.gotInsight.ID)
 	}
 }
 
@@ -265,10 +265,10 @@ func TestService_Process_UpdateReceivesEnrichedInsight_NotOriginal(t *testing.T)
 	repo := &spyRepo{log: log, putInserted: true}
 
 	enriched := domain.Insight{
-		TenantID:       "t-1",
-		IdempotencyKey: "idk-enriched",
-		Source:         "readwise",
-		Text:           "hello world",
+		TenantID: "t-1",
+		ID:       "idk-enriched",
+		Source:   "readwise",
+		Text:     "hello world",
 	}
 
 	enr := &spyEnricher{
@@ -283,7 +283,7 @@ func TestService_Process_UpdateReceivesEnrichedInsight_NotOriginal(t *testing.T)
 		t.Fatalf("unexpected err: %v", err)
 	}
 
-	if repo.gotUpdateInsight.IdempotencyKey != "idk-enriched" {
-		t.Fatalf("expected update to receive enriched insight, got %q", repo.gotUpdateInsight.IdempotencyKey)
+	if repo.gotUpdateInsight.ID != "idk-enriched" {
+		t.Fatalf("expected update to receive enriched insight, got %q", repo.gotUpdateInsight.ID)
 	}
 }

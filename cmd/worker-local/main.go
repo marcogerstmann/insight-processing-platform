@@ -36,7 +36,7 @@ func main() {
 	}
 
 	tenantID := strings.TrimSpace(getString(tmp, "tenant_id"))
-	idempotencyKey := strings.TrimSpace(getString(tmp, "idempotency_key"))
+	idempotencyKey := strings.TrimSpace(getString(tmp, "id"))
 
 	ev := events.SQSEvent{
 		Records: []events.SQSMessage{

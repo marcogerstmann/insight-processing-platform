@@ -1,5 +1,5 @@
 {
-  "idempotency_key": "test-idempotency-key",
+  "id": "test-id",
   "tenant_id": "test-tenant-id",
   "source": "readwise",
   "event_type": "readwise.highlight.created",

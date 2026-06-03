@@ -1,9 +1,9 @@
 package insight
 
 type InsightResponseDTO struct {
-	IdempotencyKey string `json:"idempotency_key"`
-	Source         string `json:"source"`
-	Text           string `json:"text"`
+	ID     string `json:"id"`
+	Source string `json:"source"`
+	Text   string `json:"text"`
 }
 
 type ListInsightsResponseDTO struct {

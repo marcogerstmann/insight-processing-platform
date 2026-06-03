@@ -9,7 +9,7 @@ import (
 	"github.com/marcogerstmann/insight-processing-platform/internal/ports/outbound"
 )
 
-var errMissingIdempotencyKey = errors.New("missing idempotency key")
+var errMissingID = errors.New("missing id")
 
 type Service struct {
 	repo     outbound.InsightRepository
@@ -28,8 +28,8 @@ type Result struct {
 }
 
 func (s *Service) Process(ctx context.Context, ev domain.IngestEvent) (Result, error) {
-	if strings.TrimSpace(ev.IdempotencyKey) == "" {
-		return Result{}, errMissingIdempotencyKey
+	if strings.TrimSpace(ev.ID) == "" {
+		return Result{}, errMissingID
 	}
 
 	insight := s.buildInsight(ev)
@@ -63,9 +63,9 @@ func (s *Service) buildInsight(ev domain.IngestEvent) domain.Insight {
 	text := strings.TrimSpace(ev.Highlight.Text)
 
 	return domain.Insight{
-		TenantID:       ev.TenantID,
-		IdempotencyKey: ev.IdempotencyKey,
-		Source:         ev.Source,
-		Text:           text,
+		ID:       ev.ID,
+		TenantID: ev.TenantID,
+		Source:   ev.Source,
+		Text:     text,
 	}
 }

@@ -15,22 +15,22 @@ import (
 )
 
 type dynamoInsightItem struct {
-	PK             string    `dynamodbav:"pk"`
-	SK             string    `dynamodbav:"sk"`
-	TenantID       string    `dynamodbav:"tenant_id"`
-	IdempotencyKey string    `dynamodbav:"idempotency_key"`
-	Source         string    `dynamodbav:"source"`
-	Text           string    `dynamodbav:"text"`
-	CreatedAt      time.Time `dynamodbav:"created_at"`
-	UpdatedAt      time.Time `dynamodbav:"updated_at"`
+	PK        string    `dynamodbav:"pk"`
+	SK        string    `dynamodbav:"sk"`
+	TenantID  string    `dynamodbav:"tenant_id"`
+	ID        string    `dynamodbav:"id"`
+	Source    string    `dynamodbav:"source"`
+	Text      string    `dynamodbav:"text"`
+	CreatedAt time.Time `dynamodbav:"created_at"`
+	UpdatedAt time.Time `dynamodbav:"updated_at"`
 }
 
 func pk(tenantID string) string {
 	return "TENANT#" + tenantID
 }
 
-func sk(idempotencyKey string) string {
-	return "INSIGHT#" + idempotencyKey
+func sk(id string) string {
+	return "INSIGHT#" + id
 }
 
 type InsightAdapter struct {
@@ -51,14 +51,14 @@ func (r *InsightAdapter) PutIfAbsent(ctx context.Context, insight domain.Insight
 	now := r.now().UTC()
 
 	item := dynamoInsightItem{
-		PK:             pk(insight.TenantID),
-		SK:             sk(insight.IdempotencyKey),
-		TenantID:       insight.TenantID,
-		IdempotencyKey: insight.IdempotencyKey,
-		Source:         insight.Source,
-		Text:           insight.Text,
-		CreatedAt:      now,
-		UpdatedAt:      now,
+		PK:        pk(insight.TenantID),
+		SK:        sk(insight.ID),
+		ID:        insight.ID,
+		TenantID:  insight.TenantID,
+		Source:    insight.Source,
+		Text:      insight.Text,
+		CreatedAt: now,
+		UpdatedAt: now,
 	}
 
 	av, err := attributevalue.MarshalMap(item)
@@ -113,10 +113,10 @@ func (r *InsightAdapter) ListByTenantID(ctx context.Context, tenantID string) ([
 			return nil, err
 		}
 		insights = append(insights, domain.Insight{
-			TenantID:       dynItem.TenantID,
-			IdempotencyKey: dynItem.IdempotencyKey,
-			Source:         dynItem.Source,
-			Text:           dynItem.Text,
+			ID:       dynItem.ID,
+			TenantID: dynItem.TenantID,
+			Source:   dynItem.Source,
+			Text:     dynItem.Text,
 		})
 	}
 	return insights, nil
@@ -125,7 +125,7 @@ func (r *InsightAdapter) ListByTenantID(ctx context.Context, tenantID string) ([
 func (r *InsightAdapter) Update(ctx context.Context, insight domain.Insight) error {
 	key, err := attributevalue.MarshalMap(map[string]string{
 		"pk": pk(insight.TenantID),
-		"sk": sk(insight.IdempotencyKey),
+		"sk": sk(insight.ID),
 	})
 	if err != nil {
 		return err
