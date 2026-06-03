@@ -10,11 +10,11 @@ import (
 )
 
 type Handler struct {
-	svc appinsight.InsightService
+	svc appinsight.Service
 	log *slog.Logger
 }
 
-func NewHandler(svc appinsight.InsightService, log *slog.Logger) *Handler {
+func NewHandler(svc appinsight.Service, log *slog.Logger) *Handler {
 	return &Handler{svc: svc, log: log}
 }
 

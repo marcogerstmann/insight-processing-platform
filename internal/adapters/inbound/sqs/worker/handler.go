@@ -9,11 +9,11 @@ import (
 )
 
 type Handler struct {
-	svc insight.InsightService
+	svc insight.Service
 	log *slog.Logger
 }
 
-func NewHandler(svc insight.InsightService, log *slog.Logger) *Handler {
+func NewHandler(svc insight.Service, log *slog.Logger) *Handler {
 	return &Handler{svc: svc, log: log}
 }
 
@@ -28,7 +28,8 @@ func (h *Handler) Handle(ctx context.Context, e events.SQSEvent) error {
 			return err
 		}
 
-		res, err := h.svc.Process(ctx, ev)
+		i := MapIngestEventToInsight(ev)
+		res, err := h.svc.Process(ctx, i)
 		if err != nil {
 			h.log.ErrorContext(ctx, "worker processing failed (retrying)",
 				"message_id", rec.MessageId,

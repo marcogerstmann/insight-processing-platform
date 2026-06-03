@@ -63,26 +63,18 @@ func (s *spyEnricher) Enrich(_ context.Context, insight domain.Insight) (domain.
 	if s.enrichErr != nil {
 		return domain.Insight{}, s.enrichErr
 	}
-	if !isZeroInsight(s.returnInsight) {
+	if s.returnInsight.ID != "" {
 		return s.returnInsight, nil
 	}
 	return insight, nil
 }
 
-func isZeroInsight(i domain.Insight) bool {
-	return i.ID == ""
-}
-
-func makeEvent(idk string) domain.IngestEvent {
-	return domain.IngestEvent{
-		TenantID:  "t-1",
-		Source:    "readwise",
-		EventType: "highlight.created",
-		ID:        idk,
-		Highlight: domain.Highlight{
-			ID:   "h-1",
-			Text: "  hello world  ",
-		},
+func makeInsight(id string) domain.Insight {
+	return domain.Insight{
+		ID:       id,
+		TenantID: "t-1",
+		Source:   "readwise",
+		Text:     "hello world",
 	}
 }
 
@@ -92,7 +84,7 @@ func TestService_Process_HardGuard_EmptyID(t *testing.T) {
 	enr := &spyEnricher{log: log}
 	svc := NewService(repo, enr)
 
-	_, err := svc.Process(context.Background(), makeEvent(""))
+	_, err := svc.Process(context.Background(), makeInsight(""))
 	if err == nil {
 		t.Fatalf("expected error, got nil")
 	}
@@ -110,7 +102,7 @@ func TestService_Process_WhenNew_PutThenEnrichThenUpdate_StrictOrder(t *testing.
 	enr := &spyEnricher{log: log}
 	svc := NewService(repo, enr)
 
-	_, err := svc.Process(context.Background(), makeEvent("idk-123"))
+	_, err := svc.Process(context.Background(), makeInsight("idk-123"))
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
@@ -132,7 +124,7 @@ func TestService_Process_WhenDuplicate_SkipsEnrichAndUpdate(t *testing.T) {
 	enr := &spyEnricher{log: log}
 	svc := NewService(repo, enr)
 
-	res, err := svc.Process(context.Background(), makeEvent("idk-dup"))
+	res, err := svc.Process(context.Background(), makeInsight("idk-dup"))
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
@@ -153,7 +145,7 @@ func TestService_Process_WhenRepoPutFails_ReturnsError_SkipsEnrichAndUpdate(t *t
 	enr := &spyEnricher{log: log}
 	svc := NewService(repo, enr)
 
-	_, err := svc.Process(context.Background(), makeEvent("idk-puterr"))
+	_, err := svc.Process(context.Background(), makeInsight("idk-puterr"))
 	if err == nil {
 		t.Fatalf("expected error, got nil")
 	}
@@ -174,7 +166,7 @@ func TestService_Process_WhenEnrichFails_ReturnsError_DoesNotUpdate(t *testing.T
 	enr := &spyEnricher{log: log, enrichErr: enrichErr}
 	svc := NewService(repo, enr)
 
-	_, err := svc.Process(context.Background(), makeEvent("idk-enricherr"))
+	_, err := svc.Process(context.Background(), makeInsight("idk-enricherr"))
 	if err == nil {
 		t.Fatalf("expected error, got nil")
 	}
@@ -200,7 +192,7 @@ func TestService_Process_WhenUpdateFails_ReturnsError_AfterPutAndEnrich(t *testi
 	enr := &spyEnricher{log: log}
 	svc := NewService(repo, enr)
 
-	_, err := svc.Process(context.Background(), makeEvent("idk-updateerr"))
+	_, err := svc.Process(context.Background(), makeInsight("idk-updateerr"))
 	if err == nil {
 		t.Fatalf("expected error, got nil")
 	}
@@ -224,7 +216,7 @@ func TestService_Process_NilEnricher_SkipsEnrichAndUpdate(t *testing.T) {
 	repo := &spyRepo{log: log, putInserted: true}
 	svc := NewService(repo, nil)
 
-	res, err := svc.Process(context.Background(), makeEvent("idk-nilenr"))
+	res, err := svc.Process(context.Background(), makeInsight("idk-nilenr"))
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
@@ -238,22 +230,19 @@ func TestService_Process_NilEnricher_SkipsEnrichAndUpdate(t *testing.T) {
 	}
 }
 
-func TestService_Process_PropagatesTrimmedTextAndID(t *testing.T) {
+func TestService_Process_PropagatesInsightToRepo(t *testing.T) {
 	log := &callLog{}
 	repo := &spyRepo{log: log, putInserted: true}
 	enr := &spyEnricher{log: log}
 	svc := NewService(repo, enr)
 
-	_, err := svc.Process(context.Background(), makeEvent("idk-prop"))
+	_, err := svc.Process(context.Background(), makeInsight("idk-prop"))
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
 
 	if repo.gotPutInsight.ID != "idk-prop" {
-		t.Fatalf("expected id propagated into PutIfAbsent insight, got %q", repo.gotPutInsight.ID)
-	}
-	if repo.gotPutInsight.Text != "hello world" {
-		t.Fatalf("expected trimmed text, got %q", repo.gotPutInsight.Text)
+		t.Fatalf("expected id propagated into PutIfAbsent, got %q", repo.gotPutInsight.ID)
 	}
 	if enr.gotInsight.ID != "idk-prop" {
 		t.Fatalf("expected id propagated into enricher, got %q", enr.gotInsight.ID)
@@ -265,25 +254,21 @@ func TestService_Process_UpdateReceivesEnrichedInsight_NotOriginal(t *testing.T)
 	repo := &spyRepo{log: log, putInserted: true}
 
 	enriched := domain.Insight{
-		TenantID: "t-1",
 		ID:       "idk-enriched",
+		TenantID: "t-1",
 		Source:   "readwise",
-		Text:     "hello world",
+		Text:     "enriched text",
 	}
 
-	enr := &spyEnricher{
-		log:           log,
-		returnInsight: enriched,
-	}
-
+	enr := &spyEnricher{log: log, returnInsight: enriched}
 	svc := NewService(repo, enr)
 
-	_, err := svc.Process(context.Background(), makeEvent("idk-enriched"))
+	_, err := svc.Process(context.Background(), makeInsight("idk-enriched"))
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
 
-	if repo.gotUpdateInsight.ID != "idk-enriched" {
-		t.Fatalf("expected update to receive enriched insight, got %q", repo.gotUpdateInsight.ID)
+	if repo.gotUpdateInsight.Text != "enriched text" {
+		t.Fatalf("expected update to receive enriched insight, got %q", repo.gotUpdateInsight.Text)
 	}
 }

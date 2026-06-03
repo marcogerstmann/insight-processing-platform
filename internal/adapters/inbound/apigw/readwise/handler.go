@@ -18,10 +18,10 @@ import (
 type Handler struct {
 	Log    *slog.Logger
 	Tenant *tenant.Resolver
-	Ingest ingest.IngestService
+	Ingest ingest.Service
 }
 
-func NewHandler(log *slog.Logger, tr *tenant.Resolver, ing ingest.IngestService) *Handler {
+func NewHandler(log *slog.Logger, tr *tenant.Resolver, ing ingest.Service) *Handler {
 	return &Handler{
 		Log:    log,
 		Tenant: tr,
