@@ -87,6 +87,9 @@ data "aws_iam_policy_document" "github_actions_permissions" {
       "ecr:ListTagsForResource",
       "ecr:TagResource",
       "ecr:UntagResource",
+      "ecr:GetRepositoryPolicy",
+      "ecr:SetRepositoryPolicy",
+      "ecr:DeleteRepositoryPolicy",
     ]
     resources = [aws_ecr_repository.worker.arn]
   }
