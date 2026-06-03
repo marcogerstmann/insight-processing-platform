@@ -32,7 +32,7 @@ func main() {
 	}
 
 	ingestSvc := ingest.NewService(publisher)
-	tenantResolver := tenant.NewResolver( /* config */ )
+	tenantResolver := tenant.NewResolver(nil) // local: relies on READWISE_WEBHOOK_SECRET in .env
 
 	handler := readwise.NewHandler(logger, tenantResolver, ingestSvc)
 

@@ -8,22 +8,21 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/ssm"
-
 	"github.com/marcogerstmann/insight-processing-platform/internal/apperr"
+	"github.com/marcogerstmann/insight-processing-platform/internal/ports"
 )
 
 type Resolver struct {
+	secrets ports.SecretProvider
+
 	// cache across invocations in the same Lambda execution environment (cold start -> warm)
 	readwiseSecretOnce sync.Once
 	readwiseSecret     string
 	readwiseSecretErr  error
 }
 
-func NewResolver() *Resolver {
-	return &Resolver{}
+func NewResolver(secrets ports.SecretProvider) *Resolver {
+	return &Resolver{secrets: secrets}
 }
 
 type Context struct {
@@ -63,7 +62,6 @@ func (r *Resolver) authorizedReadwise(in ResolveInput) bool {
 	if err != nil {
 		return false
 	}
-
 	return strings.TrimSpace(in.Secret) == secretExpected
 }
 
@@ -80,7 +78,12 @@ func (r *Resolver) expectedReadwiseSecret() (string, error) {
 			return
 		}
 
-		secret, err := r.getSSMSecureString(context.Background(), paramName)
+		if r.secrets == nil {
+			r.readwiseSecretErr = errors.New("secret provider not configured; set READWISE_WEBHOOK_SECRET env var")
+			return
+		}
+
+		secret, err := r.secrets.Get(context.Background(), paramName)
 		if err != nil {
 			r.readwiseSecretErr = fmt.Errorf("failed to load readwise webhook secret from SSM (%s): %w", paramName, err)
 			return
@@ -100,25 +103,4 @@ func (r *Resolver) expectedReadwiseSecret() (string, error) {
 		return "", errors.New("readwise webhook secret resolved to empty")
 	}
 	return r.readwiseSecret, nil
-}
-
-func (r *Resolver) getSSMSecureString(ctx context.Context, name string) (string, error) {
-	awsCfg, err := config.LoadDefaultConfig(ctx)
-	if err != nil {
-		return "", err
-	}
-
-	client := ssm.NewFromConfig(awsCfg)
-	out, err := client.GetParameter(ctx, &ssm.GetParameterInput{
-		Name:           &name,
-		WithDecryption: aws.Bool(true),
-	})
-	if err != nil {
-		return "", err
-	}
-	if out.Parameter == nil || out.Parameter.Value == nil {
-		return "", errors.New("parameter not found or empty")
-	}
-
-	return strings.TrimSpace(*out.Parameter.Value), nil
 }
