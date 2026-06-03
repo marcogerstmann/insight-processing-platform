@@ -304,6 +304,8 @@ data "aws_iam_policy_document" "github_actions_permissions" {
       "cognito-idp:DeleteUserPoolClient",
       "cognito-idp:DescribeUserPoolClient",
       "cognito-idp:UpdateUserPoolClient",
+      "cognito-idp:GetUserPoolMfaConfig",
+      "cognito-idp:SetUserPoolMfaConfig",
       "cognito-idp:ListTagsForResource",
       "cognito-idp:TagResource",
       "cognito-idp:UntagResource",
