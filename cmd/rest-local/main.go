@@ -10,8 +10,8 @@ import (
 	awsdynamodb "github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/joho/godotenv"
 
-	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/rest"
-	restinsight "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/rest/insight"
+	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest"
+	restinsight "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/insight"
 	dynamodbadapter "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/dynamodb"
 )
 
