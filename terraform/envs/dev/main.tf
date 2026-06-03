@@ -209,6 +209,8 @@ module  "worker_lambda" {
   environment_variables = {
     TABLE_NAME_INSIGHTS = module.dynamodb_insights.table_name
   }
+
+  depends_on = [aws_iam_role_policy.worker_ecr_pull]
 }
 
 # SQS -> Worker Lambda trigger
