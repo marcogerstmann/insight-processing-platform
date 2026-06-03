@@ -8,21 +8,21 @@ import (
 	"github.com/marcogerstmann/insight-processing-platform/internal/ports"
 )
 
-type IngestService interface {
+type Service interface {
 	Enqueue(ctx context.Context, ev domain.IngestEvent, tenantID string) error
 }
 
-type Service struct {
-	Publisher ports.EventPublisher
+type service struct {
+	publisher ports.EventPublisher
 }
 
-var _ IngestService = (*Service)(nil)
+var _ Service = (*service)(nil)
 
-func NewService(p ports.EventPublisher) *Service {
-	return &Service{Publisher: p}
+func NewService(p ports.EventPublisher) Service {
+	return &service{publisher: p}
 }
 
-func (s *Service) Enqueue(ctx context.Context, ev domain.IngestEvent, tenantID string) error {
+func (s *service) Enqueue(ctx context.Context, ev domain.IngestEvent, tenantID string) error {
 	ev.TenantID = tenantID
 	id := buildIdempotencyKey(ev)
 	ev.ID = id
@@ -40,5 +40,5 @@ func (s *Service) Enqueue(ctx context.Context, ev domain.IngestEvent, tenantID s
 		},
 	}
 
-	return s.Publisher.Publish(ctx, msg)
+	return s.publisher.Publish(ctx, msg)
 }

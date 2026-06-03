@@ -9,6 +9,15 @@ import (
 	"github.com/marcogerstmann/insight-processing-platform/internal/domain"
 )
 
+func MapIngestEventToInsight(ev domain.IngestEvent) domain.Insight {
+	return domain.Insight{
+		ID:       ev.ID,
+		TenantID: ev.TenantID,
+		Source:   ev.Source,
+		Text:     strings.TrimSpace(ev.Highlight.Text),
+	}
+}
+
 const (
 	attrTenantID       = "tenant_id"
 	attrIdempotencyKey = "idempotency_key"

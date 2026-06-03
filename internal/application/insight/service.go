@@ -15,33 +15,31 @@ type Result struct {
 	Inserted bool
 }
 
-type InsightService interface {
-	Process(ctx context.Context, ev domain.IngestEvent) (Result, error)
+type Service interface {
+	Process(ctx context.Context, insight domain.Insight) (Result, error)
 	ListByTenantID(ctx context.Context, tenantID string) ([]domain.Insight, error)
 }
 
-type Service struct {
+type service struct {
 	repo     ports.InsightRepository
 	enricher ports.InsightEnricher
 }
 
-func NewService(repo ports.InsightRepository, enricher ports.InsightEnricher) *Service {
-	return &Service{
+func NewService(repo ports.InsightRepository, enricher ports.InsightEnricher) Service {
+	return &service{
 		repo:     repo,
 		enricher: enricher,
 	}
 }
 
-var _ InsightService = (*Service)(nil)
+var _ Service = (*service)(nil)
 
-func (s *Service) Process(ctx context.Context, ev domain.IngestEvent) (Result, error) {
-	if strings.TrimSpace(ev.ID) == "" {
+func (s *service) Process(ctx context.Context, insight domain.Insight) (Result, error) {
+	if strings.TrimSpace(insight.ID) == "" {
 		return Result{}, errMissingID
 	}
 
-	i := s.buildInsight(ev)
-
-	inserted, err := s.repo.PutIfAbsent(ctx, i)
+	inserted, err := s.repo.PutIfAbsent(ctx, insight)
 	if err != nil {
 		return Result{}, err
 	}
@@ -54,7 +52,7 @@ func (s *Service) Process(ctx context.Context, ev domain.IngestEvent) (Result, e
 	}
 
 	// TODO: enrichment is not yet implemented
-	enriched, err := s.enricher.Enrich(ctx, i)
+	enriched, err := s.enricher.Enrich(ctx, insight)
 	if err != nil {
 		return Result{}, err
 	}
@@ -66,17 +64,6 @@ func (s *Service) Process(ctx context.Context, ev domain.IngestEvent) (Result, e
 	return Result{Inserted: true}, nil
 }
 
-func (s *Service) ListByTenantID(ctx context.Context, tenantID string) ([]domain.Insight, error) {
+func (s *service) ListByTenantID(ctx context.Context, tenantID string) ([]domain.Insight, error) {
 	return s.repo.ListByTenantID(ctx, tenantID)
-}
-
-func (s *Service) buildInsight(ev domain.IngestEvent) domain.Insight {
-	text := strings.TrimSpace(ev.Highlight.Text)
-
-	return domain.Insight{
-		ID:       ev.ID,
-		TenantID: ev.TenantID,
-		Source:   ev.Source,
-		Text:     text,
-	}
 }
