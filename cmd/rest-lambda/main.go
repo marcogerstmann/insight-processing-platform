@@ -1,0 +1,48 @@
+package main
+
+import (
+	"context"
+	"log"
+	"log/slog"
+	"os"
+
+	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/aws/aws-sdk-go-v2/config"
+	awsdynamodb "github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	ginadapter "github.com/awslabs/aws-lambda-go-api-proxy/gin"
+
+	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/rest"
+	restinsight "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/rest/insight"
+	dynamodbadapter "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/dynamodb"
+)
+
+var ginLambda *ginadapter.GinLambdaV2
+
+func init() {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+
+	tableName := os.Getenv("TABLE_NAME_INSIGHTS")
+	if tableName == "" {
+		log.Fatal("TABLE_NAME_INSIGHTS env var is required")
+	}
+
+	awsCfg, err := config.LoadDefaultConfig(context.Background())
+	if err != nil {
+		log.Fatalf("aws config failed: %v", err)
+	}
+
+	dynamoClient := awsdynamodb.NewFromConfig(awsCfg)
+	insightAdapter := dynamodbadapter.NewInsightAdapter(dynamoClient, tableName)
+	insightHandler := restinsight.NewHandler(insightAdapter, logger)
+
+	ginLambda = ginadapter.NewV2(rest.NewRouter(insightHandler))
+}
+
+func handler(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
+	return ginLambda.ProxyWithContext(ctx, req)
+}
+
+func main() {
+	lambda.Start(handler)
+}

@@ -3,7 +3,10 @@
 *.tfstate
 *.tfstate.*
 .terraform.tfstate.lock.info
-lambda.zip
+*.zip
+
+# Compiled Lambda binaries
+cmd/*/bootstrap
 
 # Environment files
 *.env

@@ -1,4 +1,4 @@
-name: Deploy Worker
+name: Deploy
 
 on:
   push:
@@ -53,4 +53,4 @@ jobs:
         with:
           terraform_version: "1.5.7"
 
-      - run: make worker-deploy
+      - run: make deploy
