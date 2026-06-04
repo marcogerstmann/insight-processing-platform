@@ -1,5 +1,15 @@
 GET {{base_url}}/tenants/{{tenant_id}}/insights
-Accept: application/json
 Authorization: Bearer {{auth_token}}
+Accept: application/json
+
+###
+
+POST {{base_url}}/tenants/{{tenant_id}}/insights
+Authorization: Bearer {{auth_token}}
+Accept: application/json
+
+{
+    "text": "This is an insight text."
+}
 
 ###

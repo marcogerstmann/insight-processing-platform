@@ -10,3 +10,12 @@ type ListInsightsResponseDTO struct {
 	TenantID string               `json:"tenant_id"`
 	Items    []InsightResponseDTO `json:"items"`
 }
+
+type CreateInsightRequestDTO struct {
+	Text string `json:"text"`
+}
+
+type CreateInsightResponseDTO struct {
+	Inserted bool               `json:"inserted"`
+	Insight  InsightResponseDTO `json:"insight"`
+}

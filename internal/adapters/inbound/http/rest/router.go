@@ -12,6 +12,7 @@ func NewRouter(insightHandler *insight.Handler) *gin.Engine {
 	v1 := r.Group("/tenants/:tenantID")
 	{
 		v1.GET("/insights", insightHandler.ListByTenantID)
+		v1.POST("/insights", insightHandler.Create)
 	}
 
 	return r
