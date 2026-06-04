@@ -39,7 +39,7 @@ func (s *service) Process(ctx context.Context, insight domain.Insight) (Result, 
 		return Result{}, errMissingID
 	}
 
-	inserted, err := s.repo.PutIfAbsent(ctx, insight)
+	inserted, err := s.repo.CreateIfAbsent(ctx, insight)
 	if err != nil {
 		return Result{}, err
 	}

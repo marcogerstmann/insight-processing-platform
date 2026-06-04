@@ -24,7 +24,7 @@ func NewInsightNoopAdapter(log *slog.Logger) *InsightNoopAdapter {
 	}
 }
 
-func (r *InsightNoopAdapter) PutIfAbsent(_ context.Context, insight domain.Insight) (bool, error) {
+func (r *InsightNoopAdapter) CreateIfAbsent(_ context.Context, insight domain.Insight) (bool, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 

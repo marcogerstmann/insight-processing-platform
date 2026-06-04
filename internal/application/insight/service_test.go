@@ -26,9 +26,9 @@ type spyRepo struct {
 	gotUpdateInsight domain.Insight
 }
 
-func (s *spyRepo) PutIfAbsent(_ context.Context, insight domain.Insight) (bool, error) {
+func (s *spyRepo) CreateIfAbsent(_ context.Context, insight domain.Insight) (bool, error) {
 	if s.log != nil {
-		s.log.add("repo.PutIfAbsent")
+		s.log.add("repo.CreateIfAbsent")
 	}
 	s.gotPutInsight = insight
 	return s.putInserted, s.putErr
@@ -107,7 +107,7 @@ func TestService_Process_WhenNew_PutThenEnrichThenUpdate_StrictOrder(t *testing.
 		t.Fatalf("unexpected err: %v", err)
 	}
 
-	want := []string{"repo.PutIfAbsent", "enricher.Enrich", "repo.Update"}
+	want := []string{"repo.CreateIfAbsent", "enricher.Enrich", "repo.Update"}
 	if len(log.entries) != len(want) {
 		t.Fatalf("expected calls=%v, got %v", want, log.entries)
 	}
@@ -132,7 +132,7 @@ func TestService_Process_WhenDuplicate_SkipsEnrichAndUpdate(t *testing.T) {
 		t.Fatalf("expected Inserted=false for duplicate, got true")
 	}
 
-	want := []string{"repo.PutIfAbsent"}
+	want := []string{"repo.CreateIfAbsent"}
 	if len(log.entries) != len(want) || log.entries[0] != want[0] {
 		t.Fatalf("expected calls=%v, got %v", want, log.entries)
 	}
@@ -153,7 +153,7 @@ func TestService_Process_WhenRepoPutFails_ReturnsError_SkipsEnrichAndUpdate(t *t
 		t.Fatalf("expected put error, got %v", err)
 	}
 
-	want := []string{"repo.PutIfAbsent"}
+	want := []string{"repo.CreateIfAbsent"}
 	if len(log.entries) != len(want) || log.entries[0] != want[0] {
 		t.Fatalf("expected calls=%v, got %v", want, log.entries)
 	}
@@ -174,7 +174,7 @@ func TestService_Process_WhenEnrichFails_ReturnsError_DoesNotUpdate(t *testing.T
 		t.Fatalf("expected enrich error, got %v", err)
 	}
 
-	want := []string{"repo.PutIfAbsent", "enricher.Enrich"}
+	want := []string{"repo.CreateIfAbsent", "enricher.Enrich"}
 	if len(log.entries) != len(want) {
 		t.Fatalf("expected calls=%v, got %v", want, log.entries)
 	}
@@ -200,7 +200,7 @@ func TestService_Process_WhenUpdateFails_ReturnsError_AfterPutAndEnrich(t *testi
 		t.Fatalf("expected update error, got %v", err)
 	}
 
-	want := []string{"repo.PutIfAbsent", "enricher.Enrich", "repo.Update"}
+	want := []string{"repo.CreateIfAbsent", "enricher.Enrich", "repo.Update"}
 	if len(log.entries) != len(want) {
 		t.Fatalf("expected calls=%v, got %v", want, log.entries)
 	}
@@ -224,7 +224,7 @@ func TestService_Process_NilEnricher_SkipsEnrichAndUpdate(t *testing.T) {
 		t.Fatalf("expected Inserted=true, got false")
 	}
 
-	want := []string{"repo.PutIfAbsent"}
+	want := []string{"repo.CreateIfAbsent"}
 	if len(log.entries) != len(want) || log.entries[0] != want[0] {
 		t.Fatalf("expected calls=%v, got %v", want, log.entries)
 	}
@@ -242,7 +242,7 @@ func TestService_Process_PropagatesInsightToRepo(t *testing.T) {
 	}
 
 	if repo.gotPutInsight.ID != "idk-prop" {
-		t.Fatalf("expected id propagated into PutIfAbsent, got %q", repo.gotPutInsight.ID)
+		t.Fatalf("expected id propagated into CreateIfAbsent, got %q", repo.gotPutInsight.ID)
 	}
 	if enr.gotInsight.ID != "idk-prop" {
 		t.Fatalf("expected id propagated into enricher, got %q", enr.gotInsight.ID)

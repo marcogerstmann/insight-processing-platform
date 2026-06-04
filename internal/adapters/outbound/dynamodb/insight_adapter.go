@@ -47,7 +47,7 @@ func NewInsightAdapter(client *dynamodb.Client, tableName string) *InsightAdapte
 	}
 }
 
-func (r *InsightAdapter) PutIfAbsent(ctx context.Context, insight domain.Insight) (bool, error) {
+func (r *InsightAdapter) CreateIfAbsent(ctx context.Context, insight domain.Insight) (bool, error) {
 	now := r.now().UTC()
 
 	item := dynamoInsightItem{

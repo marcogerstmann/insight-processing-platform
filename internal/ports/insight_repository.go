@@ -7,7 +7,7 @@ import (
 )
 
 type InsightRepository interface {
-	PutIfAbsent(ctx context.Context, insight domain.Insight) (inserted bool, err error)
+	CreateIfAbsent(ctx context.Context, insight domain.Insight) (inserted bool, err error)
 	Update(ctx context.Context, insight domain.Insight) error
 	ListByTenantID(ctx context.Context, tenantID string) ([]domain.Insight, error)
 }
