@@ -224,7 +224,7 @@ variable "worker_image_uri" {
   description = "Full ECR image URI for the worker Lambda"
 }
 
-module  "worker_lambda" {
+module "worker_lambda" {
   source      = "../../modules/lambda-image"
   name        = "ipp-dev-worker"
   role_arn    = module.worker_lambda_role.role_arn
@@ -233,8 +233,9 @@ module  "worker_lambda" {
   memory_size = 256
 
   environment_variables = {
-    TABLE_NAME_INSIGHTS = module.dynamodb_insights.table_name
-    INGEST_DLQ_URL      = module.ingest_queue.dlq_url
+    TABLE_NAME_INSIGHTS   = module.dynamodb_insights.table_name
+    INGEST_DLQ_URL        = module.ingest_queue.dlq_url
+    ANTHROPIC_API_KEY_SSM = "/ipp/dev/anthropic/api_key"
   }
 
   depends_on = [aws_iam_role_policy.worker_ecr_pull, aws_ecr_repository_policy.worker]
@@ -261,6 +262,22 @@ module "dynamodb_insights" {
   }
 }
 
+resource "aws_iam_role_policy" "worker_ssm_read" {
+  name = "ipp-dev-worker-ssm-read"
+  role = module.worker_lambda_role.role_name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["ssm:GetParameter"]
+        Resource = "arn:aws:ssm:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:parameter/ipp/dev/anthropic-api-key"
+      }
+    ]
+  })
+}
+
 resource "aws_iam_policy" "worker_dynamodb" {
   name = "${var.project}-${var.env}-worker-dynamodb"
 
@@ -268,9 +285,15 @@ resource "aws_iam_policy" "worker_dynamodb" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "PutInsightIfAbsent"
-        Effect = "Allow"
-        Action = ["dynamodb:PutItem"]
+        Sid      = "PutInsightIfAbsent"
+        Effect   = "Allow"
+        Action   = ["dynamodb:PutItem"]
+        Resource = module.dynamodb_insights.table_arn
+      },
+      {
+        Sid      = "UpdateInsightAfterEnrichment"
+        Effect   = "Allow"
+        Action   = ["dynamodb:UpdateItem"]
         Resource = module.dynamodb_insights.table_arn
       }
     ]
