@@ -6,6 +6,7 @@
 |-------------------------|-----------------------------------------------|
 | READWISE_WEBHOOK_SECRET | Verifies incoming Readwise webhook signatures |
 | INGEST_QUEUE_URL        | URL for the ingestion queue                   |
+| INGEST_DLQ_URL          | URL for the ingestion DLQ                     |
 | DEFAULT_TENANT_ID       | Default tenant ID                             |
 | TABLE_NAME_INSIGHTS     | Name of the insights table in DynamoDB        |
 

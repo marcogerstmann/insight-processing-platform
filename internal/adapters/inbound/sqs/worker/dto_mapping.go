@@ -4,18 +4,19 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/marcogerstmann/insight-processing-platform/internal/apperr"
 	"github.com/marcogerstmann/insight-processing-platform/internal/domain"
 )
 
 func MapMessageDTOToDomain(dto MessageDTO) (domain.IngestEvent, error) {
 	if strings.TrimSpace(dto.Source) == "" {
-		return domain.IngestEvent{}, PermanentError{Err: fmt.Errorf("missing source")}
+		return domain.IngestEvent{}, apperr.PermanentError{Err: fmt.Errorf("missing source")}
 	}
 	if strings.TrimSpace(dto.EventType) == "" {
-		return domain.IngestEvent{}, PermanentError{Err: fmt.Errorf("missing event type")}
+		return domain.IngestEvent{}, apperr.PermanentError{Err: fmt.Errorf("missing event type")}
 	}
 	if strings.TrimSpace(dto.Highlight.ID) == "" {
-		return domain.IngestEvent{}, PermanentError{Err: fmt.Errorf("missing highlight id")}
+		return domain.IngestEvent{}, apperr.PermanentError{Err: fmt.Errorf("missing highlight id")}
 	}
 
 	return domain.IngestEvent{

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/marcogerstmann/insight-processing-platform/internal/apperr"
 	"github.com/marcogerstmann/insight-processing-platform/internal/domain"
 )
 
@@ -47,10 +48,10 @@ func MapRecordToDomain(rec events.SQSMessage) (domain.IngestEvent, error) {
 
 	// Drift checks between message body and attributes
 	if strings.TrimSpace(dto.TenantID) != "" && dto.TenantID != tenantID {
-		return domain.IngestEvent{}, PermanentError{Err: fmt.Errorf("tenant_id mismatch: body=%q attr=%q", dto.TenantID, tenantID)}
+		return domain.IngestEvent{}, apperr.PermanentError{Err: fmt.Errorf("tenant_id mismatch: body=%q attr=%q", dto.TenantID, tenantID)}
 	}
 	if strings.TrimSpace(dto.ID) != "" && dto.ID != id {
-		return domain.IngestEvent{}, PermanentError{Err: fmt.Errorf("id mismatch: body=%q attr=%q", dto.ID, id)}
+		return domain.IngestEvent{}, apperr.PermanentError{Err: fmt.Errorf("id mismatch: body=%q attr=%q", dto.ID, id)}
 	}
 
 	ev.ID = id
@@ -62,11 +63,11 @@ func MapRecordToDomain(rec events.SQSMessage) (domain.IngestEvent, error) {
 func getRequiredAttr(rec events.SQSMessage, key string) (string, error) {
 	a, ok := rec.MessageAttributes[key]
 	if !ok || a.StringValue == nil {
-		return "", PermanentError{Err: fmt.Errorf("missing message attribute %s", key)}
+		return "", apperr.PermanentError{Err: fmt.Errorf("missing message attribute %s", key)}
 	}
 	v := strings.TrimSpace(*a.StringValue)
 	if v == "" {
-		return "", PermanentError{Err: fmt.Errorf("empty message attribute %s", key)}
+		return "", apperr.PermanentError{Err: fmt.Errorf("empty message attribute %s", key)}
 	}
 	return v, nil
 }
@@ -74,7 +75,7 @@ func getRequiredAttr(rec events.SQSMessage, key string) (string, error) {
 func parseBody(body string) (MessageDTO, error) {
 	var dto MessageDTO
 	if err := json.Unmarshal([]byte(body), &dto); err != nil {
-		return MessageDTO{}, PermanentError{Err: fmt.Errorf("invalid json body: %w", err)}
+		return MessageDTO{}, apperr.PermanentError{Err: fmt.Errorf("invalid json body: %w", err)}
 	}
 	return dto, nil
 }

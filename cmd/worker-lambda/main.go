@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	workersqs "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/sqs/worker"
 	dynamoAdapters "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/dynamodb"
+	sqsAdapters "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/sqs"
 	"github.com/marcogerstmann/insight-processing-platform/internal/application/insight"
 )
 
@@ -29,10 +30,16 @@ func main() {
 	}
 	dbclient := dynamodb.NewFromConfig(awsCfg)
 
+	dlqPublisher, err := sqsAdapters.NewSQSDLQPublisher(ctx)
+	if err != nil {
+		log.Error("failed to create DLQ publisher", "err", err)
+		os.Exit(1)
+	}
+
 	insightRepo := dynamoAdapters.NewInsightAdapter(dbclient, mustEnv("TABLE_NAME_INSIGHTS"))
 	svc := insight.NewService(insightRepo, nil)
 
-	h := workersqs.NewHandler(svc, log)
+	h := workersqs.NewHandler(svc, dlqPublisher, log)
 	lambda.Start(h.Handle)
 }
 
