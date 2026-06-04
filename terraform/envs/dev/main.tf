@@ -191,6 +191,11 @@ resource "aws_iam_role_policy" "worker_sqs_consume" {
           "sqs:ChangeMessageVisibility"
         ]
         Resource = module.ingest_queue.queue_arn
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["sqs:SendMessage"]
+        Resource = module.ingest_queue.dlq_arn
       }
     ]
   })
@@ -229,6 +234,7 @@ module  "worker_lambda" {
 
   environment_variables = {
     TABLE_NAME_INSIGHTS = module.dynamodb_insights.table_name
+    INGEST_DLQ_URL      = module.ingest_queue.dlq_url
   }
 
   depends_on = [aws_iam_role_policy.worker_ecr_pull, aws_ecr_repository_policy.worker]

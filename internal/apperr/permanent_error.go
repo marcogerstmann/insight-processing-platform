@@ -1,4 +1,4 @@
-package worker
+package apperr
 
 type PermanentError struct{ Err error }
 

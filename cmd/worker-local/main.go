@@ -66,8 +66,9 @@ func main() {
 	}
 
 	noopRepo := memory.NewInsightNoopAdapter(log)
+	dlqPublisher := memory.NewDLQNoopAdapter(log)
 	svc := insight.NewService(noopRepo, nil)
-	h := workersqs.NewHandler(svc, log)
+	h := workersqs.NewHandler(svc, dlqPublisher, log)
 
 	log.Info("invoking worker handler (local)",
 		"fixture", bodyPath,
