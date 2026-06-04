@@ -9,7 +9,6 @@ import (
 	"github.com/marcogerstmann/insight-processing-platform/internal/ports"
 )
 
-// TODO delete once real persistence is implemented in all environments
 type NoopRepo struct {
 	mu   sync.Mutex
 	seen map[string]struct{}
