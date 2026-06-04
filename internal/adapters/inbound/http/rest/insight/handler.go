@@ -34,3 +34,38 @@ func (h *Handler) ListByTenantID(c *gin.Context) {
 
 	c.JSON(http.StatusOK, mapInsightsToDTO(tenantID, insights))
 }
+
+func (h *Handler) Create(c *gin.Context) {
+	tenantID := strings.TrimSpace(c.Param("tenantID"))
+	if tenantID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "tenantID is required"})
+		return
+	}
+
+	var req CreateInsightRequestDTO
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_request_body"})
+		return
+	}
+	if strings.TrimSpace(req.Text) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "text is required"})
+		return
+	}
+
+	insight := mapCreateRequestToDomain(tenantID, req)
+	res, err := h.svc.Process(c.Request.Context(), insight)
+	if err != nil {
+		h.log.ErrorContext(c.Request.Context(), "failed to create insight", "tenant_id", tenantID, "insight_id", insight.ID, "err", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal_server_error"})
+		return
+	}
+
+	status := http.StatusOK
+	if res.Inserted {
+		status = http.StatusCreated
+	}
+	c.JSON(status, CreateInsightResponseDTO{
+		Inserted: res.Inserted,
+		Insight:  mapInsightToDTO(insight),
+	})
+}
