@@ -5,7 +5,6 @@ import (
 	"log"
 	"log/slog"
 	"os"
-	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	awsdynamodb "github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -13,10 +12,8 @@ import (
 
 	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest"
 	restinsight "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/insight"
-	anthropicAdapter "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/anthropic"
 	dynamodbadapter "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/dynamodb"
 	"github.com/marcogerstmann/insight-processing-platform/internal/application/insight"
-	"github.com/marcogerstmann/insight-processing-platform/internal/ports"
 )
 
 func main() {
@@ -37,12 +34,8 @@ func main() {
 
 	dynamoClient := awsdynamodb.NewFromConfig(awsCfg)
 	insightAdapter := dynamodbadapter.NewInsightAdapter(dynamoClient, tableName)
-	var enricher ports.InsightEnricher
-	if apiKey := strings.TrimSpace(os.Getenv("ANTHROPIC_API_KEY")); apiKey != "" {
-		enricher = anthropicAdapter.NewInsightEnricher(apiKey)
-	}
-
-	insightSvc := insight.NewService(insightAdapter, enricher)
+	// Enrichment is async and belongs to the worker path only — REST returns fast.
+	insightSvc := insight.NewService(insightAdapter, nil)
 
 	insightHandler := restinsight.NewHandler(insightSvc, logger)
 	router := rest.NewRouter(insightHandler)
