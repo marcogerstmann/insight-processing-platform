@@ -1,19 +1,14 @@
 package insight
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"fmt"
-
+	"github.com/google/uuid"
 	"github.com/marcogerstmann/insight-processing-platform/internal/domain"
 )
 
 const sourceManual = "manual"
 
-func buildInsightID(tenantID, text string) string {
-	h := fmt.Sprintf("%s|%s|%s", tenantID, sourceManual, text)
-	sum := sha256.Sum256([]byte(h))
-	return hex.EncodeToString(sum[:])
+func newID() string {
+	return uuid.New().String()
 }
 
 func mapInsightToDTO(i domain.Insight) InsightResponseDTO {
@@ -34,7 +29,7 @@ func mapInsightsToDTO(tenantID string, insights []domain.Insight) ListInsightsRe
 
 func mapCreateRequestToDomain(tenantID string, req CreateInsightRequestDTO) domain.Insight {
 	return domain.Insight{
-		ID:       buildInsightID(tenantID, req.Text),
+		ID:       newID(),
 		TenantID: tenantID,
 		Source:   sourceManual,
 		Text:     req.Text,
