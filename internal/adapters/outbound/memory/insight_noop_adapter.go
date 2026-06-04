@@ -9,22 +9,22 @@ import (
 	"github.com/marcogerstmann/insight-processing-platform/internal/ports"
 )
 
-type NoopRepo struct {
+type InsightNoopAdapter struct {
 	mu   sync.Mutex
 	seen map[string]struct{}
 	log  *slog.Logger
 }
 
-var _ ports.InsightRepository = (*NoopRepo)(nil)
+var _ ports.InsightRepository = (*InsightNoopAdapter)(nil)
 
-func NewNoopRepo(log *slog.Logger) *NoopRepo {
-	return &NoopRepo{
+func NewInsightNoopAdapter(log *slog.Logger) *InsightNoopAdapter {
+	return &InsightNoopAdapter{
 		seen: make(map[string]struct{}),
 		log:  log,
 	}
 }
 
-func (r *NoopRepo) PutIfAbsent(_ context.Context, insight domain.Insight) (bool, error) {
+func (r *InsightNoopAdapter) PutIfAbsent(_ context.Context, insight domain.Insight) (bool, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -48,7 +48,7 @@ func (r *NoopRepo) PutIfAbsent(_ context.Context, insight domain.Insight) (bool,
 	return true, nil
 }
 
-func (r *NoopRepo) Update(_ context.Context, insight domain.Insight) error {
+func (r *InsightNoopAdapter) Update(_ context.Context, insight domain.Insight) error {
 	r.log.Info(
 		"noop repo updated insight",
 		"id", insight.ID,
@@ -57,7 +57,7 @@ func (r *NoopRepo) Update(_ context.Context, insight domain.Insight) error {
 	return nil
 }
 
-func (r *NoopRepo) ListByTenantID(_ context.Context, tenantID string) ([]domain.Insight, error) {
+func (r *InsightNoopAdapter) ListByTenantID(_ context.Context, tenantID string) ([]domain.Insight, error) {
 	r.log.Info("noop repo list insights", "tenantID", tenantID)
 	return []domain.Insight{}, nil
 }

@@ -65,7 +65,7 @@ func main() {
 		},
 	}
 
-	noopRepo := memory.NewNoopRepo(log)
+	noopRepo := memory.NewInsightNoopAdapter(log)
 	svc := insight.NewService(noopRepo, nil)
 	h := workersqs.NewHandler(svc, log)
 
