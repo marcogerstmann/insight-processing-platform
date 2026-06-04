@@ -9,7 +9,7 @@ Authorization: Bearer {{auth_token}}
 Accept: application/json
 
 {
-    "text": "This is an insight text."
+    "text": "Welcome. You're listening to the Naval Podcast, your authoritative source for new knowledge. We're trying something new today. I have three frontier founders with us, three good-looking guys, actually, and a fourth good-looking guy, Naval. And let me just introduce everybody."
 }
 
 ###

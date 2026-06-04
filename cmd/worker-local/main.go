@@ -12,8 +12,10 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 
 	workersqs "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/sqs/worker"
+	anthropicAdapter "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/anthropic"
 	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/memory"
 	"github.com/marcogerstmann/insight-processing-platform/internal/application/insight"
+	"github.com/marcogerstmann/insight-processing-platform/internal/ports"
 )
 
 func main() {
@@ -67,7 +69,13 @@ func main() {
 
 	noopRepo := memory.NewInsightNoopAdapter(log)
 	dlqPublisher := memory.NewDLQNoopAdapter(log)
-	svc := insight.NewService(noopRepo, nil)
+
+	var enricher ports.InsightEnricher
+	if apiKey := strings.TrimSpace(os.Getenv("ANTHROPIC_API_KEY")); apiKey != "" {
+		enricher = anthropicAdapter.NewInsightEnricher(apiKey)
+	}
+
+	svc := insight.NewService(noopRepo, enricher)
 	h := workersqs.NewHandler(svc, dlqPublisher, log)
 
 	log.Info("invoking worker handler (local)",

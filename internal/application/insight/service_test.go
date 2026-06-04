@@ -159,19 +159,18 @@ func TestService_Process_WhenRepoPutFails_ReturnsError_SkipsEnrichAndUpdate(t *t
 	}
 }
 
-func TestService_Process_WhenEnrichFails_ReturnsError_DoesNotUpdate(t *testing.T) {
+func TestService_Process_WhenEnrichFails_SoftFail_InsightStillInserted(t *testing.T) {
 	log := &callLog{}
-	enrichErr := errors.New("enrich boom")
 	repo := &spyRepo{log: log, putInserted: true}
-	enr := &spyEnricher{log: log, enrichErr: enrichErr}
+	enr := &spyEnricher{log: log, enrichErr: errors.New("enrich boom")}
 	svc := NewService(repo, enr)
 
-	_, err := svc.Process(context.Background(), makeInsight("idk-enricherr"))
-	if err == nil {
-		t.Fatalf("expected error, got nil")
+	res, err := svc.Process(context.Background(), makeInsight("idk-enricherr"))
+	if err != nil {
+		t.Fatalf("expected no error (soft fail), got %v", err)
 	}
-	if !errors.Is(err, enrichErr) {
-		t.Fatalf("expected enrich error, got %v", err)
+	if !res.Inserted {
+		t.Fatalf("expected Inserted=true even on enrichment failure, got false")
 	}
 
 	want := []string{"repo.CreateIfAbsent", "enricher.Enrich"}

@@ -21,6 +21,7 @@ type dynamoInsightItem struct {
 	ID        string    `dynamodbav:"id"`
 	Source    string    `dynamodbav:"source"`
 	Text      string    `dynamodbav:"text"`
+	Summary   string    `dynamodbav:"summary"`
 	CreatedAt time.Time `dynamodbav:"created_at"`
 	UpdatedAt time.Time `dynamodbav:"updated_at"`
 }
@@ -57,6 +58,7 @@ func (r *InsightAdapter) CreateIfAbsent(ctx context.Context, insight domain.Insi
 		TenantID:  insight.TenantID,
 		Source:    insight.Source,
 		Text:      insight.Text,
+		Summary:   insight.Summary,
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
@@ -117,6 +119,7 @@ func (r *InsightAdapter) ListByTenantID(ctx context.Context, tenantID string) ([
 			TenantID: dynItem.TenantID,
 			Source:   dynItem.Source,
 			Text:     dynItem.Text,
+			Summary:  dynItem.Summary,
 		})
 	}
 	return insights, nil
@@ -141,7 +144,7 @@ func (r *InsightAdapter) Update(ctx context.Context, insight domain.Insight) err
 		ConditionExpression: aws.String("attribute_exists(#pk) AND attribute_exists(#sk)"),
 
 		UpdateExpression: aws.String(
-			"SET #source = :source, #text = :text, #updated_at = :updated_at",
+			"SET #source = :source, #text = :text, #summary = :summary, #updated_at = :updated_at",
 		),
 
 		ExpressionAttributeNames: map[string]string{
@@ -149,12 +152,14 @@ func (r *InsightAdapter) Update(ctx context.Context, insight domain.Insight) err
 			"#sk":         "sk",
 			"#source":     "source",
 			"#text":       "text",
+			"#summary":    "summary",
 			"#updated_at": "updated_at",
 		},
 
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":source":     &types.AttributeValueMemberS{Value: insight.Source},
 			":text":       &types.AttributeValueMemberS{Value: insight.Text},
+			":summary":    &types.AttributeValueMemberS{Value: insight.Summary},
 			":updated_at": &types.AttributeValueMemberS{Value: now.Format(time.RFC3339Nano)},
 		},
 	})
