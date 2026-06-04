@@ -5,4 +5,5 @@ type Insight struct {
 	TenantID string
 	Source   string
 	Text     string
+	Summary  string
 }

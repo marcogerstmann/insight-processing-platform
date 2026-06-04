@@ -3,6 +3,7 @@ package insight
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"strings"
 
 	"github.com/marcogerstmann/insight-processing-platform/internal/domain"
@@ -48,13 +49,15 @@ func (s *service) Process(ctx context.Context, insight domain.Insight) (Result, 
 	}
 
 	if s.enricher == nil {
+		slog.WarnContext(ctx, "no enricher configured, skipping enrichment")
 		return Result{Inserted: true}, nil
 	}
 
-	// TODO: enrichment is not yet implemented
 	enriched, err := s.enricher.Enrich(ctx, insight)
 	if err != nil {
-		return Result{}, err
+		// Best-effort enrichment per ADR-006: LLM failure != system failure.
+		slog.WarnContext(ctx, "enrichment failed, proceeding without summary", "err", err)
+		return Result{Inserted: true}, nil
 	}
 
 	if err := s.repo.Update(ctx, enriched); err != nil {
