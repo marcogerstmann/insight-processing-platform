@@ -107,7 +107,6 @@ func (r *InsightAdapter) ListByTenantID(ctx context.Context, tenantID string) ([
 		return nil, err
 	}
 
-	// TODO: paginate via LastEvaluatedKey for large tenants
 	insights := make([]domain.Insight, 0, len(out.Items))
 	for _, item := range out.Items {
 		var dynItem dynamoInsightItem
