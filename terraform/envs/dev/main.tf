@@ -66,9 +66,9 @@ module "readwise_lambda" {
   timeout          = 10
 
   environment_variables = {
-    DEFAULT_TENANT_ID           = "test-tenant-id"
-    INGEST_QUEUE_URL            = module.ingest_queue.queue_url
-    READWISE_WEBHOOK_SECRET_SSM = "/ipp/dev/readwise/webhook_secret"
+    DEFAULT_TENANT_ID       = "test-tenant-id"
+    INGEST_QUEUE_URL        = module.ingest_queue.queue_url
+    READWISE_WEBHOOK_SECRET = "ssm:/ipp/dev/readwise/webhook_secret"
   }
 }
 
@@ -233,9 +233,9 @@ module "worker_lambda" {
   memory_size = 256
 
   environment_variables = {
-    TABLE_NAME_INSIGHTS   = module.dynamodb_insights.table_name
-    INGEST_DLQ_URL        = module.ingest_queue.dlq_url
-    ANTHROPIC_API_KEY_SSM = "/ipp/dev/anthropic/api_key"
+    TABLE_NAME_INSIGHTS = module.dynamodb_insights.table_name
+    INGEST_DLQ_URL      = module.ingest_queue.dlq_url
+    ANTHROPIC_API_KEY   = "ssm:/ipp/dev/anthropic/api_key"
   }
 
   depends_on = [aws_iam_role_policy.worker_ecr_pull, aws_ecr_repository_policy.worker]

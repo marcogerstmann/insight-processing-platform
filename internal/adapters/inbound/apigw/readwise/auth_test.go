@@ -1,6 +1,7 @@
 package readwise
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -31,7 +32,6 @@ func TestWebhookAuthenticator_InvalidSecret(t *testing.T) {
 
 func TestWebhookAuthenticator_MissingSecret(t *testing.T) {
 	t.Setenv("READWISE_WEBHOOK_SECRET", "")
-	t.Setenv("READWISE_WEBHOOK_SECRET_SSM", "")
 
 	a := newWebhookAuthenticator(nil)
 	err := a.Authenticate("irrelevant")
@@ -41,4 +41,22 @@ func TestWebhookAuthenticator_MissingSecret(t *testing.T) {
 	if !errors.Is(err, apperr.ErrServerMisconfigured) {
 		t.Fatalf("unexpected error kind: got %v want apperr.ErrServerMisconfigured", err)
 	}
+}
+
+func TestWebhookAuthenticator_SSMPrefix(t *testing.T) {
+	t.Setenv("READWISE_WEBHOOK_SECRET", "ssm:/test/path")
+
+	a := newWebhookAuthenticator(&mockSecretProvider{value: "fetched-secret"})
+	if err := a.Authenticate("fetched-secret"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+type mockSecretProvider struct {
+	value string
+	err   error
+}
+
+func (m *mockSecretProvider) Get(_ context.Context, _ string) (string, error) {
+	return m.value, m.err
 }

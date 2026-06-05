@@ -4,7 +4,6 @@ import (
 	"context"
 	"log/slog"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/aws/aws-lambda-go/lambda"
@@ -16,6 +15,7 @@ import (
 	sqsAdapters "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/sqs"
 	ssmAdapters "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/ssm"
 	"github.com/marcogerstmann/insight-processing-platform/internal/application/insight"
+	"github.com/marcogerstmann/insight-processing-platform/internal/envutil"
 	"github.com/marcogerstmann/insight-processing-platform/internal/ports"
 )
 
@@ -40,22 +40,21 @@ func main() {
 		os.Exit(1)
 	}
 
+	secretProvider, err := ssmAdapters.NewSecretProvider(ctx)
+	if err != nil {
+		log.Error("failed to create SSM secret provider", "err", err)
+		os.Exit(1)
+	}
+
 	insightRepo := dynamoAdapters.NewInsightAdapter(dbclient, mustEnv("TABLE_NAME_INSIGHTS"))
 
 	var enricher ports.InsightEnricher
-	if apiKey := strings.TrimSpace(os.Getenv("ANTHROPIC_API_KEY")); apiKey != "" {
-		enricher = anthropicAdapter.NewInsightEnricher(apiKey)
-	} else if ssmPath := strings.TrimSpace(os.Getenv("ANTHROPIC_API_KEY_SSM")); ssmPath != "" {
-		secrets, err := ssmAdapters.NewSecretProvider(ctx)
-		if err != nil {
-			log.Error("failed to create SSM secret provider", "err", err)
-			os.Exit(1)
-		}
-		apiKey, err := secrets.Get(ctx, ssmPath)
-		if err != nil {
-			log.Error("failed to load Anthropic API key from SSM", "path", ssmPath, "err", err)
-			os.Exit(1)
-		}
+	apiKey, err := envutil.ResolveSecret(ctx, "ANTHROPIC_API_KEY", secretProvider)
+	if err != nil {
+		log.Error("failed to resolve Anthropic API key", "err", err)
+		os.Exit(1)
+	}
+	if apiKey != "" {
 		enricher = anthropicAdapter.NewInsightEnricher(apiKey)
 	}
 
