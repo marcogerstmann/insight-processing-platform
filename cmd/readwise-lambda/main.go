@@ -33,9 +33,9 @@ func main() {
 	}
 
 	ingestSvc := ingest.NewService(publisher)
-	tenantResolver := tenant.NewResolver(secretProvider)
+	tenantResolver := tenant.NewResolver()
 
-	h := readwise.NewHandler(log, tenantResolver, ingestSvc)
+	h := readwise.NewHandler(log, secretProvider, tenantResolver, ingestSvc)
 
 	lambda.Start(h.Handle)
 }

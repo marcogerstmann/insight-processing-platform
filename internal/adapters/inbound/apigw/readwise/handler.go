@@ -13,17 +13,20 @@ import (
 	"github.com/marcogerstmann/insight-processing-platform/internal/apperr"
 	"github.com/marcogerstmann/insight-processing-platform/internal/application/ingest"
 	"github.com/marcogerstmann/insight-processing-platform/internal/application/tenant"
+	"github.com/marcogerstmann/insight-processing-platform/internal/ports"
 )
 
 type Handler struct {
 	Log    *slog.Logger
+	auth   *webhookAuthenticator
 	Tenant *tenant.Resolver
 	Ingest ingest.Service
 }
 
-func NewHandler(log *slog.Logger, tr *tenant.Resolver, ing ingest.Service) *Handler {
+func NewHandler(log *slog.Logger, secrets ports.SecretProvider, tr *tenant.Resolver, ing ingest.Service) *Handler {
 	return &Handler{
 		Log:    log,
+		auth:   newWebhookAuthenticator(secrets),
 		Tenant: tr,
 		Ingest: ing,
 	}
@@ -51,11 +54,7 @@ func (h *Handler) Handle(ctx context.Context, req events.APIGatewayV2HTTPRequest
 		return jsonResponse(http.StatusBadRequest, map[string]any{"error": "invalid_json"}), nil
 	}
 
-	tenantCtx, err := h.Tenant.Resolve(tenant.ResolveInput{
-		Source: "readwise",
-		Secret: payload.Secret,
-	})
-	if err != nil {
+	if err := h.auth.Authenticate(payload.Secret); err != nil {
 		switch {
 		case errors.Is(err, apperr.ErrUnauthorized):
 			h.Log.WarnContext(ctx, "unauthorized_webhook",
@@ -64,15 +63,16 @@ func (h *Handler) Handle(ctx context.Context, req events.APIGatewayV2HTTPRequest
 				"err", err,
 			)
 			return jsonResponse(http.StatusUnauthorized, map[string]any{"error": "unauthorized"}), nil
-
-		case errors.Is(err, apperr.ErrServerMisconfigured):
-			h.Log.ErrorContext(ctx, "server misconfigured", "err", err)
-			return jsonResponse(http.StatusInternalServerError, map[string]any{"error": "server_misconfigured"}), nil
-
 		default:
-			h.Log.ErrorContext(ctx, "tenant resolution failed", "err", err)
-			return jsonResponse(http.StatusInternalServerError, map[string]any{"error": "server_error"}), nil
+			h.Log.ErrorContext(ctx, "webhook auth failed", "err", err)
+			return jsonResponse(http.StatusInternalServerError, map[string]any{"error": "server_misconfigured"}), nil
 		}
+	}
+
+	tenantCtx, err := h.Tenant.Resolve()
+	if err != nil {
+		h.Log.ErrorContext(ctx, "tenant resolution failed", "err", err)
+		return jsonResponse(http.StatusInternalServerError, map[string]any{"error": "server_error"}), nil
 	}
 
 	domain, err := mapReadwiseDTOToDomain(payload, receivedAt, tenantCtx.TenantID)

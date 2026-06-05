@@ -32,9 +32,9 @@ func main() {
 	}
 
 	ingestSvc := ingest.NewService(publisher)
-	tenantResolver := tenant.NewResolver(nil) // local: relies on READWISE_WEBHOOK_SECRET in .env
+	tenantResolver := tenant.NewResolver()
 
-	handler := readwise.NewHandler(logger, tenantResolver, ingestSvc)
+	handler := readwise.NewHandler(logger, nil, tenantResolver, ingestSvc)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/readwise/webhook", func(w http.ResponseWriter, r *http.Request) {
