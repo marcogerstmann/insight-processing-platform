@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	sdk "github.com/anthropics/anthropic-sdk-go"
@@ -43,6 +44,7 @@ func (e *InsightEnricher) Enrich(ctx context.Context, insight domain.Insight) (d
 	ctx, cancel := context.WithTimeout(ctx, e.timeout)
 	defer cancel()
 
+	start := time.Now()
 	msg, err := e.client.Messages.New(ctx, sdk.MessageNewParams{
 		Model:     sdk.ModelClaudeHaiku4_5,
 		MaxTokens: e.maxTokens,
@@ -57,6 +59,14 @@ func (e *InsightEnricher) Enrich(ctx context.Context, insight domain.Insight) (d
 	if len(msg.Content) == 0 {
 		return domain.Insight{}, errors.New("empty response from LLM")
 	}
+
+	slog.InfoContext(ctx, "llm enrichment complete",
+		"insight_id", insight.ID,
+		"model", msg.Model,
+		"input_tokens", msg.Usage.InputTokens,
+		"output_tokens", msg.Usage.OutputTokens,
+		"duration_ms", time.Since(start).Milliseconds(),
+	)
 
 	insight.Summary = msg.Content[0].AsText().Text
 	return insight, nil
