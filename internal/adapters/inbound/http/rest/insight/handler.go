@@ -11,11 +11,10 @@ import (
 
 type Handler struct {
 	svc appinsight.Service
-	log *slog.Logger
 }
 
-func NewHandler(svc appinsight.Service, log *slog.Logger) *Handler {
-	return &Handler{svc: svc, log: log}
+func NewHandler(svc appinsight.Service) *Handler {
+	return &Handler{svc: svc}
 }
 
 func (h *Handler) ListByTenantID(c *gin.Context) {
@@ -27,7 +26,7 @@ func (h *Handler) ListByTenantID(c *gin.Context) {
 
 	insights, err := h.svc.ListByTenantID(c.Request.Context(), tenantID)
 	if err != nil {
-		h.log.ErrorContext(c.Request.Context(), "failed to list insights", "tenant_id", tenantID, "err", err)
+		slog.ErrorContext(c.Request.Context(), "failed to list insights", "tenant_id", tenantID, "err", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal_server_error"})
 		return
 	}
@@ -55,7 +54,7 @@ func (h *Handler) Create(c *gin.Context) {
 	insight := mapCreateRequestToDomain(tenantID, req)
 	res, err := h.svc.Process(c.Request.Context(), insight)
 	if err != nil {
-		h.log.ErrorContext(c.Request.Context(), "failed to create insight", "tenant_id", tenantID, "insight_id", insight.ID, "err", err)
+		slog.ErrorContext(c.Request.Context(), "failed to create insight", "tenant_id", tenantID, "insight_id", insight.ID, "err", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal_server_error"})
 		return
 	}

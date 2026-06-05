@@ -14,11 +14,10 @@ import (
 type Handler struct {
 	svc insight.Service
 	dlq port.DLQPublisher
-	log *slog.Logger
 }
 
-func NewHandler(svc insight.Service, dlq port.DLQPublisher, log *slog.Logger) *Handler {
-	return &Handler{svc: svc, dlq: dlq, log: log}
+func NewHandler(svc insight.Service, dlq port.DLQPublisher) *Handler {
+	return &Handler{svc: svc, dlq: dlq}
 }
 
 func (h *Handler) Handle(ctx context.Context, e events.SQSEvent) error {
@@ -29,7 +28,7 @@ func (h *Handler) Handle(ctx context.Context, e events.SQSEvent) error {
 				h.routeToDLQ(ctx, rec, err)
 				continue
 			}
-			h.log.ErrorContext(ctx, "failed to map sqs message (transient, retrying)",
+			slog.ErrorContext(ctx, "failed to map sqs message (transient, retrying)",
 				"message_id", rec.MessageId,
 				"err", err,
 			)
@@ -43,7 +42,7 @@ func (h *Handler) Handle(ctx context.Context, e events.SQSEvent) error {
 				h.routeToDLQ(ctx, rec, err)
 				continue
 			}
-			h.log.ErrorContext(ctx, "worker processing failed (transient, retrying)",
+			slog.ErrorContext(ctx, "worker processing failed (transient, retrying)",
 				"message_id", rec.MessageId,
 				"tenant_id", ev.TenantID,
 				"highlight_id", ev.Highlight.ID,
@@ -52,7 +51,7 @@ func (h *Handler) Handle(ctx context.Context, e events.SQSEvent) error {
 			return err
 		}
 
-		h.log.InfoContext(ctx, "worker processed message",
+		slog.InfoContext(ctx, "worker processed message",
 			"message_id", rec.MessageId,
 			"tenant_id", ev.TenantID,
 			"highlight_id", ev.Highlight.ID,
@@ -64,12 +63,12 @@ func (h *Handler) Handle(ctx context.Context, e events.SQSEvent) error {
 }
 
 func (h *Handler) routeToDLQ(ctx context.Context, rec events.SQSMessage, err error) {
-	h.log.ErrorContext(ctx, "permanent error, routed to DLQ",
+	slog.ErrorContext(ctx, "permanent error, routed to DLQ",
 		"message_id", rec.MessageId,
 		"err", err,
 	)
 	if dlqErr := h.dlq.Send(ctx, rec, err); dlqErr != nil {
-		h.log.ErrorContext(ctx, "failed to send message to DLQ",
+		slog.ErrorContext(ctx, "failed to send message to DLQ",
 			"message_id", rec.MessageId,
 			"err", dlqErr,
 		)

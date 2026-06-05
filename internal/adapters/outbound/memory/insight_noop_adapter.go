@@ -12,15 +12,13 @@ import (
 type InsightNoopAdapter struct {
 	mu   sync.Mutex
 	seen map[string]struct{}
-	log  *slog.Logger
 }
 
 var _ ports.InsightRepository = (*InsightNoopAdapter)(nil)
 
-func NewInsightNoopAdapter(log *slog.Logger) *InsightNoopAdapter {
+func NewInsightNoopAdapter() *InsightNoopAdapter {
 	return &InsightNoopAdapter{
 		seen: make(map[string]struct{}),
-		log:  log,
 	}
 }
 
@@ -29,8 +27,7 @@ func (r *InsightNoopAdapter) CreateIfAbsent(_ context.Context, insight domain.In
 	defer r.mu.Unlock()
 
 	if _, exists := r.seen[insight.ID]; exists {
-		r.log.Info(
-			"noop repo deduplicated insight",
+		slog.Info("noop repo deduplicated insight",
 			"tenantID", insight.TenantID,
 			"id", insight.ID,
 		)
@@ -39,8 +36,7 @@ func (r *InsightNoopAdapter) CreateIfAbsent(_ context.Context, insight domain.In
 
 	r.seen[insight.ID] = struct{}{}
 
-	r.log.Info(
-		"noop repo inserted insight",
+	slog.Info("noop repo inserted insight",
 		"id", insight.ID,
 		"tenantID", insight.TenantID,
 	)
@@ -49,8 +45,7 @@ func (r *InsightNoopAdapter) CreateIfAbsent(_ context.Context, insight domain.In
 }
 
 func (r *InsightNoopAdapter) Update(_ context.Context, insight domain.Insight) error {
-	r.log.Info(
-		"noop repo updated insight",
+	slog.Info("noop repo updated insight",
 		"id", insight.ID,
 		"tenantID", insight.TenantID,
 	)
@@ -58,6 +53,6 @@ func (r *InsightNoopAdapter) Update(_ context.Context, insight domain.Insight) e
 }
 
 func (r *InsightNoopAdapter) ListByTenantID(_ context.Context, tenantID string) ([]domain.Insight, error) {
-	r.log.Info("noop repo list insights", "tenantID", tenantID)
+	slog.Info("noop repo list insights", "tenantID", tenantID)
 	return []domain.Insight{}, nil
 }

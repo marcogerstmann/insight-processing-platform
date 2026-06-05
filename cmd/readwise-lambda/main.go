@@ -17,6 +17,7 @@ func main() {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}))
+	slog.SetDefault(log)
 
 	ctx := context.Background()
 
@@ -35,7 +36,7 @@ func main() {
 	ingestSvc := ingest.NewService(publisher)
 	tenantResolver := tenant.NewResolver()
 
-	h := readwise.NewHandler(log, secretProvider, tenantResolver, ingestSvc)
+	h := readwise.NewHandler(secretProvider, tenantResolver, ingestSvc)
 
 	lambda.Start(h.Handle)
 }

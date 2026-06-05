@@ -22,6 +22,7 @@ var ginLambda *ginadapter.GinLambdaV2
 
 func init() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	slog.SetDefault(logger)
 
 	tableName := os.Getenv("TABLE_NAME_INSIGHTS")
 	if tableName == "" {
@@ -36,7 +37,7 @@ func init() {
 	dynamoClient := awsdynamodb.NewFromConfig(awsCfg)
 	insightAdapter := dynamodbadapter.NewInsightAdapter(dynamoClient, tableName)
 	insightSvc := insight.NewService(insightAdapter, nil)
-	insightHandler := restinsight.NewHandler(insightSvc, logger)
+	insightHandler := restinsight.NewHandler(insightSvc)
 
 	ginLambda = ginadapter.NewV2(rest.NewRouter(insightHandler))
 }

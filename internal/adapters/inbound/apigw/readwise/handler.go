@@ -17,15 +17,13 @@ import (
 )
 
 type Handler struct {
-	Log    *slog.Logger
 	auth   *webhookAuthenticator
 	Tenant *tenant.Resolver
 	Ingest ingest.Service
 }
 
-func NewHandler(log *slog.Logger, secrets ports.SecretProvider, tr *tenant.Resolver, ing ingest.Service) *Handler {
+func NewHandler(secrets ports.SecretProvider, tr *tenant.Resolver, ing ingest.Service) *Handler {
 	return &Handler{
-		Log:    log,
 		auth:   newWebhookAuthenticator(secrets),
 		Tenant: tr,
 		Ingest: ing,
@@ -42,7 +40,7 @@ func (h *Handler) Handle(ctx context.Context, req events.APIGatewayV2HTTPRequest
 
 	bodyBytes, err := readBody(req)
 	if err != nil {
-		h.Log.WarnContext(ctx, "invalid request body", "err", err)
+		slog.WarnContext(ctx, "invalid request body", "err", err)
 		return jsonResponse(http.StatusBadRequest, map[string]any{
 			"error": "invalid_request_body",
 		}), nil
@@ -50,28 +48,28 @@ func (h *Handler) Handle(ctx context.Context, req events.APIGatewayV2HTTPRequest
 
 	var payload WebhookDTO
 	if err := json.Unmarshal(bodyBytes, &payload); err != nil {
-		h.Log.WarnContext(ctx, "failed to parse json", "err", err)
+		slog.WarnContext(ctx, "failed to parse json", "err", err)
 		return jsonResponse(http.StatusBadRequest, map[string]any{"error": "invalid_json"}), nil
 	}
 
 	if err := h.auth.Authenticate(payload.Secret); err != nil {
 		switch {
 		case errors.Is(err, apperr.ErrUnauthorized):
-			h.Log.WarnContext(ctx, "unauthorized_webhook",
+			slog.WarnContext(ctx, "unauthorized_webhook",
 				"event_type", payload.EventType,
 				"highlight_id", payload.ID,
 				"err", err,
 			)
 			return jsonResponse(http.StatusUnauthorized, map[string]any{"error": "unauthorized"}), nil
 		default:
-			h.Log.ErrorContext(ctx, "webhook auth failed", "err", err)
+			slog.ErrorContext(ctx, "webhook auth failed", "err", err)
 			return jsonResponse(http.StatusInternalServerError, map[string]any{"error": "server_misconfigured"}), nil
 		}
 	}
 
 	tenantCtx, err := h.Tenant.Resolve()
 	if err != nil {
-		h.Log.ErrorContext(ctx, "tenant resolution failed", "err", err)
+		slog.ErrorContext(ctx, "tenant resolution failed", "err", err)
 		return jsonResponse(http.StatusInternalServerError, map[string]any{"error": "server_error"}), nil
 	}
 
@@ -81,11 +79,11 @@ func (h *Handler) Handle(ctx context.Context, req events.APIGatewayV2HTTPRequest
 	}
 
 	if err := h.Ingest.Enqueue(ctx, domain, tenantCtx.TenantID); err != nil {
-		h.Log.ErrorContext(ctx, "enqueue failed", "err", err, "tenant_id", tenantCtx.TenantID)
+		slog.ErrorContext(ctx, "enqueue failed", "err", err, "tenant_id", tenantCtx.TenantID)
 		return jsonResponse(http.StatusInternalServerError, map[string]any{"error": "enqueue failed"}), nil
 	}
 
-	h.Log.InfoContext(ctx, "readwise ingestion enqueued",
+	slog.InfoContext(ctx, "readwise ingestion enqueued",
 		"tenant_id", tenantCtx.TenantID,
 		"event_type", payload.EventType,
 		"highlight_id", payload.ID,

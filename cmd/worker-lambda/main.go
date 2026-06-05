@@ -23,6 +23,7 @@ func main() {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}))
+	slog.SetDefault(log)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -60,7 +61,7 @@ func main() {
 
 	svc := insight.NewService(insightRepo, enricher)
 
-	h := workersqs.NewHandler(svc, dlqPublisher, log)
+	h := workersqs.NewHandler(svc, dlqPublisher)
 	lambda.Start(h.Handle)
 }
 

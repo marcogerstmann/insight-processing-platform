@@ -23,6 +23,7 @@ func main() {
 	defer cancel()
 
 	log := newLogger()
+	slog.SetDefault(log)
 
 	bodyPath := filepath.Clean("./cmd/worker-local/event.body.json")
 
@@ -67,8 +68,8 @@ func main() {
 		},
 	}
 
-	noopRepo := memory.NewInsightNoopAdapter(log)
-	dlqPublisher := memory.NewDLQNoopAdapter(log)
+	noopRepo := memory.NewInsightNoopAdapter()
+	dlqPublisher := memory.NewDLQNoopAdapter()
 
 	var enricher ports.InsightEnricher
 	if apiKey := strings.TrimSpace(os.Getenv("ANTHROPIC_API_KEY")); apiKey != "" {
@@ -76,7 +77,7 @@ func main() {
 	}
 
 	svc := insight.NewService(noopRepo, enricher)
-	h := workersqs.NewHandler(svc, dlqPublisher, log)
+	h := workersqs.NewHandler(svc, dlqPublisher)
 
 	log.Info("invoking worker handler (local)",
 		"fixture", bodyPath,

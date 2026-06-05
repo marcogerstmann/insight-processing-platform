@@ -20,6 +20,7 @@ func main() {
 	_ = godotenv.Load()
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	slog.SetDefault(logger)
 
 	tableName := os.Getenv("TABLE_NAME_INSIGHTS")
 	if tableName == "" {
@@ -37,7 +38,7 @@ func main() {
 	// Enrichment is async and belongs to the worker path only — REST returns fast.
 	insightSvc := insight.NewService(insightAdapter, nil)
 
-	insightHandler := restinsight.NewHandler(insightSvc, logger)
+	insightHandler := restinsight.NewHandler(insightSvc)
 	router := rest.NewRouter(insightHandler)
 
 	addr := ":8081"

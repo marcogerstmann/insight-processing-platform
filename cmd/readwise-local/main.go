@@ -23,6 +23,7 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}))
+	slog.SetDefault(logger)
 
 	ctx := context.Background()
 
@@ -34,7 +35,7 @@ func main() {
 	ingestSvc := ingest.NewService(publisher)
 	tenantResolver := tenant.NewResolver()
 
-	handler := readwise.NewHandler(logger, nil, tenantResolver, ingestSvc)
+	handler := readwise.NewHandler(nil, tenantResolver, ingestSvc)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/readwise/webhook", func(w http.ResponseWriter, r *http.Request) {
@@ -67,7 +68,7 @@ func main() {
 
 		resp, err := handler.Handle(ctx, req)
 		if err != nil {
-			logger.Error("handler error", "err", err)
+			slog.Error("handler error", "err", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
