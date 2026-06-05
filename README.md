@@ -1,8 +1,9 @@
 # Insight Processing Platform
 
-## One-sentence summary
+An event-driven backend system that ingests webhook events, processes them asynchronously, enriches them with LLM-based
+analysis, and stores structured insights using idempotent, reliable pipelines.
 
-An event-driven backend system that ingests webhook events, processes them asynchronously, optionally enriches them with LLM-based analysis, and stores structured insights using idempotent, reliable pipelines.
+**Built with:** Go, AWS Lambda, SQS, DynamoDB, API Gateway, Cognito, Terraform, LLM (Anthropic Claude)
 
 ## What this project is - and is not
 
@@ -11,11 +12,13 @@ This is **not** an AI product.
 It is an **event-driven backend system** that uses LLMs as a **controlled, optional dependency**.
 
 **LLMs**
+
 - interchangeable
 - strictly budget-limited
 - isolated from core system reliability
 
 **Readwise**
+
 - data source
 - event generator
 - not the business model
@@ -25,8 +28,6 @@ The value lies in **how events are processed, enriched, and operated**, not in t
 The architecture is source-agnostic and remains valid if Readwise is replaced.
 
 ## High-level architecture overview
-
-![Insight Processing Platform architecture](docs/architecture.png)
 
 ```
 Readwise Webhook
@@ -48,14 +49,23 @@ SQS Queue
       ▼
 Core Processing Service (Go)
   - domain logic
-  - optional LLM enrichment
-  - persistence
+  - idempotent persistence
+      │
+      ├─────────────────────────┐
+      │                         ▼
+      │                Anthropic Claude
+      │                  - enrich insight
+      │                  - timeout + retry + token cap
+      │                  - soft-fail: LLM down != system down
+      │                         │
+      ◄─────────────────────────┘
       │
       ▼
 DynamoDB
 ```
 
 **Failure behavior**
+
 - transient errors → retries
 - permanent errors → DLQ
 - LLM failure ≠ system failure
@@ -70,27 +80,14 @@ DynamoDB
 
 All decisions are intentional and documented in ADRs.
 
-## Cost
-
-To be verified.
-
-At expected load (hundreds of events per month):
-
-> **~8 € / month**
-
-Rough order of magnitude:
-- AWS infrastructure: ~3–8 €
-- LLM usage: explicitly capped via token limits and alarms
-
-The primary cost risk is **uncontrolled tokens**, not AWS.
-
 ## What this project demonstrates
 
-- Event-driven system design
-- Idempotent ingestion and retry safety
-- Explicit failure paths (DLQ, fallback logic)
-- Cost-aware and failure-tolerant LLM usage
-- Operational thinking (logs, metrics, alarms)
+- Event-driven system design with explicit decoupling at every layer
+- Idempotent ingestion and safe at-least-once delivery handling
+- Explicit failure taxonomy: DLQ for permanent errors, retries for transient, soft-fail for LLM
+- LLM integration as a controlled dependency — timeout, retry-with-backoff, token cap, graceful degradation
+- Hexagonal architecture: domain logic fully decoupled from AWS infrastructure via ports and adapters
+- Operational thinking (structured logging, cost-aware design, alarms)
 
 This project is optimized for **system design signal**, not feature breadth.
 
