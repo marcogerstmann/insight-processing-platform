@@ -1,9 +1,10 @@
 package insight
 
 type InsightResponseDTO struct {
-	ID     string `json:"id"`
-	Source string `json:"source"`
-	Text   string `json:"text"`
+	ID      string `json:"id"`
+	Source  string `json:"source"`
+	Text    string `json:"text"`
+	Summary string `json:"summary,omitempty"`
 }
 
 type ListInsightsResponseDTO struct {

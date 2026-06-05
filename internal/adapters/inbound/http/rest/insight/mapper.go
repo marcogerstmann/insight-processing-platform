@@ -13,9 +13,10 @@ func newID() string {
 
 func mapInsightToDTO(i domain.Insight) InsightResponseDTO {
 	return InsightResponseDTO{
-		ID:     i.ID,
-		Source: i.Source,
-		Text:   i.Text,
+		ID:      i.ID,
+		Source:  i.Source,
+		Text:    i.Text,
+		Summary: i.Summary,
 	}
 }
 
