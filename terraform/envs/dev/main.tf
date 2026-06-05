@@ -418,6 +418,16 @@ resource "aws_apigatewayv2_route" "get_insights" {
   target = "integrations/${aws_apigatewayv2_integration.rest_lambda.id}"
 }
 
+resource "aws_apigatewayv2_route" "post_insights" {
+  api_id    = aws_apigatewayv2_api.rest.id
+  route_key = "POST /tenants/{tenantID}/insights"
+
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito_jwt.id
+
+  target = "integrations/${aws_apigatewayv2_integration.rest_lambda.id}"
+}
+
 resource "aws_lambda_permission" "allow_rest_apigw" {
   statement_id  = "AllowRestAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
