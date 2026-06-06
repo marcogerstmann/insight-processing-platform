@@ -96,7 +96,7 @@ resource "aws_lambda_permission" "allow_readwise_apigw" {
 # ECR Repository for worker image
 resource "aws_ecr_repository" "worker" {
   name                 = "ipp-dev-worker"
-  image_tag_mutability = "MUTABLE"
+  image_tag_mutability = "IMMUTABLE"
 
   image_scanning_configuration {
     scan_on_push = true
