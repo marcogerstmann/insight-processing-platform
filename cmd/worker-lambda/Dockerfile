@@ -11,7 +11,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build -trimpath -ldflags="-s -w" -o /out/bootstrap ./cmd/worker-lambda
 
 # ---- runtime stage ----
-FROM public.ecr.aws/lambda/provided:al2
+FROM public.ecr.aws/lambda/provided:al2023
 
 COPY --from=build /out/bootstrap /var/runtime/bootstrap
 RUN chmod +x /var/runtime/bootstrap
