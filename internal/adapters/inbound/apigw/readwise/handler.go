@@ -18,15 +18,15 @@ import (
 
 type Handler struct {
 	auth   *webhookAuthenticator
-	Tenant *tenant.Resolver
-	Ingest ingest.Service
+	tenant *tenant.Resolver
+	ingest ingest.Service
 }
 
 func NewHandler(secrets ports.SecretProvider, tr *tenant.Resolver, ing ingest.Service) *Handler {
 	return &Handler{
 		auth:   newWebhookAuthenticator(secrets),
-		Tenant: tr,
-		Ingest: ing,
+		tenant: tr,
+		ingest: ing,
 	}
 }
 
@@ -67,7 +67,7 @@ func (h *Handler) Handle(ctx context.Context, req events.APIGatewayV2HTTPRequest
 		}
 	}
 
-	tenantCtx, err := h.Tenant.Resolve()
+	tenantCtx, err := h.tenant.Resolve()
 	if err != nil {
 		slog.ErrorContext(ctx, "tenant resolution failed", "err", err)
 		return jsonResponse(http.StatusInternalServerError, map[string]any{"error": "server_error"}), nil
@@ -78,7 +78,7 @@ func (h *Handler) Handle(ctx context.Context, req events.APIGatewayV2HTTPRequest
 		return events.APIGatewayV2HTTPResponse{}, err
 	}
 
-	if err := h.Ingest.Enqueue(ctx, domain, tenantCtx.TenantID); err != nil {
+	if err := h.ingest.Enqueue(ctx, domain, tenantCtx.TenantID); err != nil {
 		slog.ErrorContext(ctx, "enqueue failed", "err", err, "tenant_id", tenantCtx.TenantID)
 		return jsonResponse(http.StatusInternalServerError, map[string]any{"error": "enqueue failed"}), nil
 	}
