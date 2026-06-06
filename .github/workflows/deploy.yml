@@ -46,7 +46,7 @@ jobs:
       TF_CLI_ARGS_apply: "-auto-approve"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0  # full history so git rev-parse --short HEAD is accurate for WORKER_TAG
 
