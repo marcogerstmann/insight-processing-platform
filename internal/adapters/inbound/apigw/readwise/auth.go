@@ -2,6 +2,7 @@ package readwise
 
 import (
 	"context"
+	"crypto/subtle"
 	"errors"
 	"sync"
 
@@ -26,7 +27,7 @@ func (a *webhookAuthenticator) Authenticate(incoming string) error {
 	if err != nil {
 		return apperr.E(apperr.ErrServerMisconfigured, err)
 	}
-	if incoming != expected {
+	if subtle.ConstantTimeCompare([]byte(incoming), []byte(expected)) != 1 {
 		return apperr.E(apperr.ErrUnauthorized, errors.New("invalid webhook secret"))
 	}
 	return nil
