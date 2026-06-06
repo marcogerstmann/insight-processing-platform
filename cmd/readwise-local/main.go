@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"io"
-	"log"
 	"log/slog"
 	"net/http"
 	"os"
@@ -13,29 +12,36 @@ import (
 
 	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/apigw/readwise"
 	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/sqs"
+	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/ssm"
 	"github.com/marcogerstmann/insight-processing-platform/internal/application/ingest"
 	"github.com/marcogerstmann/insight-processing-platform/internal/application/tenant"
+	"github.com/marcogerstmann/insight-processing-platform/internal/logging"
 )
 
 func main() {
 	_ = godotenv.Load()
 
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
-	}))
-	slog.SetDefault(logger)
+	log := logging.New(os.Stdout)
+	slog.SetDefault(log)
 
 	ctx := context.Background()
 
 	publisher, err := sqs.NewSQSEventPublisher(ctx)
 	if err != nil {
-		log.Fatalf("publisher init failed: %v", err)
+		log.Error("publisher init failed", "err", err)
+		os.Exit(1)
+	}
+
+	secretProvider, err := ssm.NewSecretProvider(ctx)
+	if err != nil {
+		log.Error("ssm provider init failed", "err", err)
+		os.Exit(1)
 	}
 
 	ingestSvc := ingest.NewService(publisher)
 	tenantResolver := tenant.NewResolver()
 
-	handler := readwise.NewHandler(nil, tenantResolver, ingestSvc)
+	handler := readwise.NewHandler(secretProvider, tenantResolver, ingestSvc)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/readwise/webhook", func(w http.ResponseWriter, r *http.Request) {
@@ -81,6 +87,9 @@ func main() {
 	})
 
 	addr := ":8080"
-	log.Printf("listening on http://localhost%s", addr)
-	log.Fatal(http.ListenAndServe(addr, mux))
+	slog.Info("listening", "addr", "http://localhost"+addr)
+	if err := http.ListenAndServe(addr, mux); err != nil {
+		slog.Error("server error", "err", err)
+		os.Exit(1)
+	}
 }
