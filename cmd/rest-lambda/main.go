@@ -15,12 +15,13 @@ import (
 	restinsight "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/insight"
 	dynamodbadapter "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/dynamodb"
 	"github.com/marcogerstmann/insight-processing-platform/internal/application/insight"
+	"github.com/marcogerstmann/insight-processing-platform/internal/logging"
 )
 
 var ginLambda *ginadapter.GinLambdaV2
 
 func init() {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	logger := logging.New(os.Stdout)
 	slog.SetDefault(logger)
 
 	tableName := os.Getenv("TABLE_NAME_INSIGHTS")

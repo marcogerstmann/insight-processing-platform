@@ -11,12 +11,11 @@ import (
 	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/ssm"
 	"github.com/marcogerstmann/insight-processing-platform/internal/application/ingest"
 	"github.com/marcogerstmann/insight-processing-platform/internal/application/tenant"
+	"github.com/marcogerstmann/insight-processing-platform/internal/logging"
 )
 
 func main() {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
-	}))
+	log := logging.New(os.Stdout)
 	slog.SetDefault(log)
 
 	ctx := context.Background()

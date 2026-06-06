@@ -16,13 +16,12 @@ import (
 	ssmAdapters "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/ssm"
 	"github.com/marcogerstmann/insight-processing-platform/internal/application/insight"
 	"github.com/marcogerstmann/insight-processing-platform/internal/envutil"
+	"github.com/marcogerstmann/insight-processing-platform/internal/logging"
 	"github.com/marcogerstmann/insight-processing-platform/internal/ports"
 )
 
 func main() {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
-	}))
+	log := logging.New(os.Stdout)
 	slog.SetDefault(log)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

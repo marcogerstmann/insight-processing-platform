@@ -15,6 +15,7 @@ import (
 	anthropicAdapter "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/anthropic"
 	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/memory"
 	"github.com/marcogerstmann/insight-processing-platform/internal/application/insight"
+	"github.com/marcogerstmann/insight-processing-platform/internal/logging"
 	"github.com/marcogerstmann/insight-processing-platform/internal/ports"
 )
 
@@ -22,7 +23,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	log := newLogger()
+	log := logging.New(os.Stdout)
 	slog.SetDefault(log)
 
 	bodyPath := filepath.Clean("./cmd/worker-local/event.body.json")
@@ -106,25 +107,4 @@ func awsString(s string) *string {
 		return nil
 	}
 	return &s
-}
-
-func newLogger() *slog.Logger {
-	level := strings.ToLower(strings.TrimSpace(os.Getenv("LOG_LEVEL")))
-	var slogLevel slog.Level
-
-	switch level {
-	case "debug":
-		slogLevel = slog.LevelDebug
-	case "warn", "warning":
-		slogLevel = slog.LevelWarn
-	case "error":
-		slogLevel = slog.LevelError
-	default:
-		slogLevel = slog.LevelInfo
-	}
-
-	h := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slogLevel,
-	})
-	return slog.New(h)
 }
