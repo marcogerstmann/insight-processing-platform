@@ -1,36 +1,44 @@
 variable "name" {
-  type = string
+  description = "Lambda function name"
+  type        = string
 }
 
 variable "role_arn" {
-  type = string
+  description = "ARN of the IAM execution role"
+  type        = string
 }
 
 variable "filename" {
-  type = string
+  description = "Path to the ZIP deployment package"
+  type        = string
 }
 
 variable "source_code_hash" {
-  type = string
+  description = "Base64-encoded SHA256 of the deployment package (triggers updates)"
+  type        = string
 }
 
 variable "handler" {
-  type = string
+  description = "Function entrypoint (e.g. \"bootstrap\" for provided.al2023)"
+  type        = string
 }
 
 variable "runtime" {
-  type = string
-  default = "provided.al2023"
+  description = "Lambda runtime identifier"
+  type        = string
+  default     = "provided.al2023"
 }
 
 variable "memory_size" {
-  type = number
-  default = 128
+  description = "Amount of memory in MB allocated to the function"
+  type        = number
+  default     = 128
 }
 
 variable "timeout" {
-  type = number
-  default = 5
+  description = "Maximum execution time in seconds"
+  type        = number
+  default     = 5
 }
 
 variable "environment_variables" {

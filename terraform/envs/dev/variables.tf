@@ -15,3 +15,8 @@ variable "env" {
   type        = string
   default     = "dev"
 }
+
+variable "worker_image_uri" {
+  description = "Full ECR image URI for the worker Lambda"
+  type        = string
+}
