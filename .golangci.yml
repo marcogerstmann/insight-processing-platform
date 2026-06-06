@@ -1,0 +1,14 @@
+version: "2"
+
+linters:
+  default: standard
+  enable:
+    - misspell
+    - revive
+  settings:
+    revive:
+      rules:
+        - name: package-comments
+          disabled: true  # not useful for main packages or small internal packages
+        - name: exported
+          disabled: true  # godoc on every symbol is a library concern, not an app concern

@@ -10,7 +10,7 @@ import (
 	"github.com/marcogerstmann/insight-processing-platform/internal/domain"
 )
 
-func MapIngestEventToInsight(ev domain.IngestEvent) domain.Insight {
+func mapIngestEventToInsight(ev domain.IngestEvent) domain.Insight {
 	return domain.Insight{
 		ID:       ev.ID,
 		TenantID: ev.TenantID,
@@ -24,14 +24,14 @@ const (
 	attrIdempotencyKey = "idempotency_key"
 )
 
-func MapRecordToDomain(rec events.SQSMessage) (domain.IngestEvent, error) {
+func mapRecordToDomain(rec events.SQSMessage) (domain.IngestEvent, error) {
 	dto, err := parseBody(rec.Body)
 	if err != nil {
 		return domain.IngestEvent{}, err
 	}
 
 	// Message body
-	ev, err := MapMessageDTOToDomain(dto)
+	ev, err := mapMessageDTOToDomain(dto)
 	if err != nil {
 		return domain.IngestEvent{}, err
 	}
@@ -72,10 +72,10 @@ func getRequiredAttr(rec events.SQSMessage, key string) (string, error) {
 	return v, nil
 }
 
-func parseBody(body string) (MessageDTO, error) {
-	var dto MessageDTO
+func parseBody(body string) (messageDTO, error) {
+	var dto messageDTO
 	if err := json.Unmarshal([]byte(body), &dto); err != nil {
-		return MessageDTO{}, apperr.PermanentError{Err: fmt.Errorf("invalid json body: %w", err)}
+		return messageDTO{}, apperr.PermanentError{Err: fmt.Errorf("invalid json body: %w", err)}
 	}
 	return dto, nil
 }

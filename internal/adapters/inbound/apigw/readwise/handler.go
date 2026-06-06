@@ -46,7 +46,7 @@ func (h *Handler) Handle(ctx context.Context, req events.APIGatewayV2HTTPRequest
 		}), nil
 	}
 
-	var payload WebhookDTO
+	var payload webhookDTO
 	if err := json.Unmarshal(bodyBytes, &payload); err != nil {
 		slog.WarnContext(ctx, "failed to parse json", "err", err)
 		return jsonResponse(http.StatusBadRequest, map[string]any{"error": "invalid_json"}), nil

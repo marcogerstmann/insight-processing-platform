@@ -22,7 +22,7 @@ WORKER_TAG ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo manual)
 WORKER_REPO ?= $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/$(PROJECT)-worker
 WORKER_FUNCTION ?= $(PROJECT)-worker
 
-.PHONY: test readwise-build rest-build worker-build worker-push tf-init tf-apply tf-destroy deploy tf-backend-bootstrap
+.PHONY: test lint readwise-build rest-build worker-build worker-push tf-init tf-apply tf-destroy deploy tf-backend-bootstrap
 
 # ============================================================
 # General
@@ -30,6 +30,9 @@ WORKER_FUNCTION ?= $(PROJECT)-worker
 
 test:
 	go test ./... -v
+
+lint:
+	golangci-lint run ./...
 
 # ============================================================
 # Terraform

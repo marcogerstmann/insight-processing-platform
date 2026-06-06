@@ -8,7 +8,7 @@ import (
 	"github.com/marcogerstmann/insight-processing-platform/internal/domain"
 )
 
-func MapMessageDTOToDomain(dto MessageDTO) (domain.IngestEvent, error) {
+func mapMessageDTOToDomain(dto messageDTO) (domain.IngestEvent, error) {
 	if strings.TrimSpace(dto.Source) == "" {
 		return domain.IngestEvent{}, apperr.PermanentError{Err: fmt.Errorf("missing source")}
 	}

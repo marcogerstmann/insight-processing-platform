@@ -22,7 +22,7 @@ func NewHandler(svc insight.Service, dlq port.DLQPublisher) *Handler {
 
 func (h *Handler) Handle(ctx context.Context, e events.SQSEvent) error {
 	for _, rec := range e.Records {
-		ev, err := MapRecordToDomain(rec)
+		ev, err := mapRecordToDomain(rec)
 		if err != nil {
 			if errors.As(err, &apperr.PermanentError{}) {
 				h.routeToDLQ(ctx, rec, err)
@@ -35,7 +35,7 @@ func (h *Handler) Handle(ctx context.Context, e events.SQSEvent) error {
 			return err
 		}
 
-		i := MapIngestEventToInsight(ev)
+		i := mapIngestEventToInsight(ev)
 		res, err := h.svc.Process(ctx, i)
 		if err != nil {
 			if errors.As(err, &apperr.PermanentError{}) {

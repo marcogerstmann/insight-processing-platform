@@ -2,7 +2,7 @@ package readwise
 
 import "time"
 
-type WebhookDTO struct {
+type webhookDTO struct {
 	ID            int64      `json:"id"`
 	Text          string     `json:"text"`
 	Note          string     `json:"note"`
