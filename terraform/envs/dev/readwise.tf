@@ -10,14 +10,14 @@ data "archive_file" "readwise_lambda_zip" {
 
 module "ingest_queue" {
   source                     = "../../modules/sqs"
-  name                       = "ipp-dev-ingest-events"
+  name                       = "${var.project}-${var.env}-ingest-events"
   visibility_timeout_seconds = 120
   max_receive_count          = 5
 }
 
 module "readwise_lambda_role" {
   source                     = "../../modules/iam"
-  name                       = "ipp-dev-readwise-lambda-role"
+  name                       = "${var.project}-${var.env}-readwise-lambda-role"
   assume_role_policy         = data.aws_iam_policy_document.lambda_assume_role.json
   basic_execution_policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 
@@ -27,7 +27,7 @@ module "readwise_lambda_role" {
 }
 
 resource "aws_iam_role_policy" "readwise_ssm_read" {
-  name = "ipp-dev-readwise-ssm-read"
+  name = "${var.project}-${var.env}-readwise-ssm-read"
   role = module.readwise_lambda_role.role_name
 
   policy = jsonencode({
@@ -36,7 +36,7 @@ resource "aws_iam_role_policy" "readwise_ssm_read" {
       {
         Effect   = "Allow"
         Action   = ["ssm:GetParameter"]
-        Resource = "arn:aws:ssm:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:parameter/ipp/dev/readwise/webhook_secret"
+        Resource = "arn:aws:ssm:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:parameter/${var.project}/${var.env}/readwise/webhook_secret"
       }
     ]
   })
@@ -44,7 +44,7 @@ resource "aws_iam_role_policy" "readwise_ssm_read" {
 
 module "readwise_lambda" {
   source           = "../../modules/lambda-zip"
-  name             = "ipp-readwise"
+  name             = "${var.project}-${var.env}-readwise"
   role_arn         = module.readwise_lambda_role.role_arn
   filename         = data.archive_file.readwise_lambda_zip.output_path
   source_code_hash = data.archive_file.readwise_lambda_zip.output_base64sha256
@@ -54,15 +54,15 @@ module "readwise_lambda" {
   timeout          = 10
 
   environment_variables = {
-    DEFAULT_TENANT_ID       = "test-tenant-id"
+    DEFAULT_TENANT_ID       = var.default_tenant_id
     INGEST_QUEUE_URL        = module.ingest_queue.queue_url
-    READWISE_WEBHOOK_SECRET = "ssm:/ipp/dev/readwise/webhook_secret"
+    READWISE_WEBHOOK_SECRET = "ssm:/${var.project}/${var.env}/readwise/webhook_secret"
   }
 }
 
 module "readwise_webhook_api" {
   source            = "../../modules/api-gateway"
-  name              = "ipp-readwise-api"
+  name              = "${var.project}-${var.env}-readwise-api"
   lambda_invoke_arn = module.readwise_lambda.lambda_arn
 }
 

@@ -10,13 +10,13 @@ data "archive_file" "rest_lambda_zip" {
 
 module "rest_lambda_role" {
   source                     = "../../modules/iam"
-  name                       = "ipp-dev-rest-lambda-role"
+  name                       = "${var.project}-${var.env}-rest-lambda-role"
   assume_role_policy         = data.aws_iam_policy_document.lambda_assume_role.json
   basic_execution_policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
 resource "aws_iam_role_policy" "rest_dynamodb_query" {
-  name = "ipp-dev-rest-dynamodb-query"
+  name = "${var.project}-${var.env}-rest-dynamodb-query"
   role = module.rest_lambda_role.role_name
 
   policy = jsonencode({
@@ -31,7 +31,7 @@ resource "aws_iam_role_policy" "rest_dynamodb_query" {
 
 module "rest_lambda" {
   source           = "../../modules/lambda-zip"
-  name             = "ipp-dev-rest"
+  name             = "${var.project}-${var.env}-rest"
   role_arn         = module.rest_lambda_role.role_arn
   filename         = data.archive_file.rest_lambda_zip.output_path
   source_code_hash = data.archive_file.rest_lambda_zip.output_base64sha256
@@ -49,7 +49,7 @@ module "rest_lambda" {
 # Cognito User Pool (auth)
 # -----------------------------
 resource "aws_cognito_user_pool" "rest_api" {
-  name = "ipp-dev-rest-api-users"
+  name = "${var.project}-${var.env}-rest-api-users"
 
   password_policy {
     minimum_length    = 12
@@ -60,7 +60,7 @@ resource "aws_cognito_user_pool" "rest_api" {
 }
 
 resource "aws_cognito_user_pool_client" "rest_api" {
-  name         = "ipp-dev-rest-api-client"
+  name         = "${var.project}-${var.env}-rest-api-client"
   user_pool_id = aws_cognito_user_pool.rest_api.id
 
   explicit_auth_flows = [
@@ -73,7 +73,7 @@ resource "aws_cognito_user_pool_client" "rest_api" {
 # API Gateway (HTTPv2) + JWT Authorizer
 # -----------------------------
 resource "aws_apigatewayv2_api" "rest" {
-  name          = "ipp-dev-rest-api"
+  name          = "${var.project}-${var.env}-rest-api"
   protocol_type = "HTTP"
 }
 

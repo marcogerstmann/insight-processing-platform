@@ -13,8 +13,12 @@ resource "aws_lambda_function" "this" {
   }
 }
 
+moved {
+  from = aws_cloudwatch_log_group.this[0]
+  to   = aws_cloudwatch_log_group.this
+}
+
 resource "aws_cloudwatch_log_group" "this" {
-  count             = 1
   name              = "/aws/lambda/${aws_lambda_function.this.function_name}"
   retention_in_days = 14
 }

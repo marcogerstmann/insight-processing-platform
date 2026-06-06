@@ -3,7 +3,7 @@
 # -------------------------------
 
 resource "aws_ecr_repository" "worker" {
-  name                 = "ipp-dev-worker"
+  name                 = "${var.project}-${var.env}-worker"
   image_tag_mutability = "IMMUTABLE"
 
   image_scanning_configuration {
@@ -55,13 +55,13 @@ resource "aws_ecr_lifecycle_policy" "worker" {
 
 module "worker_lambda_role" {
   source                     = "../../modules/iam"
-  name                       = "ipp-dev-worker-lambda-role"
+  name                       = "${var.project}-${var.env}-worker-lambda-role"
   assume_role_policy         = data.aws_iam_policy_document.lambda_assume_role.json
   basic_execution_policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
 resource "aws_iam_role_policy" "worker_ecr_pull" {
-  name = "ipp-dev-worker-ecr-pull"
+  name = "${var.project}-${var.env}-worker-ecr-pull"
   role = module.worker_lambda_role.role_name
 
   policy = jsonencode({
@@ -81,7 +81,7 @@ resource "aws_iam_role_policy" "worker_ecr_pull" {
 }
 
 resource "aws_iam_role_policy" "worker_sqs_consume" {
-  name = "ipp-dev-worker-sqs-consume"
+  name = "${var.project}-${var.env}-worker-sqs-consume"
   role = module.worker_lambda_role.role_name
 
   policy = jsonencode({
@@ -107,7 +107,7 @@ resource "aws_iam_role_policy" "worker_sqs_consume" {
 }
 
 resource "aws_iam_role_policy" "worker_ssm_read" {
-  name = "ipp-dev-worker-ssm-read"
+  name = "${var.project}-${var.env}-worker-ssm-read"
   role = module.worker_lambda_role.role_name
 
   policy = jsonencode({
@@ -116,7 +116,7 @@ resource "aws_iam_role_policy" "worker_ssm_read" {
       {
         Effect   = "Allow"
         Action   = ["ssm:GetParameter"]
-        Resource = "arn:aws:ssm:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:parameter/ipp/dev/anthropic/api_key"
+        Resource = "arn:aws:ssm:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:parameter/${var.project}/${var.env}/anthropic/api_key"
       }
     ]
   })
@@ -151,7 +151,7 @@ resource "aws_iam_role_policy_attachment" "worker_dynamodb" {
 
 module "worker_lambda" {
   source      = "../../modules/lambda-image"
-  name        = "ipp-dev-worker"
+  name        = "${var.project}-${var.env}-worker"
   role_arn    = module.worker_lambda_role.role_arn
   image_uri   = var.worker_image_uri
   timeout     = 30
@@ -160,7 +160,7 @@ module "worker_lambda" {
   environment_variables = {
     TABLE_NAME_INSIGHTS = module.dynamodb_insights.table_name
     INGEST_DLQ_URL      = module.ingest_queue.dlq_url
-    ANTHROPIC_API_KEY   = "ssm:/ipp/dev/anthropic/api_key"
+    ANTHROPIC_API_KEY   = "ssm:/${var.project}/${var.env}/anthropic/api_key"
   }
 
   depends_on = [aws_iam_role_policy.worker_ecr_pull, aws_ecr_repository_policy.worker]
