@@ -26,7 +26,7 @@ func mapMessageDTOToDomain(dto messageDTO) (domain.IngestEvent, error) {
 		Highlight: domain.Highlight{
 			ID:   dto.Highlight.ID,
 			Text: dto.Highlight.Text,
-			Note: &dto.Highlight.Note,
+			Note: dto.Highlight.Note,
 			URL:  dto.Highlight.URL,
 		},
 	}, nil

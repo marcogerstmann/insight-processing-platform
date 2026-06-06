@@ -30,7 +30,7 @@ func mapReadwiseDTOToDomain(p webhookDTO, receivedAt time.Time, tenantID string)
 		Highlight: domain.Highlight{
 			ID:   strconv.FormatInt(p.ID, 10),
 			Text: p.Text,
-			Note: &p.Note,
+			Note: p.Note,
 			URL:  p.URL,
 		},
 	}
