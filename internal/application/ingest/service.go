@@ -9,7 +9,7 @@ import (
 )
 
 type Service interface {
-	Enqueue(ctx context.Context, ev domain.IngestEvent, tenantID string) error
+	Enqueue(ctx context.Context, ev domain.IngestEvent) error
 }
 
 type service struct {
@@ -22,10 +22,8 @@ func NewService(p ports.EventPublisher) Service {
 	return &service{publisher: p}
 }
 
-func (s *service) Enqueue(ctx context.Context, ev domain.IngestEvent, tenantID string) error {
-	ev.TenantID = tenantID
-	id := buildIdempotencyKey(ev)
-	ev.ID = id
+func (s *service) Enqueue(ctx context.Context, ev domain.IngestEvent) error {
+	ev.ID = buildIdempotencyKey(ev)
 
 	body, err := json.Marshal(ev)
 	if err != nil {
@@ -35,8 +33,8 @@ func (s *service) Enqueue(ctx context.Context, ev domain.IngestEvent, tenantID s
 	msg := ports.PublishMessage{
 		Body: body,
 		Attributes: map[string]string{
-			"idempotency_key": id,
-			"tenant_id":       tenantID,
+			"idempotency_key": ev.ID,
+			"tenant_id":       ev.TenantID,
 		},
 	}
 

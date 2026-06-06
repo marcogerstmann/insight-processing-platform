@@ -28,6 +28,7 @@ func TestEnqueue_PublishesMessage(t *testing.T) {
 	s := NewService(mp)
 
 	ingestEvent := domain.IngestEvent{
+		TenantID:  "tenant-123",
 		Source:    "readwise",
 		EventType: "create",
 		Highlight: domain.Highlight{
@@ -35,9 +36,7 @@ func TestEnqueue_PublishesMessage(t *testing.T) {
 		},
 	}
 
-	tenantID := "tenant-123"
-
-	err := s.Enqueue(ctx, ingestEvent, tenantID)
+	err := s.Enqueue(ctx, ingestEvent)
 	if err != nil {
 		t.Fatalf("EnqueueReadwise returned unexpected error: %v", err)
 	}
@@ -49,7 +48,6 @@ func TestEnqueue_PublishesMessage(t *testing.T) {
 	msg := mp.lastMsg
 
 	evForKey := ingestEvent
-	evForKey.TenantID = tenantID
 	evForKey.ID = buildIdempotencyKey(evForKey)
 	expectedBody, err := json.Marshal(evForKey)
 	if err != nil {
@@ -60,8 +58,8 @@ func TestEnqueue_PublishesMessage(t *testing.T) {
 	}
 
 	attrs := msg.Attributes
-	if attrs["tenant_id"] != tenantID {
-		t.Fatalf("tenantId attr mismatch: got %q want %q", attrs["tenant_id"], tenantID)
+	if attrs["tenant_id"] != ingestEvent.TenantID {
+		t.Fatalf("tenantId attr mismatch: got %q want %q", attrs["tenant_id"], ingestEvent.TenantID)
 	}
 	expectedIdem := buildIdempotencyKey(evForKey)
 	if attrs["idempotency_key"] != expectedIdem {
@@ -75,6 +73,7 @@ func TestEnqueue_PublisherErrorPropagated(t *testing.T) {
 	s := NewService(mp)
 
 	ev := domain.IngestEvent{
+		TenantID:  "tenant-x",
 		Source:    "readwise",
 		EventType: "create",
 		Highlight: domain.Highlight{
@@ -82,7 +81,7 @@ func TestEnqueue_PublisherErrorPropagated(t *testing.T) {
 		},
 	}
 
-	err := s.Enqueue(ctx, ev, "tenant-x")
+	err := s.Enqueue(ctx, ev)
 	if err == nil {
 		t.Fatalf("expected error to be propagated from publisher")
 	}

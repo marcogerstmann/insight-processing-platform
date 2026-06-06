@@ -78,7 +78,7 @@ func (h *Handler) Handle(ctx context.Context, req events.APIGatewayV2HTTPRequest
 		return events.APIGatewayV2HTTPResponse{}, err
 	}
 
-	if err := h.ingest.Enqueue(ctx, domain, tenantCtx.TenantID); err != nil {
+	if err := h.ingest.Enqueue(ctx, domain); err != nil {
 		slog.ErrorContext(ctx, "enqueue failed", "err", err, "tenant_id", tenantCtx.TenantID)
 		return jsonResponse(http.StatusInternalServerError, map[string]any{"error": "enqueue failed"}), nil
 	}
