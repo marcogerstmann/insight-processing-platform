@@ -10,7 +10,7 @@ terraform {
     bucket         = "ipp-tfstate-marcogerstmann"
     key            = "insight-processing-platform/dev/terraform.tfstate"
     region         = "eu-central-1"
-    dynamodb_table = "terraform-locks"
+    use_lockfile   = true
     encrypt        = true
   }
 }
