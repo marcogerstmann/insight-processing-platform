@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"log/slog"
 	"os"
 
@@ -26,12 +25,14 @@ func init() {
 
 	tableName := os.Getenv("TABLE_NAME_INSIGHTS")
 	if tableName == "" {
-		log.Fatal("TABLE_NAME_INSIGHTS env var is required")
+		slog.Error("TABLE_NAME_INSIGHTS env var is required")
+		os.Exit(1)
 	}
 
 	awsCfg, err := config.LoadDefaultConfig(context.Background())
 	if err != nil {
-		log.Fatalf("aws config failed: %v", err)
+		slog.Error("aws config failed", "err", err)
+		os.Exit(1)
 	}
 
 	dynamoClient := awsdynamodb.NewFromConfig(awsCfg)
