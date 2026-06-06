@@ -6,11 +6,10 @@ import (
 	"log/slog"
 	"strings"
 
+	"github.com/marcogerstmann/insight-processing-platform/internal/apperr"
 	"github.com/marcogerstmann/insight-processing-platform/internal/domain"
 	"github.com/marcogerstmann/insight-processing-platform/internal/ports"
 )
-
-var errMissingID = errors.New("missing id")
 
 type Result struct {
 	Inserted bool
@@ -37,7 +36,7 @@ var _ Service = (*service)(nil)
 
 func (s *service) Process(ctx context.Context, insight domain.Insight) (Result, error) {
 	if strings.TrimSpace(insight.ID) == "" {
-		return Result{}, errMissingID
+		return Result{}, apperr.PermanentError{Err: errors.New("missing id")}
 	}
 
 	inserted, err := s.repo.CreateIfAbsent(ctx, insight)

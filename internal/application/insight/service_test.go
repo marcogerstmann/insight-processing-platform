@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/marcogerstmann/insight-processing-platform/internal/apperr"
 	"github.com/marcogerstmann/insight-processing-platform/internal/domain"
 )
 
@@ -88,8 +89,8 @@ func TestService_Process_HardGuard_EmptyID(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected error, got nil")
 	}
-	if !errors.Is(err, errMissingID) {
-		t.Fatalf("expected errMissingID, got %v", err)
+	if !errors.As(err, &apperr.PermanentError{}) {
+		t.Fatalf("expected PermanentError, got %v", err)
 	}
 	if len(log.entries) != 0 {
 		t.Fatalf("expected no calls, got %v", log.entries)
