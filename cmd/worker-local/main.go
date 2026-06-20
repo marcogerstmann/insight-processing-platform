@@ -15,8 +15,8 @@ import (
 	anthropicAdapter "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/anthropic"
 	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/memory"
 	"github.com/marcogerstmann/insight-processing-platform/internal/application/insight"
+	"github.com/marcogerstmann/insight-processing-platform/internal/application/llm"
 	"github.com/marcogerstmann/insight-processing-platform/internal/logging"
-	"github.com/marcogerstmann/insight-processing-platform/internal/ports"
 )
 
 func main() {
@@ -72,12 +72,12 @@ func main() {
 	noopRepo := memory.NewInsightNoopAdapter()
 	dlqPublisher := memory.NewDLQNoopAdapter()
 
-	var enricher ports.InsightEnricher
+	var llmService *llm.Service
 	if apiKey := strings.TrimSpace(os.Getenv("ANTHROPIC_API_KEY")); apiKey != "" {
-		enricher = anthropicAdapter.NewInsightEnricher(apiKey)
+		llmService = llm.NewService(anthropicAdapter.NewClient(apiKey))
 	}
 
-	svc := insight.NewService(noopRepo, enricher)
+	svc := insight.NewService(noopRepo, llmService)
 	h := workersqs.NewHandler(svc, dlqPublisher)
 
 	log.Info("invoking worker handler (local)",

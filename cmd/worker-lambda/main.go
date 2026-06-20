@@ -15,9 +15,9 @@ import (
 	sqsAdapters "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/sqs"
 	ssmAdapters "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/ssm"
 	"github.com/marcogerstmann/insight-processing-platform/internal/application/insight"
+	"github.com/marcogerstmann/insight-processing-platform/internal/application/llm"
 	"github.com/marcogerstmann/insight-processing-platform/internal/envutil"
 	"github.com/marcogerstmann/insight-processing-platform/internal/logging"
-	"github.com/marcogerstmann/insight-processing-platform/internal/ports"
 )
 
 func main() {
@@ -48,17 +48,17 @@ func main() {
 
 	insightRepo := dynamoAdapters.NewInsightAdapter(dbclient, mustEnv("TABLE_NAME_INSIGHTS"))
 
-	var enricher ports.InsightEnricher
+	var llmService *llm.Service
 	apiKey, err := envutil.ResolveSecret(ctx, "ANTHROPIC_API_KEY", secretProvider)
 	if err != nil {
 		log.Error("failed to resolve Anthropic API key", "err", err)
 		os.Exit(1)
 	}
 	if apiKey != "" {
-		enricher = anthropicAdapter.NewInsightEnricher(apiKey)
+		llmService = llm.NewService(anthropicAdapter.NewClient(apiKey))
 	}
 
-	svc := insight.NewService(insightRepo, enricher)
+	svc := insight.NewService(insightRepo, llmService)
 
 	h := workersqs.NewHandler(svc, dlqPublisher)
 	lambda.Start(h.Handle)

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/marcogerstmann/insight-processing-platform/internal/apperr"
+	"github.com/marcogerstmann/insight-processing-platform/internal/application/llm"
 	"github.com/marcogerstmann/insight-processing-platform/internal/domain"
 	"github.com/marcogerstmann/insight-processing-platform/internal/ports"
 )
@@ -21,14 +22,14 @@ type Service interface {
 }
 
 type service struct {
-	repo     ports.InsightRepository
-	enricher ports.InsightEnricher
+	repo ports.InsightRepository
+	llm  *llm.Service
 }
 
-func NewService(repo ports.InsightRepository, enricher ports.InsightEnricher) Service {
+func NewService(repo ports.InsightRepository, llm *llm.Service) Service {
 	return &service{
-		repo:     repo,
-		enricher: enricher,
+		repo: repo,
+		llm:  llm,
 	}
 }
 
@@ -47,19 +48,19 @@ func (s *service) Process(ctx context.Context, insight domain.Insight) (Result, 
 		return Result{Inserted: false}, nil
 	}
 
-	if s.enricher == nil {
-		slog.WarnContext(ctx, "no enricher configured, skipping enrichment")
+	if s.llm == nil {
+		slog.WarnContext(ctx, "no LLM service configured, skipping enrichment")
 		return Result{Inserted: true}, nil
 	}
 
-	enriched, err := s.enricher.Enrich(ctx, insight)
+	summary, err := s.llm.Summarize(ctx, insight.Text)
 	if err != nil {
-		// Best-effort enrichment per ADR-006: LLM failure != system failure.
 		slog.WarnContext(ctx, "enrichment failed, proceeding without summary", "err", err)
 		return Result{Inserted: true}, nil
 	}
 
-	if err := s.repo.Update(ctx, enriched); err != nil {
+	insight.Summary = summary
+	if err := s.repo.Update(ctx, insight); err != nil {
 		return Result{}, err
 	}
 

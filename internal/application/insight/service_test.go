@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/marcogerstmann/insight-processing-platform/internal/apperr"
+	"github.com/marcogerstmann/insight-processing-platform/internal/application/llm"
 	"github.com/marcogerstmann/insight-processing-platform/internal/domain"
 )
 
@@ -47,27 +48,23 @@ func (s *spyRepo) ListByTenantID(_ context.Context, _ string) ([]domain.Insight,
 	return []domain.Insight{}, nil
 }
 
-type spyEnricher struct {
+type spyLLMClient struct {
 	log *callLog
 
-	enrichErr error
-
-	returnInsight domain.Insight
-	gotInsight    domain.Insight
+	promptErr  error
+	returnText string
+	gotPrompt  string
 }
 
-func (s *spyEnricher) Enrich(_ context.Context, insight domain.Insight) (domain.Insight, error) {
+func (s *spyLLMClient) Prompt(_ context.Context, prompt string) (string, error) {
 	if s.log != nil {
-		s.log.add("enricher.Enrich")
+		s.log.add("llm.Summarize")
 	}
-	s.gotInsight = insight
-	if s.enrichErr != nil {
-		return domain.Insight{}, s.enrichErr
+	s.gotPrompt = prompt
+	if s.promptErr != nil {
+		return "", s.promptErr
 	}
-	if s.returnInsight.ID != "" {
-		return s.returnInsight, nil
-	}
-	return insight, nil
+	return s.returnText, nil
 }
 
 func makeInsight(id string) domain.Insight {
@@ -82,8 +79,8 @@ func makeInsight(id string) domain.Insight {
 func TestService_Process_HardGuard_EmptyID(t *testing.T) {
 	log := &callLog{}
 	repo := &spyRepo{log: log}
-	enr := &spyEnricher{log: log}
-	svc := NewService(repo, enr)
+	spy := &spyLLMClient{log: log}
+	svc := NewService(repo, llm.NewService(spy))
 
 	_, err := svc.Process(context.Background(), makeInsight(""))
 	if err == nil {
@@ -100,15 +97,15 @@ func TestService_Process_HardGuard_EmptyID(t *testing.T) {
 func TestService_Process_WhenNew_PutThenEnrichThenUpdate_StrictOrder(t *testing.T) {
 	log := &callLog{}
 	repo := &spyRepo{log: log, putInserted: true}
-	enr := &spyEnricher{log: log}
-	svc := NewService(repo, enr)
+	spy := &spyLLMClient{log: log}
+	svc := NewService(repo, llm.NewService(spy))
 
 	_, err := svc.Process(context.Background(), makeInsight("idk-123"))
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
 
-	want := []string{"repo.CreateIfAbsent", "enricher.Enrich", "repo.Update"}
+	want := []string{"repo.CreateIfAbsent", "llm.Summarize", "repo.Update"}
 	if len(log.entries) != len(want) {
 		t.Fatalf("expected calls=%v, got %v", want, log.entries)
 	}
@@ -122,8 +119,8 @@ func TestService_Process_WhenNew_PutThenEnrichThenUpdate_StrictOrder(t *testing.
 func TestService_Process_WhenDuplicate_SkipsEnrichAndUpdate(t *testing.T) {
 	log := &callLog{}
 	repo := &spyRepo{log: log, putInserted: false}
-	enr := &spyEnricher{log: log}
-	svc := NewService(repo, enr)
+	spy := &spyLLMClient{log: log}
+	svc := NewService(repo, llm.NewService(spy))
 
 	res, err := svc.Process(context.Background(), makeInsight("idk-dup"))
 	if err != nil {
@@ -143,8 +140,8 @@ func TestService_Process_WhenRepoPutFails_ReturnsError_SkipsEnrichAndUpdate(t *t
 	log := &callLog{}
 	putErr := errors.New("put boom")
 	repo := &spyRepo{log: log, putErr: putErr}
-	enr := &spyEnricher{log: log}
-	svc := NewService(repo, enr)
+	spy := &spyLLMClient{log: log}
+	svc := NewService(repo, llm.NewService(spy))
 
 	_, err := svc.Process(context.Background(), makeInsight("idk-puterr"))
 	if err == nil {
@@ -163,8 +160,8 @@ func TestService_Process_WhenRepoPutFails_ReturnsError_SkipsEnrichAndUpdate(t *t
 func TestService_Process_WhenEnrichFails_SoftFail_InsightStillInserted(t *testing.T) {
 	log := &callLog{}
 	repo := &spyRepo{log: log, putInserted: true}
-	enr := &spyEnricher{log: log, enrichErr: errors.New("enrich boom")}
-	svc := NewService(repo, enr)
+	spy := &spyLLMClient{log: log, promptErr: errors.New("enrich boom")}
+	svc := NewService(repo, llm.NewService(spy))
 
 	res, err := svc.Process(context.Background(), makeInsight("idk-enricherr"))
 	if err != nil {
@@ -174,7 +171,7 @@ func TestService_Process_WhenEnrichFails_SoftFail_InsightStillInserted(t *testin
 		t.Fatalf("expected Inserted=true even on enrichment failure, got false")
 	}
 
-	want := []string{"repo.CreateIfAbsent", "enricher.Enrich"}
+	want := []string{"repo.CreateIfAbsent", "llm.Summarize"}
 	if len(log.entries) != len(want) {
 		t.Fatalf("expected calls=%v, got %v", want, log.entries)
 	}
@@ -189,8 +186,8 @@ func TestService_Process_WhenUpdateFails_ReturnsError_AfterPutAndEnrich(t *testi
 	log := &callLog{}
 	updateErr := errors.New("update boom")
 	repo := &spyRepo{log: log, putInserted: true, updateErr: updateErr}
-	enr := &spyEnricher{log: log}
-	svc := NewService(repo, enr)
+	spy := &spyLLMClient{log: log}
+	svc := NewService(repo, llm.NewService(spy))
 
 	_, err := svc.Process(context.Background(), makeInsight("idk-updateerr"))
 	if err == nil {
@@ -200,7 +197,7 @@ func TestService_Process_WhenUpdateFails_ReturnsError_AfterPutAndEnrich(t *testi
 		t.Fatalf("expected update error, got %v", err)
 	}
 
-	want := []string{"repo.CreateIfAbsent", "enricher.Enrich", "repo.Update"}
+	want := []string{"repo.CreateIfAbsent", "llm.Summarize", "repo.Update"}
 	if len(log.entries) != len(want) {
 		t.Fatalf("expected calls=%v, got %v", want, log.entries)
 	}
@@ -233,8 +230,8 @@ func TestService_Process_NilEnricher_SkipsEnrichAndUpdate(t *testing.T) {
 func TestService_Process_PropagatesInsightToRepo(t *testing.T) {
 	log := &callLog{}
 	repo := &spyRepo{log: log, putInserted: true}
-	enr := &spyEnricher{log: log}
-	svc := NewService(repo, enr)
+	spy := &spyLLMClient{log: log}
+	svc := NewService(repo, llm.NewService(spy))
 
 	_, err := svc.Process(context.Background(), makeInsight("idk-prop"))
 	if err != nil {
@@ -244,31 +241,23 @@ func TestService_Process_PropagatesInsightToRepo(t *testing.T) {
 	if repo.gotPutInsight.ID != "idk-prop" {
 		t.Fatalf("expected id propagated into CreateIfAbsent, got %q", repo.gotPutInsight.ID)
 	}
-	if enr.gotInsight.ID != "idk-prop" {
-		t.Fatalf("expected id propagated into enricher, got %q", enr.gotInsight.ID)
+	if spy.gotPrompt == "" {
+		t.Fatalf("expected prompt to be sent to LLM client")
 	}
 }
 
-func TestService_Process_UpdateReceivesEnrichedInsight_NotOriginal(t *testing.T) {
+func TestService_Process_UpdateReceivesSummaryFromLLM(t *testing.T) {
 	log := &callLog{}
 	repo := &spyRepo{log: log, putInserted: true}
-
-	enriched := domain.Insight{
-		ID:       "idk-enriched",
-		TenantID: "t-1",
-		Source:   "readwise",
-		Text:     "enriched text",
-	}
-
-	enr := &spyEnricher{log: log, returnInsight: enriched}
-	svc := NewService(repo, enr)
+	spy := &spyLLMClient{log: log, returnText: "the core takeaway"}
+	svc := NewService(repo, llm.NewService(spy))
 
 	_, err := svc.Process(context.Background(), makeInsight("idk-enriched"))
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
 
-	if repo.gotUpdateInsight.Text != "enriched text" {
-		t.Fatalf("expected update to receive enriched insight, got %q", repo.gotUpdateInsight.Text)
+	if repo.gotUpdateInsight.Summary != "the core takeaway" {
+		t.Fatalf("expected summary=%q, got %q", "the core takeaway", repo.gotUpdateInsight.Summary)
 	}
 }
