@@ -1,9 +1,9 @@
 package domain
 
 type Insight struct {
-	ID       string
-	TenantID string
-	Source   string
-	Text     string
-	Summary  string
+	ID         string
+	TenantID   string
+	Source     string
+	Text       string
+	Enrichment *Enrichment
 }

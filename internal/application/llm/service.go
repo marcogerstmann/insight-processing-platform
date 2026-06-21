@@ -2,23 +2,19 @@ package llm
 
 import (
 	"context"
-	"fmt"
 
+	"github.com/marcogerstmann/insight-processing-platform/internal/domain"
 	"github.com/marcogerstmann/insight-processing-platform/internal/ports"
 )
 
-const summarizePrompt = `You are an insight extractor. Given a reading highlight, write 1-2 sentences that capture the core idea or key takeaway. Be direct and concise. No preamble, no filler.
-
-Highlight: %s`
-
 type Service struct {
-	client ports.LLMClient
+	client ports.EnrichmentClient
 }
 
-func NewService(client ports.LLMClient) *Service {
+func NewService(client ports.EnrichmentClient) *Service {
 	return &Service{client: client}
 }
 
-func (s *Service) Summarize(ctx context.Context, text string) (string, error) {
-	return s.client.Prompt(ctx, fmt.Sprintf(summarizePrompt, text))
+func (s *Service) Enrich(ctx context.Context, text string) (domain.Enrichment, error) {
+	return s.client.Enrich(ctx, text)
 }

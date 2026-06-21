@@ -14,16 +14,22 @@ import (
 	"github.com/marcogerstmann/insight-processing-platform/internal/domain"
 )
 
+type dynamoEnrichmentItem struct {
+	Summary     string   `dynamodbav:"summary"`
+	Tags        []string `dynamodbav:"tags"`
+	KeyQuestion string   `dynamodbav:"key_question"`
+}
+
 type dynamoInsightItem struct {
-	PK        string    `dynamodbav:"pk"`
-	SK        string    `dynamodbav:"sk"`
-	TenantID  string    `dynamodbav:"tenant_id"`
-	ID        string    `dynamodbav:"id"`
-	Source    string    `dynamodbav:"source"`
-	Text      string    `dynamodbav:"text"`
-	Summary   string    `dynamodbav:"summary"`
-	CreatedAt time.Time `dynamodbav:"created_at"`
-	UpdatedAt time.Time `dynamodbav:"updated_at"`
+	PK         string                `dynamodbav:"pk"`
+	SK         string                `dynamodbav:"sk"`
+	TenantID   string                `dynamodbav:"tenant_id"`
+	ID         string                `dynamodbav:"id"`
+	Source     string                `dynamodbav:"source"`
+	Text       string                `dynamodbav:"text"`
+	Enrichment *dynamoEnrichmentItem `dynamodbav:"enrichment,omitempty"`
+	CreatedAt  time.Time             `dynamodbav:"created_at"`
+	UpdatedAt  time.Time             `dynamodbav:"updated_at"`
 }
 
 func pk(tenantID string) string {
@@ -58,9 +64,16 @@ func (r *InsightAdapter) CreateIfAbsent(ctx context.Context, insight domain.Insi
 		TenantID:  insight.TenantID,
 		Source:    insight.Source,
 		Text:      insight.Text,
-		Summary:   insight.Summary,
 		CreatedAt: now,
 		UpdatedAt: now,
+	}
+
+	if insight.Enrichment != nil {
+		item.Enrichment = &dynamoEnrichmentItem{
+			Summary:     insight.Enrichment.Summary,
+			Tags:        insight.Enrichment.Tags,
+			KeyQuestion: insight.Enrichment.KeyQuestion,
+		}
 	}
 
 	av, err := attributevalue.MarshalMap(item)
@@ -83,8 +96,7 @@ func (r *InsightAdapter) CreateIfAbsent(ctx context.Context, insight domain.Insi
 		return true, nil
 	}
 
-	var cfe *types.ConditionalCheckFailedException
-	if errors.As(err, &cfe) {
+	if _, ok := errors.AsType[*types.ConditionalCheckFailedException](err); ok {
 		// Item already exists, ignore to preserve idempotency.
 		return false, nil
 	}
@@ -113,13 +125,22 @@ func (r *InsightAdapter) ListByTenantID(ctx context.Context, tenantID string) ([
 		if err := attributevalue.UnmarshalMap(item, &dynItem); err != nil {
 			return nil, err
 		}
-		insights = append(insights, domain.Insight{
+		insight := domain.Insight{
 			ID:       dynItem.ID,
 			TenantID: dynItem.TenantID,
 			Source:   dynItem.Source,
 			Text:     dynItem.Text,
-			Summary:  dynItem.Summary,
-		})
+		}
+
+		if dynItem.Enrichment != nil {
+			insight.Enrichment = &domain.Enrichment{
+				Summary:     dynItem.Enrichment.Summary,
+				Tags:        dynItem.Enrichment.Tags,
+				KeyQuestion: dynItem.Enrichment.KeyQuestion,
+			}
+		}
+
+		insights = append(insights, insight)
 	}
 	return insights, nil
 }
@@ -135,40 +156,49 @@ func (r *InsightAdapter) Update(ctx context.Context, insight domain.Insight) err
 
 	now := r.now().UTC()
 
+	updateExpr := "SET #source = :source, #text = :text, #updated_at = :updated_at"
+	exprNames := map[string]string{
+		"#pk":         "pk",
+		"#sk":         "sk",
+		"#source":     "source",
+		"#text":       "text",
+		"#updated_at": "updated_at",
+	}
+	exprValues := map[string]types.AttributeValue{
+		":source":     &types.AttributeValueMemberS{Value: insight.Source},
+		":text":       &types.AttributeValueMemberS{Value: insight.Text},
+		":updated_at": &types.AttributeValueMemberS{Value: now.Format(time.RFC3339Nano)},
+	}
+
+	if insight.Enrichment != nil {
+		enrichmentAV, err := attributevalue.MarshalMap(&dynamoEnrichmentItem{
+			Summary:     insight.Enrichment.Summary,
+			Tags:        insight.Enrichment.Tags,
+			KeyQuestion: insight.Enrichment.KeyQuestion,
+		})
+		if err != nil {
+			return fmt.Errorf("marshal enrichment: %w", err)
+		}
+
+		updateExpr += ", #enrichment = :enrichment"
+		exprNames["#enrichment"] = "enrichment"
+		exprValues[":enrichment"] = &types.AttributeValueMemberM{Value: enrichmentAV}
+	}
+
 	_, err = r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
-		TableName: aws.String(r.tableName),
-		Key:       key,
-
-		// IMPORTANT: no upsert. If the item doesn't exist, fail.
-		ConditionExpression: aws.String("attribute_exists(#pk) AND attribute_exists(#sk)"),
-
-		UpdateExpression: aws.String(
-			"SET #source = :source, #text = :text, #summary = :summary, #updated_at = :updated_at",
-		),
-
-		ExpressionAttributeNames: map[string]string{
-			"#pk":         "pk",
-			"#sk":         "sk",
-			"#source":     "source",
-			"#text":       "text",
-			"#summary":    "summary",
-			"#updated_at": "updated_at",
-		},
-
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":source":     &types.AttributeValueMemberS{Value: insight.Source},
-			":text":       &types.AttributeValueMemberS{Value: insight.Text},
-			":summary":    &types.AttributeValueMemberS{Value: insight.Summary},
-			":updated_at": &types.AttributeValueMemberS{Value: now.Format(time.RFC3339Nano)},
-		},
+		TableName:                 aws.String(r.tableName),
+		Key:                       key,
+		ConditionExpression:       aws.String("attribute_exists(#pk) AND attribute_exists(#sk)"),
+		UpdateExpression:          aws.String(updateExpr),
+		ExpressionAttributeNames:  exprNames,
+		ExpressionAttributeValues: exprValues,
 	})
 
 	if err == nil {
 		return nil
 	}
 
-	var cfe *types.ConditionalCheckFailedException
-	if errors.As(err, &cfe) {
+	if _, ok := errors.AsType[*types.ConditionalCheckFailedException](err); ok {
 		return fmt.Errorf("insight not found for update (pk/sk missing) or condition failed")
 	}
 

@@ -1,15 +1,21 @@
 package insight
 
-type InsightResponseDTO struct {
-	ID      string `json:"id"`
-	Source  string `json:"source"`
-	Text    string `json:"text"`
-	Summary string `json:"summary,omitempty"`
+type EnrichmentDTO struct {
+	Summary     string   `json:"summary"`
+	Tags        []string `json:"tags"`
+	KeyQuestion string   `json:"key_question"`
+}
+
+type ResponseDTO struct {
+	ID         string         `json:"id"`
+	Source     string         `json:"source"`
+	Text       string         `json:"text"`
+	Enrichment *EnrichmentDTO `json:"enrichment,omitempty"`
 }
 
 type ListInsightsResponseDTO struct {
-	TenantID string               `json:"tenant_id"`
-	Items    []InsightResponseDTO `json:"items"`
+	TenantID string        `json:"tenant_id"`
+	Items    []ResponseDTO `json:"items"`
 }
 
 type CreateInsightRequestDTO struct {
@@ -17,6 +23,6 @@ type CreateInsightRequestDTO struct {
 }
 
 type CreateInsightResponseDTO struct {
-	Inserted bool               `json:"inserted"`
-	Insight  InsightResponseDTO `json:"insight"`
+	Inserted bool        `json:"inserted"`
+	Insight  ResponseDTO `json:"insight"`
 }

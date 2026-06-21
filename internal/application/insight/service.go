@@ -53,13 +53,13 @@ func (s *service) Process(ctx context.Context, insight domain.Insight) (Result, 
 		return Result{Inserted: true}, nil
 	}
 
-	summary, err := s.llm.Summarize(ctx, insight.Text)
+	enrichment, err := s.llm.Enrich(ctx, insight.Text)
 	if err != nil {
-		slog.WarnContext(ctx, "enrichment failed, proceeding without summary", "err", err)
+		slog.WarnContext(ctx, "enrichment failed, proceeding without enrichment", "err", err)
 		return Result{Inserted: true}, nil
 	}
 
-	insight.Summary = summary
+	insight.Enrichment = &enrichment
 	if err := s.repo.Update(ctx, insight); err != nil {
 		return Result{}, err
 	}
