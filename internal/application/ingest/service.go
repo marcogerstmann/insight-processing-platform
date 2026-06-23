@@ -23,7 +23,8 @@ func NewService(p ports.EventPublisher) Service {
 }
 
 func (s *service) Enqueue(ctx context.Context, ev domain.IngestEvent) error {
-	ev.ID = buildIdempotencyKey(ev)
+	idempotencyKey := buildIdempotencyKey(ev)
+	ev.ID = idempotencyKey
 
 	body, err := json.Marshal(ev)
 	if err != nil {
@@ -33,7 +34,7 @@ func (s *service) Enqueue(ctx context.Context, ev domain.IngestEvent) error {
 	msg := ports.PublishMessage{
 		Body: body,
 		Attributes: map[string]string{
-			"idempotency_key": ev.ID,
+			"idempotency_key": idempotencyKey,
 			"tenant_id":       ev.TenantID,
 		},
 	}
