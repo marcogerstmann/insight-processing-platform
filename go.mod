@@ -3,6 +3,7 @@ module github.com/marcogerstmann/insight-processing-platform
 go 1.26.4
 
 require (
+	github.com/MicahParks/keyfunc/v3 v3.8.0
 	github.com/anthropics/anthropic-sdk-go v1.47.0
 	github.com/aws/aws-lambda-go v1.54.0
 	github.com/aws/aws-sdk-go-v2 v1.41.12
@@ -13,10 +14,12 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssm v1.69.2
 	github.com/awslabs/aws-lambda-go-api-proxy v0.16.2
 	github.com/gin-gonic/gin v1.12.0
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
 )
 
 require (
+	github.com/MicahParks/jwkset v0.11.0 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.29 // indirect
 	github.com/aws/aws-sdk-go-v2/service/dynamodbstreams v1.32.21 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/endpoint-discovery v1.12.5 // indirect
@@ -59,6 +62,7 @@ require (
 	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/sys v0.41.0 // indirect
 	golang.org/x/text v0.34.0 // indirect
+	golang.org/x/time v0.9.0 // indirect
 	google.golang.org/protobuf v1.36.10 // indirect
 )
 

@@ -41,7 +41,9 @@ module "rest_lambda" {
   timeout          = 10
 
   environment_variables = {
-    TABLE_NAME_INSIGHTS = module.dynamodb_insights.table_name
+    TABLE_NAME_INSIGHTS  = module.dynamodb_insights.table_name
+    COGNITO_USER_POOL_ID = aws_cognito_user_pool.rest_api.id
+    COGNITO_CLIENT_ID    = aws_cognito_user_pool_client.rest_api.id
   }
 }
 
@@ -56,6 +58,20 @@ resource "aws_cognito_user_pool" "rest_api" {
     require_uppercase = true
     require_numbers   = true
     require_symbols   = true
+  }
+
+  # Carries the tenant ID assigned to each user. Only present in ID tokens,
+  # which the REST API's Gin middleware requires for that reason.
+  schema {
+    name                = "tenant_id"
+    attribute_data_type = "String"
+    mutable             = true
+    required            = false
+
+    string_attribute_constraints {
+      min_length = 1
+      max_length = 256
+    }
   }
 }
 
@@ -104,7 +120,7 @@ resource "aws_apigatewayv2_integration" "rest_lambda" {
 
 resource "aws_apigatewayv2_route" "get_insights" {
   api_id    = aws_apigatewayv2_api.rest.id
-  route_key = "GET /tenants/{tenantID}/insights"
+  route_key = "GET /v1/tenants/{tenantID}/insights"
 
   authorization_type = "JWT"
   authorizer_id      = aws_apigatewayv2_authorizer.cognito_jwt.id
@@ -114,7 +130,7 @@ resource "aws_apigatewayv2_route" "get_insights" {
 
 resource "aws_apigatewayv2_route" "post_insights" {
   api_id    = aws_apigatewayv2_api.rest.id
-  route_key = "POST /tenants/{tenantID}/insights"
+  route_key = "POST /v1/tenants/{tenantID}/insights"
 
   authorization_type = "JWT"
   authorizer_id      = aws_apigatewayv2_authorizer.cognito_jwt.id

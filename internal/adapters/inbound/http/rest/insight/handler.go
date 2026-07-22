@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/auth"
 	appinsight "github.com/marcogerstmann/insight-processing-platform/internal/application/insight"
 )
 
@@ -18,11 +19,7 @@ func NewHandler(svc appinsight.Service) *Handler {
 }
 
 func (h *Handler) ListByTenantID(c *gin.Context) {
-	tenantID := strings.TrimSpace(c.Param("tenantID"))
-	if tenantID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "tenantID is required"})
-		return
-	}
+	tenantID := c.GetString(auth.TenantIDKey)
 
 	insights, err := h.svc.ListByTenantID(c.Request.Context(), tenantID)
 	if err != nil {
@@ -35,11 +32,7 @@ func (h *Handler) ListByTenantID(c *gin.Context) {
 }
 
 func (h *Handler) Create(c *gin.Context) {
-	tenantID := strings.TrimSpace(c.Param("tenantID"))
-	if tenantID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "tenantID is required"})
-		return
-	}
+	tenantID := c.GetString(auth.TenantIDKey)
 
 	var req CreateInsightRequestDTO
 	if err := c.ShouldBindJSON(&req); err != nil {
