@@ -50,7 +50,21 @@ module "rest_lambda" {
 # -----------------------------
 # Cognito User Pool (auth)
 # -----------------------------
+
+# aws_iam_role_policy.github_actions and this user pool have no natural
+# resource dependency, so Terraform applies them concurrently by default.
+# When a Cognito-permission change lands in the same apply as a Cognito change
+# (e.g. AddCustomAttributes), the CI role's updated inline policy can still be
+# propagating in IAM when the Cognito call fires, producing a flaky
+# AccessDeniedException. Force ordering plus a short wait for propagation.
+resource "time_sleep" "cognito_iam_propagation" {
+  depends_on      = [aws_iam_role_policy.github_actions]
+  create_duration = "15s"
+}
+
 resource "aws_cognito_user_pool" "rest_api" {
+  depends_on = [time_sleep.cognito_iam_propagation]
+
   name = "${var.project}-${var.env}-rest-api-users"
 
   password_policy {
