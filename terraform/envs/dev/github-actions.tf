@@ -305,6 +305,7 @@ data "aws_iam_policy_document" "github_actions_permissions" {
       "cognito-idp:DeleteUserPool",
       "cognito-idp:DescribeUserPool",
       "cognito-idp:UpdateUserPool",
+      "cognito-idp:AddCustomAttributes",
       "cognito-idp:CreateUserPoolClient",
       "cognito-idp:DeleteUserPoolClient",
       "cognito-idp:DescribeUserPoolClient",
