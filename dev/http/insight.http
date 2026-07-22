@@ -1,10 +1,10 @@
-GET {{base_url}}/tenants/{{tenant_id}}/insights
+GET {{base_url}}/v1/tenants/{{tenant_id}}/insights
 Authorization: Bearer {{auth_token}}
 Accept: application/json
 
 ###
 
-POST {{base_url}}/tenants/{{tenant_id}}/insights
+POST {{base_url}}/v1/tenants/{{tenant_id}}/insights
 Authorization: Bearer {{auth_token}}
 Accept: application/json
 

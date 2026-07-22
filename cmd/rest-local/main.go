@@ -11,6 +11,7 @@ import (
 	"github.com/joho/godotenv"
 
 	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest"
+	restauth "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/auth"
 	restinsight "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/insight"
 	dynamodbadapter "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/dynamodb"
 	"github.com/marcogerstmann/insight-processing-platform/internal/application/insight"
@@ -26,6 +27,14 @@ func main() {
 	if tableName == "" {
 		log.Fatal("TABLE_NAME_INSIGHTS env var is required")
 	}
+	userPoolID := os.Getenv("COGNITO_USER_POOL_ID")
+	if userPoolID == "" {
+		log.Fatal("COGNITO_USER_POOL_ID env var is required")
+	}
+	clientID := os.Getenv("COGNITO_CLIENT_ID")
+	if clientID == "" {
+		log.Fatal("COGNITO_CLIENT_ID env var is required")
+	}
 
 	ctx := context.Background()
 	awsCfg, err := config.LoadDefaultConfig(ctx)
@@ -38,8 +47,13 @@ func main() {
 	// Enrichment is async and belongs to the worker path only — REST returns fast.
 	insightSvc := insight.NewService(insightAdapter, nil)
 
+	authValidator, err := restauth.NewCognitoValidator(ctx, awsCfg.Region, userPoolID, clientID)
+	if err != nil {
+		log.Fatalf("cognito validator setup failed: %v", err)
+	}
+
 	insightHandler := restinsight.NewHandler(insightSvc)
-	router := rest.NewRouter(insightHandler)
+	router := rest.NewRouter(insightHandler, authValidator)
 
 	addr := ":8081"
 	log.Printf("REST server listening on http://localhost%s", addr)

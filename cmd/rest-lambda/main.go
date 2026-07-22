@@ -12,6 +12,7 @@ import (
 	ginadapter "github.com/awslabs/aws-lambda-go-api-proxy/gin"
 
 	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest"
+	restauth "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/auth"
 	restinsight "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/insight"
 	dynamodbadapter "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/dynamodb"
 	"github.com/marcogerstmann/insight-processing-platform/internal/application/insight"
@@ -29,8 +30,19 @@ func init() {
 		slog.Error("TABLE_NAME_INSIGHTS env var is required")
 		os.Exit(1)
 	}
+	userPoolID := os.Getenv("COGNITO_USER_POOL_ID")
+	if userPoolID == "" {
+		slog.Error("COGNITO_USER_POOL_ID env var is required")
+		os.Exit(1)
+	}
+	clientID := os.Getenv("COGNITO_CLIENT_ID")
+	if clientID == "" {
+		slog.Error("COGNITO_CLIENT_ID env var is required")
+		os.Exit(1)
+	}
 
-	awsCfg, err := config.LoadDefaultConfig(context.Background())
+	ctx := context.Background()
+	awsCfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
 		slog.Error("aws config failed", "err", err)
 		os.Exit(1)
@@ -41,7 +53,13 @@ func init() {
 	insightSvc := insight.NewService(insightAdapter, nil)
 	insightHandler := restinsight.NewHandler(insightSvc)
 
-	ginLambda = ginadapter.NewV2(rest.NewRouter(insightHandler))
+	authValidator, err := restauth.NewCognitoValidator(ctx, awsCfg.Region, userPoolID, clientID)
+	if err != nil {
+		slog.Error("cognito validator setup failed", "err", err)
+		os.Exit(1)
+	}
+
+	ginLambda = ginadapter.NewV2(rest.NewRouter(insightHandler, authValidator))
 }
 
 func handler(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
