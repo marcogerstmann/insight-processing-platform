@@ -8,8 +8,8 @@
 #     arn:aws:iam::<ACCOUNT_ID>:oidc-provider/token.actions.githubusercontent.com
 
 resource "aws_iam_openid_connect_provider" "github" {
-  url             = "https://token.actions.githubusercontent.com"
-  client_id_list  = ["sts.amazonaws.com"]
+  url            = "https://token.actions.githubusercontent.com"
+  client_id_list = ["sts.amazonaws.com"]
   # AWS validates GitHub's OIDC certificates via its own CAs — the thumbprint
   # field is required by the API but not used for validation on this provider.
   thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
@@ -264,9 +264,9 @@ data "aws_iam_policy_document" "github_actions_permissions" {
   # API Gateway — Terraform manages the HTTP API and its routes
   # ------------------------------------------------------------------
   statement {
-    sid       = "APIGatewayManage"
-    effect    = "Allow"
-    actions   = ["apigateway:*"]
+    sid     = "APIGatewayManage"
+    effect  = "Allow"
+    actions = ["apigateway:*"]
     # API Gateway ARNs are structured around /apis/<id>/... — scoping to a
     # specific API ID isn't possible until after first apply, so we use * here.
     resources = ["arn:aws:apigateway:${data.aws_region.current.id}::/*"]

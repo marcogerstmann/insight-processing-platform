@@ -105,6 +105,12 @@ resource "aws_cognito_user_pool_client" "rest_api" {
 resource "aws_apigatewayv2_api" "rest" {
   name          = "${var.project}-${var.env}-rest-api"
   protocol_type = "HTTP"
+
+  cors_configuration {
+    allow_origins = var.web_app_origins
+    allow_methods = ["GET", "POST"]
+    allow_headers = ["Authorization", "Content-Type"]
+  }
 }
 
 resource "aws_apigatewayv2_stage" "rest_default" {

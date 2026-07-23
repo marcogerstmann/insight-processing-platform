@@ -26,3 +26,9 @@ variable "default_tenant_id" {
   type        = string
   default     = "test-tenant-id"
 }
+
+variable "web_app_origins" {
+  description = "Browser origins allowed to call the REST API (CORS). Includes the Vite dev server; append the deployed web app origin here."
+  type        = list(string)
+  default     = ["http://localhost:5173"]
+}
