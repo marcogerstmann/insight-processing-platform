@@ -23,6 +23,53 @@ npm run dev
 | `npm run build`   | Type-check and produce a production build |
 | `npm run preview` | Serve the production build locally        |
 
+## Configuration
+
+The client authenticates against the dev Cognito user pool. Copy the env
+template and fill in the values from Terraform:
+
+```bash
+cp .env.example .env
+terraform -chdir=../terraform/envs/dev output -raw cognito_user_pool_id
+terraform -chdir=../terraform/envs/dev output -raw cognito_client_id
+```
+
+`.env` is gitignored; only `.env.example` is committed.
+
+## Creating a demo user
+
+There is no self-signup flow, so create a user once with the AWS CLI. Run these
+from `terraform/envs/dev` so `terraform output` resolves the pool ID (or paste
+the ID in directly):
+
+```bash
+POOL_ID=$(terraform -chdir=terraform/envs/dev output -raw cognito_user_pool_id)
+
+# 1. Create the user, suppressing the Cognito invitation email.
+aws cognito-idp admin-create-user \
+  --user-pool-id "$POOL_ID" \
+  --username demo@example.com \
+  --message-action SUPPRESS
+
+# 2. Set a permanent password so login skips the FORCE_CHANGE_PASSWORD
+#    challenge (the pool requires 12+ chars, upper/lower/number/symbol).
+aws cognito-idp admin-set-user-password \
+  --user-pool-id "$POOL_ID" \
+  --username demo@example.com \
+  --password 'Demo-Passw0rd!' \
+  --permanent
+
+# 3. Assign the tenant the REST API scopes every request to. The pool's custom
+#    attribute is named tenant_id, referenced as custom:tenant_id.
+aws cognito-idp admin-update-user-attributes \
+  --user-pool-id "$POOL_ID" \
+  --username demo@example.com \
+  --user-attributes Name=custom:tenant_id,Value=test-tenant-id
+```
+
+Then sign in from the **Login** section with `demo@example.com` /
+`Demo-Passw0rd!`.
+
 ## Project layout
 
 ```
