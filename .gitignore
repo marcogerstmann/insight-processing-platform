@@ -17,3 +17,7 @@ cmd/*/bootstrap
 
 # IDE
 .idea/
+
+# Web UI (Node/Vite)
+web/node_modules/
+web/dist/

@@ -104,3 +104,4 @@ Constraints are part of the design.
 
 - Architectural decisions: [`docs/adr.md`](docs/adr.md)
 - Setup & development: [`docs/setup.md`](docs/setup.md)
+- Web UI (demo client): [`web/README.md`](web/README.md)
