@@ -107,7 +107,7 @@ resource "aws_apigatewayv2_api" "rest" {
   protocol_type = "HTTP"
 
   cors_configuration {
-    allow_origins = var.web_app_origins
+    allow_origins = concat(var.web_app_origins, ["https://${aws_cloudfront_distribution.web.domain_name}"])
     allow_methods = ["GET", "POST"]
     allow_headers = ["Authorization", "Content-Type"]
   }

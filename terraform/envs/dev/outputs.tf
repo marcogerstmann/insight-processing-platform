@@ -22,3 +22,18 @@ output "cognito_user_pool_id" {
   description = "Cognito user pool ID"
   value       = aws_cognito_user_pool.rest_api.id
 }
+
+output "web_url" {
+  description = "Public URL of the deployed web app"
+  value       = "https://${aws_cloudfront_distribution.web.domain_name}"
+}
+
+output "web_bucket" {
+  description = "S3 bucket hosting the web app's static build"
+  value       = aws_s3_bucket.web.bucket
+}
+
+output "web_cloudfront_distribution_id" {
+  description = "CloudFront distribution ID (used to invalidate cache on deploy)"
+  value       = aws_cloudfront_distribution.web.id
+}

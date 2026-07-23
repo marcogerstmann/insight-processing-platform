@@ -1,0 +1,75 @@
+name: Deploy Web
+
+# Gated on web/** so a backend-only push never rebuilds or redeploys the
+# frontend. Infra (S3 bucket + CloudFront) is managed by the main Deploy
+# workflow's terraform apply; this workflow only builds and uploads the static
+# bundle.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "web/**"
+
+permissions:
+  id-token: write # request the OIDC JWT from GitHub
+  contents: read
+
+jobs:
+  deploy-web:
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.15.5"
+          terraform_wrapper: false # so `terraform output -raw` returns clean values
+
+      # The bucket, distribution, and the VITE_ build config all come from
+      # Terraform state — a single source of truth, no duplicated GH variables.
+      - name: Read Terraform outputs
+        id: tf
+        working-directory: terraform/envs/dev
+        run: |
+          terraform init -input=false
+          {
+            echo "bucket=$(terraform output -raw web_bucket)"
+            echo "dist_id=$(terraform output -raw web_cloudfront_distribution_id)"
+            echo "pool_id=$(terraform output -raw cognito_user_pool_id)"
+            echo "client_id=$(terraform output -raw cognito_client_id)"
+            echo "api_endpoint=$(terraform output -raw rest_api_endpoint)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        working-directory: web
+        run: |
+          cat > .env.production <<EOF
+          VITE_AWS_REGION=${{ secrets.AWS_REGION }}
+          VITE_COGNITO_USER_POOL_ID=${{ steps.tf.outputs.pool_id }}
+          VITE_COGNITO_CLIENT_ID=${{ steps.tf.outputs.client_id }}
+          VITE_REST_API_ENDPOINT=${{ steps.tf.outputs.api_endpoint }}
+          EOF
+          npm ci
+          npm run build
+
+      - name: Sync to S3 and invalidate CloudFront
+        run: |
+          aws s3 sync web/dist "s3://${{ steps.tf.outputs.bucket }}" --delete
+          aws cloudfront create-invalidation \
+            --distribution-id "${{ steps.tf.outputs.dist_id }}" \
+            --paths "/*"

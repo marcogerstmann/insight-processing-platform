@@ -354,6 +354,34 @@ data "aws_iam_policy_document" "github_actions_permissions" {
     actions   = ["logs:DescribeLogGroups"]
     resources = ["*"]
   }
+
+  # ------------------------------------------------------------------
+  # S3 — Terraform manages the web app bucket (web.tf) and the web-deploy
+  # workflow syncs the static build into it. Scoped to the web bucket only;
+  # s3:* here (rather than an exhaustive action list) covers both bucket
+  # configuration reads Terraform performs and the object sync.
+  # ------------------------------------------------------------------
+  statement {
+    sid     = "WebBucketManage"
+    effect  = "Allow"
+    actions = ["s3:*"]
+    resources = [
+      "arn:aws:s3:::${var.project}-${var.env}-web-*",
+      "arn:aws:s3:::${var.project}-${var.env}-web-*/*",
+    ]
+  }
+
+  # ------------------------------------------------------------------
+  # CloudFront — Terraform manages the distribution + OAC (web.tf) and the
+  # web-deploy workflow creates cache invalidations. CloudFront is a global
+  # service whose actions largely don't support resource-level scoping.
+  # ------------------------------------------------------------------
+  statement {
+    sid       = "CloudFrontManage"
+    effect    = "Allow"
+    actions   = ["cloudfront:*"]
+    resources = ["*"]
+  }
 }
 
 resource "aws_iam_role_policy" "github_actions" {
