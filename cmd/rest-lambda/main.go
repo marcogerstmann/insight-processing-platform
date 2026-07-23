@@ -59,7 +59,9 @@ func init() {
 		os.Exit(1)
 	}
 
-	ginLambda = ginadapter.NewV2(rest.NewRouter(insightHandler, authValidator))
+	// CORS is handled by API Gateway (terraform/envs/dev/rest-api.tf), so no
+	// allowed origins are passed here.
+	ginLambda = ginadapter.NewV2(rest.NewRouter(insightHandler, authValidator, nil))
 }
 
 func handler(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {

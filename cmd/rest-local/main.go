@@ -53,7 +53,9 @@ func main() {
 	}
 
 	insightHandler := restinsight.NewHandler(insightSvc)
-	router := rest.NewRouter(insightHandler, authValidator)
+	// Allow the web app's Vite dev server to call this local API from the
+	// browser. In AWS this is API Gateway's job; locally the Go server must do it.
+	router := rest.NewRouter(insightHandler, authValidator, []string{"http://localhost:5173"})
 
 	addr := ":8081"
 	log.Printf("REST server listening on http://localhost%s", addr)
