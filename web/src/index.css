@@ -139,3 +139,13 @@ body {
   font-size: 0.75rem;
   color: #666;
 }
+
+.claims-table th {
+  white-space: nowrap;
+  width: 1%;
+}
+
+.claims-table tr.highlight th,
+.claims-table tr.highlight td {
+  background: #fff6cc;
+}
