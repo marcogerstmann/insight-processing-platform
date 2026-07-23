@@ -96,3 +96,28 @@ body {
   color: #b00020;
   margin: 0;
 }
+
+.insights-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.insights-table th,
+.insights-table td {
+  border: 1px solid #ddd;
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.insights-table th {
+  background: #f0f0f0;
+  font-weight: 600;
+}
+
+.insights-table td:first-child {
+  font-family: ui-monospace, monospace;
+  font-size: 0.75rem;
+  color: #666;
+}
