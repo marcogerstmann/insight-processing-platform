@@ -29,14 +29,21 @@ export async function apiRequest<T>(
     },
   });
 
+  if (res.ok) {
+    return res.json() as Promise<T>;
+  }
+
   if (res.status === 401) {
     // The token is expired or otherwise rejected by the authorizer. Surface it
     // as a clear, actionable message instead of a blank screen.
     throw new ApiError(401, "Session expired or invalid — please log in again.");
   }
-  if (!res.ok) {
-    throw new ApiError(res.status, `Request failed (HTTP ${res.status})`);
-  }
 
-  return res.json() as Promise<T>;
+  // The handlers return errors as { "error": "..." } (e.g. "text is required"),
+  // so surface that message when present rather than a generic status string.
+  const backendError = await res
+    .json()
+    .then((body) => (typeof body?.error === "string" ? body.error : null))
+    .catch(() => null);
+  throw new ApiError(res.status, backendError ?? `Request failed (HTTP ${res.status})`);
 }

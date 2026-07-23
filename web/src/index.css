@@ -56,28 +56,41 @@ body {
   color: #666;
 }
 
-.login-form {
+.login-form,
+.create-form {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+}
+
+.login-form {
   max-width: 320px;
 }
 
-.login-form label {
+.create-form {
+  max-width: 480px;
+}
+
+.login-form label,
+.create-form label {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
   font-size: 0.9rem;
 }
 
-.login-form input {
+.login-form input,
+.create-form input,
+.create-form textarea {
   padding: 0.4rem 0.6rem;
   border: 1px solid #ccc;
   border-radius: 4px;
   font-size: 0.95rem;
+  font-family: inherit;
 }
 
-.login-form button[type="submit"] {
+.login-form button[type="submit"],
+.create-form button[type="submit"] {
   padding: 0.4rem 0.8rem;
   border: 1px solid #1a1a1a;
   border-radius: 4px;
@@ -87,9 +100,14 @@ body {
   font-size: 0.9rem;
 }
 
-.login-form button:disabled {
+.login-form button:disabled,
+.create-form button:disabled {
   opacity: 0.6;
   cursor: default;
+}
+
+.create-result {
+  margin-top: 1.5rem;
 }
 
 .error {

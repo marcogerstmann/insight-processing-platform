@@ -15,15 +15,15 @@ module "rest_lambda_role" {
   basic_execution_policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
-resource "aws_iam_role_policy" "rest_dynamodb_query" {
-  name = "${var.project}-${var.env}-rest-dynamodb-query"
+resource "aws_iam_role_policy" "rest_dynamodb" {
+  name = "${var.project}-${var.env}-rest-dynamodb"
   role = module.rest_lambda_role.role_name
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
       Effect   = "Allow"
-      Action   = ["dynamodb:Query"]
+      Action   = ["dynamodb:Query", "dynamodb:PutItem"]
       Resource = module.dynamodb_insights.table_arn
     }]
   })

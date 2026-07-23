@@ -33,3 +33,24 @@ export async function listInsights(token: string): Promise<Insight[]> {
   );
   return body.items;
 }
+
+// Mirrors the backend CreateInsightResponseDTO. `inserted` is false when the
+// insight already existed (HTTP 200) and true when a new row was stored (201).
+export interface CreateInsightResult {
+  inserted: boolean;
+  insight: Insight;
+}
+
+// Create an insight for the caller's tenant. Matches CreateInsightRequestDTO
+// (a single `text` field).
+export async function createInsight(
+  token: string,
+  text: string,
+): Promise<CreateInsightResult> {
+  const tenantId = decodeJwt(token)["custom:tenant_id"];
+  return apiRequest<CreateInsightResult>(`/v1/tenants/${tenantId}/insights`, token, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+}
