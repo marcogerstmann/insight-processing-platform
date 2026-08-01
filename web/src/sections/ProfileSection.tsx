@@ -1,6 +1,5 @@
 import { useAuth } from "../auth/AuthContext.tsx";
 import { decodeJwt, type JwtClaims } from "../auth/jwt.ts";
-import { NotLoggedIn } from "./NotLoggedIn.tsx";
 
 // The two claims the backend middleware (auth/cognito.go) actually checks — we
 // surface them first and highlight them.
@@ -31,18 +30,12 @@ function orderedEntries(claims: JwtClaims): [string, unknown][] {
 
 // Profile / token claims view. Decodes the logged-in user's Cognito ID token
 // client-side and lists its claims — no backend call. This makes it obvious the
-// JWT really carries custom:tenant_id, token_use, exp, etc.
+// JWT really carries custom:tenant_id, token_use, exp, etc. Only ever mounted
+// while signed in (App.tsx gates this), so `token` here is always set.
 export function ProfileSection() {
   const { token } = useAuth();
 
-  if (!token) {
-    return (
-      <section>
-        <h2>Profile</h2>
-        <NotLoggedIn />
-      </section>
-    );
-  }
+  if (!token) return null;
 
   let claims: JwtClaims;
   try {
@@ -65,19 +58,21 @@ export function ProfileSection() {
         Claims decoded from your Cognito ID token, client-side. They are not
         verified here — the API re-validates the signature server-side.
       </p>
-      <table className="insights-table claims-table">
-        <tbody>
-          {orderedEntries(claims).map(([key, value]) => (
-            <tr
-              key={key}
-              className={HIGHLIGHT_CLAIMS.includes(key) ? "highlight" : undefined}
-            >
-              <th>{key}</th>
-              <td>{formatValue(key, value)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="table-wrap">
+        <table className="insights-table claims-table">
+          <tbody>
+            {orderedEntries(claims).map(([key, value]) => (
+              <tr
+                key={key}
+                className={HIGHLIGHT_CLAIMS.includes(key) ? "highlight" : undefined}
+              >
+                <th>{key}</th>
+                <td>{formatValue(key, value)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }

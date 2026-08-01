@@ -1,8 +1,36 @@
 :root {
-  font-family: system-ui, -apple-system, sans-serif;
+  --color-bg: #f4f5f7;
+  --color-surface: #ffffff;
+  --color-border: #e2e4e9;
+  --color-text: #1a1d23;
+  --color-text-muted: #6b7280;
+  --color-primary: #4338ca;
+  --color-primary-hover: #372ea8;
+  --color-primary-text: #ffffff;
+  --color-error: #dc2626;
+  --color-highlight: #fef3c7;
+  --radius: 10px;
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.08);
+
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   line-height: 1.5;
-  color: #1a1a1a;
-  background: #f7f7f7;
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #14161a;
+    --color-surface: #1c1f26;
+    --color-border: #2b2f38;
+    --color-text: #e7e9ec;
+    --color-text-muted: #9aa1ac;
+    --color-primary: #7c6ff0;
+    --color-primary-hover: #9184f3;
+    --color-primary-text: #14161a;
+    --color-error: #f87171;
+    --color-highlight: #4a3f1a;
+  }
 }
 
 * {
@@ -14,57 +42,117 @@ body {
 }
 
 .app {
-  max-width: 720px;
+  max-width: 860px;
   margin: 0 auto;
-  padding: 2rem 1rem;
+  padding: 1.5rem 1.25rem 3rem;
+}
+
+.app--centered {
+  max-width: none;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
 }
 
 .app-header h1 {
-  font-size: 1.4rem;
-  margin: 0 0 1rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.app-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .app-nav {
   display: flex;
-  gap: 0.5rem;
-  border-bottom: 1px solid #ddd;
-  padding-bottom: 1rem;
-  margin-bottom: 1.5rem;
+  gap: 0.4rem;
+  overflow-x: auto;
 }
 
 .app-nav button {
-  padding: 0.4rem 0.8rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  background: #fff;
+  padding: 0.45rem 0.9rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text);
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.app-nav button:hover {
+  border-color: var(--color-primary);
 }
 
 .app-nav button.active {
-  background: #1a1a1a;
-  color: #fff;
-  border-color: #1a1a1a;
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+  border-color: var(--color-primary);
+}
+
+.logout-btn {
+  padding: 0.45rem 0.9rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.logout-btn:hover {
+  border-color: var(--color-error);
+  color: var(--color-error);
+}
+
+.app-main {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.5rem;
 }
 
 .app-main h2 {
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   margin-top: 0;
 }
 
 .placeholder {
-  color: #666;
+  color: var(--color-text-muted);
 }
 
 .login-form,
 .create-form {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.9rem;
 }
 
 .login-form {
-  max-width: 320px;
+  width: 320px;
+  max-width: 100%;
 }
 
 .create-form {
@@ -75,29 +163,50 @@ body {
 .create-form label {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  font-size: 0.9rem;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
 }
 
 .login-form input,
 .create-form input,
 .create-form textarea {
-  padding: 0.4rem 0.6rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg);
+  color: var(--color-text);
   font-size: 0.95rem;
   font-family: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.login-form input:focus,
+.create-form input:focus,
+.create-form textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 20%, transparent);
 }
 
 .login-form button[type="submit"],
 .create-form button[type="submit"] {
-  padding: 0.4rem 0.8rem;
-  border: 1px solid #1a1a1a;
-  border-radius: 4px;
-  background: #1a1a1a;
-  color: #fff;
+  padding: 0.55rem 1rem;
+  border: 1px solid var(--color-primary);
+  border-radius: 8px;
+  background: var(--color-primary);
+  color: var(--color-primary-text);
   cursor: pointer;
   font-size: 0.9rem;
+  font-weight: 600;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.login-form button[type="submit"]:hover:not(:disabled),
+.create-form button[type="submit"]:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
 }
 
 .login-form button:disabled,
@@ -111,8 +220,12 @@ body {
 }
 
 .error {
-  color: #b00020;
+  color: var(--color-error);
   margin: 0;
+}
+
+.table-wrap {
+  overflow-x: auto;
 }
 
 .insights-table {
@@ -123,21 +236,21 @@ body {
 
 .insights-table th,
 .insights-table td {
-  border: 1px solid #ddd;
-  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--color-border);
+  padding: 0.5rem 0.7rem;
   text-align: left;
   vertical-align: top;
 }
 
 .insights-table th {
-  background: #f0f0f0;
+  background: var(--color-bg);
   font-weight: 600;
 }
 
 .insights-table td:first-child {
   font-family: ui-monospace, monospace;
   font-size: 0.75rem;
-  color: #666;
+  color: var(--color-text-muted);
 }
 
 .claims-table th {
@@ -147,5 +260,29 @@ body {
 
 .claims-table tr.highlight th,
 .claims-table tr.highlight td {
-  background: #fff6cc;
+  background: var(--color-highlight);
+}
+
+@media (max-width: 640px) {
+  .app {
+    padding: 1rem 0.75rem 2rem;
+  }
+
+  .app-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .app-header-actions {
+    justify-content: space-between;
+  }
+
+  .app-main {
+    padding: 1.1rem;
+    border-radius: 8px;
+  }
+
+  .login-form {
+    width: 100%;
+  }
 }
