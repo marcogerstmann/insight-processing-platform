@@ -1,10 +1,11 @@
 import { useState, type FormEvent } from "react";
 import { useAuth } from "../auth/AuthContext.tsx";
 import { createInsight, type CreateInsightResult } from "../api/insights.ts";
-import { NotLoggedIn } from "./NotLoggedIn.tsx";
 
 // Create insight form. Posts a single `text` field to
 // POST /v1/tenants/{tenantID}/insights and reports whether a new row was stored.
+// Only ever mounted while signed in (App.tsx gates this), so `token` here is
+// always set.
 export function CreateInsightSection() {
   const { token } = useAuth();
   const [text, setText] = useState("");
@@ -12,14 +13,7 @@ export function CreateInsightSection() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
-  if (!token) {
-    return (
-      <section>
-        <h2>Create Insight</h2>
-        <NotLoggedIn />
-      </section>
-    );
-  }
+  if (!token) return null;
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -75,22 +69,24 @@ export function CreateInsightSection() {
               ? "Created (HTTP 201) — new insight stored."
               : "Already existed (HTTP 200) — no new row."}
           </p>
-          <table className="insights-table">
-            <tbody>
-              <tr>
-                <th>ID</th>
-                <td>{result.insight.id}</td>
-              </tr>
-              <tr>
-                <th>Source</th>
-                <td>{result.insight.source}</td>
-              </tr>
-              <tr>
-                <th>Text</th>
-                <td>{result.insight.text}</td>
-              </tr>
-            </tbody>
-          </table>
+          <div className="table-wrap">
+            <table className="insights-table">
+              <tbody>
+                <tr>
+                  <th>ID</th>
+                  <td>{result.insight.id}</td>
+                </tr>
+                <tr>
+                  <th>Source</th>
+                  <td>{result.insight.source}</td>
+                </tr>
+                <tr>
+                  <th>Text</th>
+                  <td>{result.insight.text}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
           <p className="placeholder">
             Switch to the <strong>Insights</strong> tab to see it in the list.
           </p>

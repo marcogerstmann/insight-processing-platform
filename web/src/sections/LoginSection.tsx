@@ -2,26 +2,15 @@ import { useState, type FormEvent } from "react";
 import { useAuth } from "../auth/AuthContext.tsx";
 
 // Login section. Drives the real Cognito USER_PASSWORD_AUTH flow: on success the
-// IdToken lands in AuthContext and the other sections can read it; on failure the
-// Cognito message is shown inline.
+// IdToken lands in AuthContext and App.tsx swaps this out for the main app.
+// This only ever renders while signed out (App.tsx redirects here otherwise),
+// so there's no "already signed in" branch to handle.
 export function LoginSection() {
-  const { token, login, logout } = useAuth();
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-
-  if (token) {
-    return (
-      <section>
-        <h2>Login</h2>
-        <p>You are signed in. The other sections can now use your token.</p>
-        <button type="button" onClick={logout}>
-          Log out
-        </button>
-      </section>
-    );
-  }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();

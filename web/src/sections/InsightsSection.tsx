@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthContext.tsx";
 import { listInsights, type Insight } from "../api/insights.ts";
-import { NotLoggedIn } from "./NotLoggedIn.tsx";
 
 // Insights list. On each mount (i.e. every time the section is opened) it calls
 // GET /v1/tenants/{tenantID}/insights and renders the result as a plain table.
+// Only ever mounted while signed in (App.tsx gates this), so `token` here is
+// always set.
 export function InsightsSection() {
   const { token } = useAuth();
   const [insights, setInsights] = useState<Insight[] | null>(null);
@@ -39,14 +40,7 @@ export function InsightsSection() {
     };
   }, [token]);
 
-  if (!token) {
-    return (
-      <section>
-        <h2>Insights</h2>
-        <NotLoggedIn />
-      </section>
-    );
-  }
+  if (!token) return null;
 
   return (
     <section>
@@ -61,26 +55,28 @@ export function InsightsSection() {
         <p className="placeholder">No insights yet for this tenant.</p>
       )}
       {!loading && !error && insights && insights.length > 0 && (
-        <table className="insights-table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Source</th>
-              <th>Text</th>
-              <th>Tags</th>
-            </tr>
-          </thead>
-          <tbody>
-            {insights.map((insight) => (
-              <tr key={insight.id}>
-                <td>{insight.id}</td>
-                <td>{insight.source}</td>
-                <td>{insight.text}</td>
-                <td>{insight.enrichment?.tags?.join(", ") ?? ""}</td>
+        <div className="table-wrap">
+          <table className="insights-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Source</th>
+                <th>Text</th>
+                <th>Tags</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {insights.map((insight) => (
+                <tr key={insight.id}>
+                  <td>{insight.id}</td>
+                  <td>{insight.source}</td>
+                  <td>{insight.text}</td>
+                  <td>{insight.enrichment?.tags?.join(", ") ?? ""}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   );
