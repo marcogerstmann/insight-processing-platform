@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useAuth } from "../auth/AuthContext.tsx";
 import { importReadwiseHighlights, type ImportResult } from "../api/readwise.ts";
 
-// Triggers POST /v1/tenants/{tenantID}/readwise/import. Leaving "limit" empty
+// Triggers POST /v1/readwise/import. Leaving "limit" empty
 // imports every highlight; the Readwise token field overrides the server's
 // configured READWISE_API_TOKEN for this call only (never stored). Re-running
 // this is always safe — highlights already imported, via this or the Readwise

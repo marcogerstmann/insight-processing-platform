@@ -48,5 +48,5 @@ The `IdToken` is a JWT valid for 1 hour. Use `AuthenticationResult.RefreshToken`
 
 ```bash
 curl -H "Authorization: Bearer $TOKEN" \
-  $API_URL/tenants/<tenantID>/insights
+  $API_URL/insights
 ```

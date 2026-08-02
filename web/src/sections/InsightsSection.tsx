@@ -3,7 +3,7 @@ import { useAuth } from "../auth/AuthContext.tsx";
 import { listInsights, type Insight } from "../api/insights.ts";
 
 // Insights list. On each mount (i.e. every time the section is opened) it calls
-// GET /v1/tenants/{tenantID}/insights and renders the result as a plain table.
+// GET /v1/insights and renders the result as a plain table.
 // Only ever mounted while signed in (App.tsx gates this), so `token` here is
 // always set.
 export function InsightsSection() {

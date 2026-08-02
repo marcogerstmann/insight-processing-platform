@@ -21,7 +21,7 @@ func NewRouter(insightHandler *insight.Handler, readwiseHandler *restreadwise.Ha
 		r.Use(corsMiddleware(allowedOrigins))
 	}
 
-	v1 := r.Group("/v1/tenants/:tenantID")
+	v1 := r.Group("/v1")
 	v1.Use(authValidator.Middleware())
 	{
 		v1.GET("/insights", insightHandler.ListByTenantID)

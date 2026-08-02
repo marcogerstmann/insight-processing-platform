@@ -1,4 +1,3 @@
-import { decodeJwt } from "../auth/jwt.ts";
 import { apiRequest } from "./client.ts";
 
 // Mirrors the backend ResponseDTO in
@@ -21,14 +20,9 @@ interface ListInsightsResponse {
 }
 
 // Fetch the tenant's insights. The tenant ID comes from the token's
-// custom:tenant_id claim — the same value the backend trusts — never from user
-// input, so the path segment can't diverge from what the server authorizes.
+// custom:tenant_id claim, resolved server-side — never from the URL.
 export async function listInsights(token: string): Promise<Insight[]> {
-  const tenantId = decodeJwt(token)["custom:tenant_id"];
-  const body = await apiRequest<ListInsightsResponse>(
-    `/v1/tenants/${tenantId}/insights`,
-    token,
-  );
+  const body = await apiRequest<ListInsightsResponse>("/v1/insights", token);
   return body.items;
 }
 
@@ -45,8 +39,7 @@ export async function createInsight(
   token: string,
   text: string,
 ): Promise<CreateInsightResult> {
-  const tenantId = decodeJwt(token)["custom:tenant_id"];
-  return apiRequest<CreateInsightResult>(`/v1/tenants/${tenantId}/insights`, token, {
+  return apiRequest<CreateInsightResult>("/v1/insights", token, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text }),

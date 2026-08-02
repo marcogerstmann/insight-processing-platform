@@ -1,4 +1,3 @@
-import { decodeJwt } from "../auth/jwt.ts";
 import { apiRequest } from "./client.ts";
 
 // Mirrors the backend ImportResponseDTO in
@@ -18,8 +17,7 @@ export async function importReadwiseHighlights(
   authToken: string,
   options: { readwiseToken?: string; limit?: number } = {},
 ): Promise<ImportResult> {
-  const tenantId = decodeJwt(authToken)["custom:tenant_id"];
-  return apiRequest<ImportResult>(`/v1/tenants/${tenantId}/readwise/import`, authToken, {
+  return apiRequest<ImportResult>("/v1/readwise/import", authToken, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

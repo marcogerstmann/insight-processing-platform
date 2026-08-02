@@ -14,7 +14,7 @@ module "rest_lambda_role" {
   assume_role_policy         = data.aws_iam_policy_document.lambda_assume_role.json
   basic_execution_policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 
-  # Readwise import (POST /v1/tenants/{tenantID}/readwise/import) enqueues
+  # Readwise import (POST /v1/readwise/import) enqueues
   # onto the same ingest queue the webhook uses (terraform/envs/dev/readwise.tf)
   # so the two paths dedupe against each other downstream.
   sqs_send_arns = [
@@ -171,7 +171,7 @@ resource "aws_apigatewayv2_integration" "rest_lambda" {
 
 resource "aws_apigatewayv2_route" "get_insights" {
   api_id    = aws_apigatewayv2_api.rest.id
-  route_key = "GET /v1/tenants/{tenantID}/insights"
+  route_key = "GET /v1/insights"
 
   authorization_type = "JWT"
   authorizer_id      = aws_apigatewayv2_authorizer.cognito_jwt.id
@@ -181,7 +181,7 @@ resource "aws_apigatewayv2_route" "get_insights" {
 
 resource "aws_apigatewayv2_route" "post_insights" {
   api_id    = aws_apigatewayv2_api.rest.id
-  route_key = "POST /v1/tenants/{tenantID}/insights"
+  route_key = "POST /v1/insights"
 
   authorization_type = "JWT"
   authorizer_id      = aws_apigatewayv2_authorizer.cognito_jwt.id
@@ -191,7 +191,7 @@ resource "aws_apigatewayv2_route" "post_insights" {
 
 resource "aws_apigatewayv2_route" "post_readwise_import" {
   api_id    = aws_apigatewayv2_api.rest.id
-  route_key = "POST /v1/tenants/{tenantID}/readwise/import"
+  route_key = "POST /v1/readwise/import"
 
   authorization_type = "JWT"
   authorizer_id      = aws_apigatewayv2_authorizer.cognito_jwt.id

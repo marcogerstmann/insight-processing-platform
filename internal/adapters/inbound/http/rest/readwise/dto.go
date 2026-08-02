@@ -1,6 +1,6 @@
 package readwise
 
-// ImportRequestDTO is the POST /v1/tenants/{tenantID}/readwise/import body.
+// ImportRequestDTO is the POST /v1/readwise/import body.
 // Token overrides the server-configured READWISE_API_TOKEN for this one
 // request only (never persisted) — for tenants without one configured.
 // Limit <= 0 (or omitted) imports every highlight; otherwise only the Limit

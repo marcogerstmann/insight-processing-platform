@@ -3,7 +3,7 @@ import { useAuth } from "../auth/AuthContext.tsx";
 import { createInsight, type CreateInsightResult } from "../api/insights.ts";
 
 // Create insight form. Posts a single `text` field to
-// POST /v1/tenants/{tenantID}/insights and reports whether a new row was stored.
+// POST /v1/insights and reports whether a new row was stored.
 // Only ever mounted while signed in (App.tsx gates this), so `token` here is
 // always set.
 export function CreateInsightSection() {
