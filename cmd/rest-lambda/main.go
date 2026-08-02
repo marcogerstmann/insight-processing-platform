@@ -14,7 +14,12 @@ import (
 	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest"
 	restauth "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/auth"
 	restinsight "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/insight"
+	restreadwise "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/readwise"
 	dynamodbadapter "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/dynamodb"
+	readwiseclient "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/readwise"
+	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/sqs"
+	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/ssm"
+	"github.com/marcogerstmann/insight-processing-platform/internal/application/ingest"
 	"github.com/marcogerstmann/insight-processing-platform/internal/application/insight"
 	"github.com/marcogerstmann/insight-processing-platform/internal/logging"
 )
@@ -53,6 +58,20 @@ func init() {
 	insightSvc := insight.NewService(insightAdapter, nil)
 	insightHandler := restinsight.NewHandler(insightSvc)
 
+	publisher, err := sqs.NewSQSEventPublisher(ctx)
+	if err != nil {
+		slog.Error("sqs publisher init failed", "err", err)
+		os.Exit(1)
+	}
+	secretProvider, err := ssm.NewSecretProvider(ctx)
+	if err != nil {
+		slog.Error("ssm provider init failed", "err", err)
+		os.Exit(1)
+	}
+	ingestSvc := ingest.NewService(publisher)
+	importer := ingest.NewImporter(readwiseclient.NewClient(), ingestSvc)
+	readwiseHandler := restreadwise.NewHandler(importer, secretProvider)
+
 	authValidator, err := restauth.NewCognitoValidator(ctx, awsCfg.Region, userPoolID, clientID)
 	if err != nil {
 		slog.Error("cognito validator setup failed", "err", err)
@@ -61,7 +80,7 @@ func init() {
 
 	// CORS is handled by API Gateway (terraform/envs/dev/rest-api.tf), so no
 	// allowed origins are passed here.
-	ginLambda = ginadapter.NewV2(rest.NewRouter(insightHandler, authValidator, nil))
+	ginLambda = ginadapter.NewV2(rest.NewRouter(insightHandler, readwiseHandler, authValidator, nil))
 }
 
 func handler(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {

@@ -13,6 +13,13 @@ module "rest_lambda_role" {
   name                       = "${var.project}-${var.env}-rest-lambda-role"
   assume_role_policy         = data.aws_iam_policy_document.lambda_assume_role.json
   basic_execution_policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+
+  # Readwise import (POST /v1/tenants/{tenantID}/readwise/import) enqueues
+  # onto the same ingest queue the webhook uses (terraform/envs/dev/readwise.tf)
+  # so the two paths dedupe against each other downstream.
+  sqs_send_arns = [
+    module.ingest_queue.queue_arn
+  ]
 }
 
 resource "aws_iam_role_policy" "rest_dynamodb" {
@@ -26,6 +33,22 @@ resource "aws_iam_role_policy" "rest_dynamodb" {
       Action   = ["dynamodb:Query", "dynamodb:PutItem"]
       Resource = module.dynamodb_insights.table_arn
     }]
+  })
+}
+
+resource "aws_iam_role_policy" "rest_readwise_ssm_read" {
+  name = "${var.project}-${var.env}-rest-readwise-ssm-read"
+  role = module.rest_lambda_role.role_name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["ssm:GetParameter"]
+        Resource = "arn:aws:ssm:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:parameter/${var.project}/${var.env}/readwise/api_token"
+      }
+    ]
   })
 }
 
@@ -44,6 +67,11 @@ module "rest_lambda" {
     TABLE_NAME_INSIGHTS  = module.dynamodb_insights.table_name
     COGNITO_USER_POOL_ID = aws_cognito_user_pool.rest_api.id
     COGNITO_CLIENT_ID    = aws_cognito_user_pool_client.rest_api.id
+    INGEST_QUEUE_URL     = module.ingest_queue.queue_url
+    # Falls back to this when a request doesn't pass its own "token"; must be
+    # created out-of-band the same way readwise/webhook_secret is (no
+    # aws_ssm_parameter resource in this repo — see readwise.tf).
+    READWISE_API_TOKEN = "ssm:/${var.project}/${var.env}/readwise/api_token"
   }
 }
 
@@ -151,6 +179,16 @@ resource "aws_apigatewayv2_route" "get_insights" {
 resource "aws_apigatewayv2_route" "post_insights" {
   api_id    = aws_apigatewayv2_api.rest.id
   route_key = "POST /v1/tenants/{tenantID}/insights"
+
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito_jwt.id
+
+  target = "integrations/${aws_apigatewayv2_integration.rest_lambda.id}"
+}
+
+resource "aws_apigatewayv2_route" "post_readwise_import" {
+  api_id    = aws_apigatewayv2_api.rest.id
+  route_key = "POST /v1/tenants/{tenantID}/readwise/import"
 
   authorization_type = "JWT"
   authorizer_id      = aws_apigatewayv2_authorizer.cognito_jwt.id
