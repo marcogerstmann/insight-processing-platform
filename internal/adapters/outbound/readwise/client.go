@@ -40,6 +40,7 @@ type exportHighlight struct {
 	HighlightedAt *time.Time `json:"highlighted_at"`
 	UpdatedAt     time.Time  `json:"updated_at"`
 	IsDeleted     bool       `json:"is_deleted"`
+	IsFavorite    bool       `json:"is_favorite"`
 }
 
 type exportBook struct {
@@ -98,6 +99,7 @@ func (c *Client) FetchHighlights(ctx context.Context, token string) ([]ports.Rea
 					Note:          h.Note,
 					URL:           h.URL,
 					HighlightedAt: at,
+					IsFavorite:    h.IsFavorite,
 				})
 			}
 		}

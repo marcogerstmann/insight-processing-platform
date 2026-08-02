@@ -12,6 +12,7 @@ type ReadwiseHighlight struct {
 	Note          string
 	URL           *string
 	HighlightedAt time.Time
+	IsFavorite    bool
 }
 
 // ReadwiseClient fetches a tenant's highlights from Readwise for bulk import,

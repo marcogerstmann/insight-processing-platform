@@ -33,13 +33,28 @@ func NewImporter(client ports.ReadwiseClient, svc Service) *Importer {
 }
 
 // Import fetches tenantID's Readwise highlights and enqueues each one.
-// limit <= 0 imports everything; otherwise only the limit most recently
+// onlyFavorites, when true, drops non-favorited highlights before limit is
+// applied, so "latest N favorites" means the N most recent favorites, not
+// favorites among the N most recent highlights overall. limit <= 0 imports
+// everything that survives filtering; otherwise only the limit most recently
 // highlighted ones (FetchHighlights returns newest first).
-func (im *Importer) Import(ctx context.Context, tenantID, token string, limit int) (ImportResult, error) {
-	highlights, err := im.client.FetchHighlights(ctx, token)
+func (im *Importer) Import(ctx context.Context, tenantID, token string, limit int, onlyFavorites bool) (ImportResult, error) {
+	fetched, err := im.client.FetchHighlights(ctx, token)
 	if err != nil {
 		return ImportResult{}, err
 	}
+
+	highlights := make([]ports.ReadwiseHighlight, 0, len(fetched))
+	for _, h := range fetched {
+		if onlyFavorites && !h.IsFavorite {
+			continue
+		}
+		if strings.TrimSpace(h.Text) == "" {
+			continue
+		}
+		highlights = append(highlights, h)
+	}
+
 	if limit > 0 && limit < len(highlights) {
 		highlights = highlights[:limit]
 	}
@@ -48,10 +63,6 @@ func (im *Importer) Import(ctx context.Context, tenantID, token string, limit in
 	result := ImportResult{Fetched: len(highlights)}
 
 	for _, h := range highlights {
-		if strings.TrimSpace(h.Text) == "" {
-			continue
-		}
-
 		ev := domain.IngestEvent{
 			TenantID:   tenantID,
 			Source:     "readwise",

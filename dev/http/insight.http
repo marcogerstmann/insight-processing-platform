@@ -1,10 +1,10 @@
-GET {{base_url}}/v1/tenants/{{tenant_id}}/insights
+GET {{base_url}}/v1/insights
 Authorization: Bearer {{auth_token}}
 Accept: application/json
 
 ###
 
-POST {{base_url}}/v1/tenants/{{tenant_id}}/insights
+POST {{base_url}}/v1/insights
 Authorization: Bearer {{auth_token}}
 Accept: application/json
 
@@ -15,20 +15,32 @@ Accept: application/json
 ###
 
 # Import all Readwise highlights, using the server-configured READWISE_API_TOKEN.
-POST {{base_url}}/v1/tenants/{{tenant_id}}/readwise/import
+POST {{base_url}}/v1/readwise/import
 Authorization: Bearer {{auth_token}}
 Accept: application/json
 
 ###
 
 # Import only the 20 most recently highlighted ones, with a one-off token.
-POST {{base_url}}/v1/tenants/{{tenant_id}}/readwise/import
+POST {{base_url}}/v1/readwise/import
 Authorization: Bearer {{auth_token}}
 Accept: application/json
 
 {
     "token": "your-readwise-token",
     "limit": 20
+}
+
+###
+
+# Import only the 20 most recently highlighted favorites.
+POST {{base_url}}/v1/readwise/import
+Authorization: Bearer {{auth_token}}
+Accept: application/json
+
+{
+    "limit": 20,
+    "only_favorites": true
 }
 
 ###

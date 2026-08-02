@@ -13,6 +13,7 @@ export function ImportReadwiseSection() {
   const { token } = useAuth();
   const [readwiseToken, setReadwiseToken] = useState("");
   const [limit, setLimit] = useState("");
+  const [onlyFavorites, setOnlyFavorites] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -29,6 +30,7 @@ export function ImportReadwiseSection() {
       const res = await importReadwiseHighlights(token, {
         readwiseToken: readwiseToken.trim(),
         limit: limit.trim() === "" ? undefined : Number(limit),
+        onlyFavorites,
       });
       setResult(res);
     } catch (err) {
@@ -61,6 +63,14 @@ export function ImportReadwiseSection() {
             onChange={(e) => setLimit(e.target.value)}
             placeholder="Leave empty to import all highlights"
           />
+        </label>
+        <label className="checkbox-field">
+          <input
+            type="checkbox"
+            checked={onlyFavorites}
+            onChange={(e) => setOnlyFavorites(e.target.checked)}
+          />
+          Only favorites
         </label>
         <button type="submit" disabled={pending}>
           {pending ? "Importing…" : "Import highlights"}

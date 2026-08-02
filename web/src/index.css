@@ -169,6 +169,12 @@ body {
   color: var(--color-text-muted);
 }
 
+.create-form label.checkbox-field {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .login-form input,
 .create-form input,
 .create-form textarea {

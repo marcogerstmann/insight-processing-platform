@@ -29,12 +29,12 @@ func TestImport_EnqueuesAllByDefault(t *testing.T) {
 	svc := NewService(mp)
 	im := NewImporter(client, svc)
 
-	result, err := im.Import(context.Background(), "tenant-1", "token", 0)
+	result, err := im.Import(context.Background(), "tenant-1", "token", 0, false)
 	if err != nil {
 		t.Fatalf("Import returned error: %v", err)
 	}
-	if result.Fetched != 3 {
-		t.Fatalf("expected Fetched=3, got %d", result.Fetched)
+	if result.Fetched != 2 {
+		t.Fatalf("expected Fetched=2 (blank text excluded before counting), got %d", result.Fetched)
 	}
 	if result.Enqueued != 2 {
 		t.Fatalf("expected Enqueued=2 (blank text skipped), got %d", result.Enqueued)
@@ -51,7 +51,7 @@ func TestImport_RespectsLimit(t *testing.T) {
 	svc := NewService(mp)
 	im := NewImporter(client, svc)
 
-	result, err := im.Import(context.Background(), "tenant-1", "token", 2)
+	result, err := im.Import(context.Background(), "tenant-1", "token", 2, false)
 	if err != nil {
 		t.Fatalf("Import returned error: %v", err)
 	}
@@ -60,12 +60,44 @@ func TestImport_RespectsLimit(t *testing.T) {
 	}
 }
 
+func TestImport_OnlyFavoritesFiltersBeforeLimit(t *testing.T) {
+	// Newest-first order, as FetchHighlights guarantees. Only "2" and "4" are
+	// favorites — with onlyFavorites+limit=1, the result must be the single
+	// most recent favorite ("2"), not a favorite among the top 1 overall
+	// (which would find none, since "1" isn't a favorite).
+	client := &fakeReadwiseClient{highlights: []ports.ReadwiseHighlight{
+		{ID: "1", Text: "not favorite", IsFavorite: false},
+		{ID: "2", Text: "favorite", IsFavorite: true},
+		{ID: "3", Text: "not favorite", IsFavorite: false},
+		{ID: "4", Text: "favorite", IsFavorite: true},
+	}}
+	mp := &mockPublisher{}
+	svc := NewService(mp)
+	im := NewImporter(client, svc)
+
+	result, err := im.Import(context.Background(), "tenant-1", "token", 1, true)
+	if err != nil {
+		t.Fatalf("Import returned error: %v", err)
+	}
+	if result.Fetched != 1 || result.Enqueued != 1 {
+		t.Fatalf("expected exactly 1 favorite enqueued, got %+v", result)
+	}
+	if mp.lastMsg.Attributes["idempotency_key"] != buildIdempotencyKey(domain.IngestEvent{
+		TenantID:  "tenant-1",
+		Source:    "readwise",
+		EventType: "readwise.highlight.created",
+		Highlight: domain.Highlight{ID: "2"},
+	}) {
+		t.Fatalf("expected the most recent favorite (id=2) to be the one enqueued")
+	}
+}
+
 func TestImport_ClientErrorPropagated(t *testing.T) {
 	client := &fakeReadwiseClient{err: errors.New("readwise down")}
 	svc := NewService(&mockPublisher{})
 	im := NewImporter(client, svc)
 
-	_, err := im.Import(context.Background(), "tenant-1", "token", 0)
+	_, err := im.Import(context.Background(), "tenant-1", "token", 0, false)
 	if err == nil {
 		t.Fatal("expected error to be propagated from client")
 	}
@@ -77,7 +109,7 @@ func TestImport_SameHighlightSameEventTypeAsWebhook(t *testing.T) {
 	svc := NewService(mp)
 	im := NewImporter(client, svc)
 
-	if _, err := im.Import(context.Background(), "tenant-1", "token", 0); err != nil {
+	if _, err := im.Import(context.Background(), "tenant-1", "token", 0, false); err != nil {
 		t.Fatalf("Import returned error: %v", err)
 	}
 

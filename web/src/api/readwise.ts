@@ -11,11 +11,14 @@ export interface ImportResult {
 // Trigger a Readwise highlight import for the caller's tenant. `token`
 // overrides the server-configured READWISE_API_TOKEN for this call only;
 // `limit` <= 0 (or omitted) imports every highlight, otherwise only the most
-// recently highlighted `limit` of them. Safe to re-run: highlights already
-// imported (via this or the Readwise webhook) are skipped server-side.
+// recently highlighted `limit` of them; `onlyFavorites` restricts that to
+// highlights favorited in Readwise (applied before `limit`, so "20 favorites"
+// means the 20 most recent favorites, not favorites among the 20 most recent
+// highlights). Safe to re-run: highlights already imported (via this or the
+// Readwise webhook) are skipped server-side.
 export async function importReadwiseHighlights(
   authToken: string,
-  options: { readwiseToken?: string; limit?: number } = {},
+  options: { readwiseToken?: string; limit?: number; onlyFavorites?: boolean } = {},
 ): Promise<ImportResult> {
   return apiRequest<ImportResult>("/v1/readwise/import", authToken, {
     method: "POST",
@@ -23,6 +26,7 @@ export async function importReadwiseHighlights(
     body: JSON.stringify({
       token: options.readwiseToken || undefined,
       limit: options.limit || undefined,
+      only_favorites: options.onlyFavorites || undefined,
     }),
   });
 }

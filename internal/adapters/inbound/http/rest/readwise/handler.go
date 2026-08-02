@@ -52,7 +52,7 @@ func (h *Handler) Import(c *gin.Context) {
 		return
 	}
 
-	result, err := h.importer.Import(c.Request.Context(), tenantID, token, req.Limit)
+	result, err := h.importer.Import(c.Request.Context(), tenantID, token, req.Limit, req.OnlyFavorites)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "readwise import failed", "tenant_id", tenantID, "err", err)
 		c.JSON(http.StatusBadGateway, gin.H{"error": "readwise_import_failed"})
