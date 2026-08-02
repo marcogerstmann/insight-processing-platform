@@ -1,9 +1,7 @@
 package insight
 
 type EnrichmentDTO struct {
-	Summary     string   `json:"summary"`
-	Tags        []string `json:"tags"`
-	KeyQuestion string   `json:"key_question"`
+	Tags []string `json:"tags"`
 }
 
 type ResponseDTO struct {

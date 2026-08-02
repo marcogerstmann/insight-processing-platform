@@ -1,5 +1,5 @@
 # Kindle highlight
-POST {{base_url}}/readwise/webhook
+POST {{readwise_base_url}}/readwise/webhook
 Accept: application/json
 Content-Type: application/json
 
@@ -22,7 +22,7 @@ Content-Type: application/json
 ###
 
 # Reader highlight
-POST {{base_url}}/readwise/webhook
+POST {{readwise_base_url}}/readwise/webhook
 Accept: application/json
 Content-Type: application/json
 

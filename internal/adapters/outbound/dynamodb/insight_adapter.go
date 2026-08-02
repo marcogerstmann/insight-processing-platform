@@ -15,9 +15,7 @@ import (
 )
 
 type dynamoEnrichmentItem struct {
-	Summary     string   `dynamodbav:"summary"`
-	Tags        []string `dynamodbav:"tags"`
-	KeyQuestion string   `dynamodbav:"key_question"`
+	Tags []string `dynamodbav:"tags"`
 }
 
 type dynamoInsightItem struct {
@@ -70,9 +68,7 @@ func (r *InsightAdapter) CreateIfAbsent(ctx context.Context, insight domain.Insi
 
 	if insight.Enrichment != nil {
 		item.Enrichment = &dynamoEnrichmentItem{
-			Summary:     insight.Enrichment.Summary,
-			Tags:        insight.Enrichment.Tags,
-			KeyQuestion: insight.Enrichment.KeyQuestion,
+			Tags: insight.Enrichment.Tags,
 		}
 	}
 
@@ -134,9 +130,7 @@ func (r *InsightAdapter) ListByTenantID(ctx context.Context, tenantID string) ([
 
 		if dynItem.Enrichment != nil {
 			insight.Enrichment = &domain.Enrichment{
-				Summary:     dynItem.Enrichment.Summary,
-				Tags:        dynItem.Enrichment.Tags,
-				KeyQuestion: dynItem.Enrichment.KeyQuestion,
+				Tags: dynItem.Enrichment.Tags,
 			}
 		}
 
@@ -172,9 +166,7 @@ func (r *InsightAdapter) Update(ctx context.Context, insight domain.Insight) err
 
 	if insight.Enrichment != nil {
 		enrichmentAV, err := attributevalue.MarshalMap(&dynamoEnrichmentItem{
-			Summary:     insight.Enrichment.Summary,
-			Tags:        insight.Enrichment.Tags,
-			KeyQuestion: insight.Enrichment.KeyQuestion,
+			Tags: insight.Enrichment.Tags,
 		})
 		if err != nil {
 			return fmt.Errorf("marshal enrichment: %w", err)

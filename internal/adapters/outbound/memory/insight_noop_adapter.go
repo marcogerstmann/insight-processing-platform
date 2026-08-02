@@ -45,9 +45,14 @@ func (r *InsightNoopAdapter) CreateIfAbsent(_ context.Context, insight domain.In
 }
 
 func (r *InsightNoopAdapter) Update(_ context.Context, insight domain.Insight) error {
+	var tags []string
+	if insight.Enrichment != nil {
+		tags = insight.Enrichment.Tags
+	}
 	slog.Info("noop repo updated insight",
 		"id", insight.ID,
 		"tenantID", insight.TenantID,
+		"tags", tags,
 	)
 	return nil
 }
