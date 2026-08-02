@@ -252,9 +252,7 @@ func TestService_Process_UpdateReceivesEnrichmentFromLLM(t *testing.T) {
 	spy := &spyEnrichmentClient{
 		log: log,
 		returnEnrich: domain.Enrichment{
-			Summary:     "the core takeaway",
-			Tags:        []string{"learning", "growth"},
-			KeyQuestion: "What is the key lesson?",
+			Tags: []string{"learning", "growth"},
 		},
 	}
 	svc := NewService(repo, llm.NewService(spy))
@@ -268,13 +266,7 @@ func TestService_Process_UpdateReceivesEnrichmentFromLLM(t *testing.T) {
 	if got == nil {
 		t.Fatal("expected enrichment to be set on updated insight")
 	}
-	if got.Summary != "the core takeaway" {
-		t.Fatalf("expected summary=%q, got %q", "the core takeaway", got.Summary)
-	}
 	if len(got.Tags) != 2 || got.Tags[0] != "learning" || got.Tags[1] != "growth" {
 		t.Fatalf("expected tags=[learning growth], got %v", got.Tags)
-	}
-	if got.KeyQuestion != "What is the key lesson?" {
-		t.Fatalf("expected key_question=%q, got %q", "What is the key lesson?", got.KeyQuestion)
 	}
 }

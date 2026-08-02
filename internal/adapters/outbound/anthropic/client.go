@@ -23,36 +23,26 @@ const (
 var enrichTool = sdk.ToolUnionParam{
 	OfTool: &sdk.ToolParam{
 		Name:        enrichToolName,
-		Description: sdk.Opt[string]("Extract structured enrichment from a reading highlight."),
+		Description: sdk.Opt[string]("Extract thematic tags from a reading highlight."),
 		InputSchema: sdk.ToolInputSchemaParam{
 			Properties: map[string]any{
-				"summary": map[string]any{
-					"type":        "string",
-					"description": "A concise 1-2 sentence summary capturing the core idea or key takeaway.",
-				},
 				"tags": map[string]any{
 					"type":        "array",
 					"items":       map[string]any{"type": "string"},
-					"description": "3-5 thematic tags or themes relevant to the highlight.",
-				},
-				"key_question": map[string]any{
-					"type":        "string",
-					"description": "The key question this insight answers, in Zettelkasten style.",
+					"description": "3-5 specific, thematic tags for the highlight. Prefer precise, reusable concepts (e.g. \"delegation\", \"compound-interest\") over generic ones (e.g. \"business\", \"life\").",
 				},
 			},
-			Required: []string{"summary", "tags", "key_question"},
+			Required: []string{"tags"},
 		},
 	},
 }
 
 var systemPrompt = []sdk.TextBlockParam{
-	{Text: "You are an insight enricher. Given a reading highlight, extract structured enrichment: a concise summary, thematic tags, and the key question the insight answers. Be direct and concise. No preamble, no filler."},
+	{Text: "You are a tagging specialist. Given a reading highlight, extract 3-5 precise thematic tags that capture its core concepts. Favor specific, reusable terms over broad categories. Be direct and concise. No preamble, no filler."},
 }
 
 type enrichmentInput struct {
-	Summary     string   `json:"summary"`
-	Tags        []string `json:"tags"`
-	KeyQuestion string   `json:"key_question"`
+	Tags []string `json:"tags"`
 }
 
 type Client struct {
@@ -111,9 +101,7 @@ func (c *Client) Enrich(ctx context.Context, text string) (domain.Enrichment, er
 		}
 
 		return domain.Enrichment{
-			Summary:     input.Summary,
-			Tags:        input.Tags,
-			KeyQuestion: input.KeyQuestion,
+			Tags: input.Tags,
 		}, nil
 	}
 

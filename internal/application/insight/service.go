@@ -58,6 +58,7 @@ func (s *service) Process(ctx context.Context, insight domain.Insight) (Result, 
 		slog.WarnContext(ctx, "enrichment failed, proceeding without enrichment", "err", err)
 		return Result{Inserted: true}, nil
 	}
+	enrichment.Tags = domain.NormalizeTags(enrichment.Tags)
 
 	insight.Enrichment = &enrichment
 	if err := s.repo.Update(ctx, insight); err != nil {

@@ -5,9 +5,7 @@ import { apiRequest } from "./client.ts";
 // internal/adapters/inbound/http/rest/insight/dto.go. `enrichment` is optional:
 // an insight the worker hasn't enriched yet has none.
 export interface Enrichment {
-  summary: string;
   tags: string[];
-  key_question: string;
 }
 
 export interface Insight {

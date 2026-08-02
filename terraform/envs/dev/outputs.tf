@@ -3,6 +3,16 @@ output "webhook_url" {
   value       = "${module.readwise_webhook_api.api_endpoint}/readwise/webhook"
 }
 
+output "ingest_queue_url" {
+  description = "SQS queue URL for ingest events"
+  value       = module.ingest_queue.queue_url
+}
+
+output "ingest_dlq_url" {
+  description = "SQS dead-letter queue URL for ingest events"
+  value       = module.ingest_queue.dlq_url
+}
+
 output "worker_ecr_repository_url" {
   description = "ECR repository URL for pushing worker container images"
   value       = aws_ecr_repository.worker.repository_url
