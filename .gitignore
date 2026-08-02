@@ -21,3 +21,4 @@ cmd/*/bootstrap
 # Web UI (Node/Vite)
 web/node_modules/
 web/dist/
+web/tsconfig.tsbuildinfo

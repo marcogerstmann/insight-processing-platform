@@ -247,12 +247,6 @@ body {
   font-weight: 600;
 }
 
-.insights-table td:first-child {
-  font-family: ui-monospace, monospace;
-  font-size: 0.75rem;
-  color: var(--color-text-muted);
-}
-
 .claims-table th {
   white-space: nowrap;
   width: 1%;

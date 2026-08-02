@@ -13,7 +13,12 @@ import (
 	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest"
 	restauth "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/auth"
 	restinsight "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/insight"
+	restreadwise "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/readwise"
 	dynamodbadapter "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/dynamodb"
+	readwiseclient "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/readwise"
+	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/sqs"
+	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/ssm"
+	"github.com/marcogerstmann/insight-processing-platform/internal/application/ingest"
 	"github.com/marcogerstmann/insight-processing-platform/internal/application/insight"
 )
 
@@ -47,6 +52,18 @@ func main() {
 	// Enrichment is async and belongs to the worker path only — REST returns fast.
 	insightSvc := insight.NewService(insightAdapter, nil)
 
+	publisher, err := sqs.NewSQSEventPublisher(ctx)
+	if err != nil {
+		log.Fatalf("sqs publisher init failed: %v", err)
+	}
+	secretProvider, err := ssm.NewSecretProvider(ctx)
+	if err != nil {
+		log.Fatalf("ssm provider init failed: %v", err)
+	}
+	ingestSvc := ingest.NewService(publisher)
+	importer := ingest.NewImporter(readwiseclient.NewClient(), ingestSvc)
+	readwiseHandler := restreadwise.NewHandler(importer, secretProvider)
+
 	authValidator, err := restauth.NewCognitoValidator(ctx, awsCfg.Region, userPoolID, clientID)
 	if err != nil {
 		log.Fatalf("cognito validator setup failed: %v", err)
@@ -55,7 +72,7 @@ func main() {
 	insightHandler := restinsight.NewHandler(insightSvc)
 	// Allow the web app's Vite dev server to call this local API from the
 	// browser. In AWS this is API Gateway's job; locally the Go server must do it.
-	router := rest.NewRouter(insightHandler, authValidator, []string{"http://localhost:5173"})
+	router := rest.NewRouter(insightHandler, readwiseHandler, authValidator, []string{"http://localhost:5173"})
 
 	addr := ":8081"
 	log.Printf("REST server listening on http://localhost%s", addr)

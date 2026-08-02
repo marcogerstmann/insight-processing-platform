@@ -59,7 +59,6 @@ export function InsightsSection() {
           <table className="insights-table">
             <thead>
               <tr>
-                <th>ID</th>
                 <th>Source</th>
                 <th>Text</th>
                 <th>Tags</th>
@@ -68,7 +67,6 @@ export function InsightsSection() {
             <tbody>
               {insights.map((insight) => (
                 <tr key={insight.id}>
-                  <td>{insight.id}</td>
                   <td>{insight.source}</td>
                   <td>{insight.text}</td>
                   <td>{insight.enrichment?.tags?.join(", ") ?? ""}</td>

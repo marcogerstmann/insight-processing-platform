@@ -13,3 +13,22 @@ Accept: application/json
 }
 
 ###
+
+# Import all Readwise highlights, using the server-configured READWISE_API_TOKEN.
+POST {{base_url}}/v1/tenants/{{tenant_id}}/readwise/import
+Authorization: Bearer {{auth_token}}
+Accept: application/json
+
+###
+
+# Import only the 20 most recently highlighted ones, with a one-off token.
+POST {{base_url}}/v1/tenants/{{tenant_id}}/readwise/import
+Authorization: Bearer {{auth_token}}
+Accept: application/json
+
+{
+    "token": "your-readwise-token",
+    "limit": 20
+}
+
+###
