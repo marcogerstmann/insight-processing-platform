@@ -8,6 +8,7 @@ type ResponseDTO struct {
 	ID         string         `json:"id"`
 	Source     string         `json:"source"`
 	Text       string         `json:"text"`
+	Notes      string         `json:"notes,omitempty"`
 	Enrichment *EnrichmentDTO `json:"enrichment,omitempty"`
 }
 

@@ -16,6 +16,7 @@ func mapInsightToDTO(i domain.Insight) ResponseDTO {
 		ID:     i.ID,
 		Source: i.Source,
 		Text:   i.Text,
+		Notes:  i.Notes,
 	}
 
 	if i.Enrichment != nil {

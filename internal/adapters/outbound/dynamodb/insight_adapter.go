@@ -25,6 +25,7 @@ type dynamoInsightItem struct {
 	ID         string                `dynamodbav:"id"`
 	Source     string                `dynamodbav:"source"`
 	Text       string                `dynamodbav:"text"`
+	Notes      string                `dynamodbav:"notes"`
 	Enrichment *dynamoEnrichmentItem `dynamodbav:"enrichment,omitempty"`
 	CreatedAt  time.Time             `dynamodbav:"created_at"`
 	UpdatedAt  time.Time             `dynamodbav:"updated_at"`
@@ -62,6 +63,7 @@ func (r *InsightAdapter) CreateIfAbsent(ctx context.Context, insight domain.Insi
 		TenantID:  insight.TenantID,
 		Source:    insight.Source,
 		Text:      insight.Text,
+		Notes:     insight.Notes,
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
@@ -126,6 +128,7 @@ func (r *InsightAdapter) ListByTenantID(ctx context.Context, tenantID string) ([
 			TenantID: dynItem.TenantID,
 			Source:   dynItem.Source,
 			Text:     dynItem.Text,
+			Notes:    dynItem.Notes,
 		}
 
 		if dynItem.Enrichment != nil {
@@ -150,17 +153,19 @@ func (r *InsightAdapter) Update(ctx context.Context, insight domain.Insight) err
 
 	now := r.now().UTC()
 
-	updateExpr := "SET #source = :source, #text = :text, #updated_at = :updated_at"
+	updateExpr := "SET #source = :source, #text = :text, #notes = :notes, #updated_at = :updated_at"
 	exprNames := map[string]string{
 		"#pk":         "pk",
 		"#sk":         "sk",
 		"#source":     "source",
 		"#text":       "text",
+		"#notes":      "notes",
 		"#updated_at": "updated_at",
 	}
 	exprValues := map[string]types.AttributeValue{
 		":source":     &types.AttributeValueMemberS{Value: insight.Source},
 		":text":       &types.AttributeValueMemberS{Value: insight.Text},
+		":notes":      &types.AttributeValueMemberS{Value: insight.Notes},
 		":updated_at": &types.AttributeValueMemberS{Value: now.Format(time.RFC3339Nano)},
 	}
 
