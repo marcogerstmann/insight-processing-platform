@@ -53,7 +53,12 @@ func (s *service) Process(ctx context.Context, insight domain.Insight) (Result, 
 		return Result{Inserted: true}, nil
 	}
 
-	enrichment, err := s.llm.Enrich(ctx, insight.Text)
+	enrichmentInput := insight.Text
+	if notes := strings.TrimSpace(insight.Notes); notes != "" {
+		enrichmentInput += "\n\nNotes: " + notes
+	}
+
+	enrichment, err := s.llm.Enrich(ctx, enrichmentInput)
 	if err != nil {
 		slog.WarnContext(ctx, "enrichment failed, proceeding without enrichment", "err", err)
 		return Result{Inserted: true}, nil

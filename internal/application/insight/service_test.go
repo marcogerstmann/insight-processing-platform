@@ -3,6 +3,7 @@ package insight
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/marcogerstmann/insight-processing-platform/internal/apperr"
@@ -243,6 +244,25 @@ func TestService_Process_PropagatesInsightToRepo(t *testing.T) {
 	}
 	if spy.gotText == "" {
 		t.Fatalf("expected text to be sent to enrichment client")
+	}
+}
+
+func TestService_Process_EnrichmentInput_IncludesNotes(t *testing.T) {
+	log := &callLog{}
+	repo := &spyRepo{log: log, putInserted: true}
+	spy := &spyEnrichmentClient{log: log}
+	svc := NewService(repo, llm.NewService(spy))
+
+	insight := makeInsight("idk-notes")
+	insight.Notes = "reminds me of stoicism"
+
+	_, err := svc.Process(context.Background(), insight)
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+
+	if !strings.Contains(spy.gotText, insight.Text) || !strings.Contains(spy.gotText, insight.Notes) {
+		t.Fatalf("expected enrichment input to include both text and notes, got %q", spy.gotText)
 	}
 }
 
