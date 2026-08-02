@@ -382,6 +382,18 @@ data "aws_iam_policy_document" "github_actions_permissions" {
     actions   = ["cloudfront:*"]
     resources = ["*"]
   }
+
+  # ------------------------------------------------------------------
+  # ACM — Terraform manages the certs backing the custom domain (domain.tf).
+  # No name-based scoping until a cert exists (Create* has no resource yet),
+  # so this follows the same wildcard pattern as CloudFront/API Gateway above.
+  # ------------------------------------------------------------------
+  statement {
+    sid       = "ACMManage"
+    effect    = "Allow"
+    actions   = ["acm:*"]
+    resources = ["*"]
+  }
 }
 
 resource "aws_iam_role_policy" "github_actions" {

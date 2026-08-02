@@ -2,9 +2,9 @@
 # Static web app hosting (IPP-75, stretch).
 #
 # A private S3 bucket fronted by CloudFront via Origin Access Control (OAC): the
-# bucket is never public, and only this distribution can read it. Uses the
-# default *.cloudfront.net domain + certificate — custom domains/certs are out
-# of scope. Content is uploaded + invalidated by .github/workflows/web-deploy.yml.
+# bucket is never public, and only this distribution can read it. Served under
+# var.domain_name (see domain.tf for the ACM cert this depends on). Content is
+# uploaded + invalidated by .github/workflows/web-deploy.yml.
 # -----------------------------------------------------------------------------
 
 resource "aws_s3_bucket" "web" {
@@ -39,6 +39,7 @@ resource "aws_cloudfront_distribution" "web" {
   enabled             = true
   default_root_object = "index.html"
   comment             = "${var.project}-${var.env} web app"
+  aliases             = [var.domain_name]
   # US/Canada/Europe edge locations only — cheapest tier, enough for a demo.
   price_class = "PriceClass_100"
 
@@ -78,7 +79,9 @@ resource "aws_cloudfront_distribution" "web" {
   }
 
   viewer_certificate {
-    cloudfront_default_certificate = true
+    acm_certificate_arn      = aws_acm_certificate.web.arn
+    ssl_support_method       = "sni-only"
+    minimum_protocol_version = "TLSv1.2_2021"
   }
 
   tags = {

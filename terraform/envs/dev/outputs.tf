@@ -19,8 +19,8 @@ output "worker_ecr_repository_url" {
 }
 
 output "rest_api_endpoint" {
-  description = "Base URL of the REST API Gateway"
-  value       = aws_apigatewayv2_api.rest.api_endpoint
+  description = "Base URL of the REST API"
+  value       = "https://${var.api_domain_name}"
 }
 
 output "cognito_client_id" {
@@ -35,7 +35,7 @@ output "cognito_user_pool_id" {
 
 output "web_url" {
   description = "Public URL of the deployed web app"
-  value       = "https://${aws_cloudfront_distribution.web.domain_name}"
+  value       = "https://${var.domain_name}"
 }
 
 output "web_bucket" {

@@ -32,3 +32,15 @@ variable "web_app_origins" {
   type        = list(string)
   default     = ["http://localhost:5173"]
 }
+
+variable "domain_name" {
+  description = "Custom domain for the web app, fronted by CloudFront"
+  type        = string
+  default     = "ipp.marcogerstmann.com"
+}
+
+variable "api_domain_name" {
+  description = "Custom domain for the REST API"
+  type        = string
+  default     = "api.ipp.marcogerstmann.com"
+}
