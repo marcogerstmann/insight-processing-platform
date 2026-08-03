@@ -10,4 +10,5 @@ type InsightRepository interface {
 	CreateIfAbsent(ctx context.Context, insight domain.Insight) (inserted bool, err error)
 	Update(ctx context.Context, insight domain.Insight) error
 	ListByTenantID(ctx context.Context, tenantID string) ([]domain.Insight, error)
+	ListByTag(ctx context.Context, tenantID, tag string) ([]domain.TagMembership, error)
 }

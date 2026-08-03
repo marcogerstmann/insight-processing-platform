@@ -137,8 +137,14 @@ resource "aws_iam_policy" "worker_dynamodb" {
       {
         Sid      = "UpdateInsightAfterEnrichment"
         Effect   = "Allow"
-        Action   = ["dynamodb:UpdateItem"]
+        Action   = ["dynamodb:GetItem", "dynamodb:UpdateItem", "dynamodb:DeleteItem"]
         Resource = module.dynamodb_insights.table_arn
+      },
+      {
+        Sid      = "QueryTagIndex"
+        Effect   = "Allow"
+        Action   = ["dynamodb:Query"]
+        Resource = "${module.dynamodb_insights.table_arn}/index/*"
       }
     ]
   })

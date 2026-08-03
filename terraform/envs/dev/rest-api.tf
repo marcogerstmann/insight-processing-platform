@@ -28,11 +28,19 @@ resource "aws_iam_role_policy" "rest_dynamodb" {
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Effect   = "Allow"
-      Action   = ["dynamodb:Query", "dynamodb:PutItem"]
-      Resource = module.dynamodb_insights.table_arn
-    }]
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["dynamodb:Query", "dynamodb:PutItem"]
+        Resource = module.dynamodb_insights.table_arn
+      },
+      {
+        Sid      = "QueryTagIndex"
+        Effect   = "Allow"
+        Action   = ["dynamodb:Query"]
+        Resource = "${module.dynamodb_insights.table_arn}/index/*"
+      }
+    ]
   })
 }
 

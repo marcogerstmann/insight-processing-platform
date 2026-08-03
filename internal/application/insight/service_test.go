@@ -49,6 +49,10 @@ func (s *spyRepo) ListByTenantID(_ context.Context, _ string) ([]domain.Insight,
 	return []domain.Insight{}, nil
 }
 
+func (s *spyRepo) ListByTag(_ context.Context, _, _ string) ([]domain.TagMembership, error) {
+	return []domain.TagMembership{}, nil
+}
+
 type spyEnrichmentClient struct {
 	log *callLog
 

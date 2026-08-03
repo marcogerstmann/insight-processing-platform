@@ -14,6 +14,10 @@ import (
 	"github.com/marcogerstmann/insight-processing-platform/internal/domain"
 )
 
+// tagIndexName must match the GSI name declared in
+// terraform/modules/dynamodb/main.tf (enable_tag_gsi = true).
+const tagIndexName = "gsi1"
+
 type dynamoEnrichmentItem struct {
 	Tags []string `dynamodbav:"tags"`
 }
@@ -31,6 +35,19 @@ type dynamoInsightItem struct {
 	UpdatedAt  time.Time             `dynamodbav:"updated_at"`
 }
 
+// dynamoTagMembershipItem lives in the same table/partition as its insight
+// (pk = TENANT#<tenantID>, sk = TAG#<tag>#INSIGHT#<insightID>). gsi1pk/gsi1sk
+// are only ever set on these items, never on dynamoInsightItem, which is what
+// makes the GSI sparse: plain insights never appear in it.
+type dynamoTagMembershipItem struct {
+	PK        string    `dynamodbav:"pk"`
+	SK        string    `dynamodbav:"sk"`
+	GSI1PK    string    `dynamodbav:"gsi1pk"`
+	GSI1SK    string    `dynamodbav:"gsi1sk"`
+	InsightID string    `dynamodbav:"insight_id"`
+	CreatedAt time.Time `dynamodbav:"created_at"`
+}
+
 func pk(tenantID string) string {
 	return "TENANT#" + tenantID
 }
@@ -39,13 +56,25 @@ func sk(id string) string {
 	return "INSIGHT#" + id
 }
 
+func tagSK(tag, insightID string) string {
+	return "TAG#" + tag + "#INSIGHT#" + insightID
+}
+
+type dynamoAPI interface {
+	PutItem(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error)
+	GetItem(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error)
+	UpdateItem(ctx context.Context, params *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error)
+	DeleteItem(ctx context.Context, params *dynamodb.DeleteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error)
+	Query(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error)
+}
+
 type InsightAdapter struct {
 	tableName string
-	client    *dynamodb.Client
+	client    dynamoAPI
 	now       func() time.Time
 }
 
-func NewInsightAdapter(client *dynamodb.Client, tableName string) *InsightAdapter {
+func NewInsightAdapter(client dynamoAPI, tableName string) *InsightAdapter {
 	return &InsightAdapter{
 		client:    client,
 		tableName: tableName,
@@ -105,12 +134,14 @@ func (r *InsightAdapter) CreateIfAbsent(ctx context.Context, insight domain.Insi
 func (r *InsightAdapter) ListByTenantID(ctx context.Context, tenantID string) ([]domain.Insight, error) {
 	out, err := r.client.Query(ctx, &dynamodb.QueryInput{
 		TableName:              aws.String(r.tableName),
-		KeyConditionExpression: aws.String("#pk = :pk"),
+		KeyConditionExpression: aws.String("#pk = :pk AND begins_with(#sk, :skPrefix)"),
 		ExpressionAttributeNames: map[string]string{
 			"#pk": "pk",
+			"#sk": "sk",
 		},
 		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":pk": &types.AttributeValueMemberS{Value: pk(tenantID)},
+			":pk":       &types.AttributeValueMemberS{Value: pk(tenantID)},
+			":skPrefix": &types.AttributeValueMemberS{Value: "INSIGHT#"},
 		},
 	})
 	if err != nil {
@@ -142,6 +173,40 @@ func (r *InsightAdapter) ListByTenantID(ctx context.Context, tenantID string) ([
 	return insights, nil
 }
 
+// ListByTag returns the tag's membership items for a tenant via the sparse
+// GSI, newest membership last (no read against the full insight item needed).
+func (r *InsightAdapter) ListByTag(ctx context.Context, tenantID, tag string) ([]domain.TagMembership, error) {
+	out, err := r.client.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(r.tableName),
+		IndexName:              aws.String(tagIndexName),
+		KeyConditionExpression: aws.String("#gsi1pk = :pk AND begins_with(#gsi1sk, :skPrefix)"),
+		ExpressionAttributeNames: map[string]string{
+			"#gsi1pk": "gsi1pk",
+			"#gsi1sk": "gsi1sk",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":pk":       &types.AttributeValueMemberS{Value: pk(tenantID)},
+			":skPrefix": &types.AttributeValueMemberS{Value: "TAG#" + tag + "#INSIGHT#"},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	memberships := make([]domain.TagMembership, 0, len(out.Items))
+	for _, item := range out.Items {
+		var dynItem dynamoTagMembershipItem
+		if err := attributevalue.UnmarshalMap(item, &dynItem); err != nil {
+			return nil, err
+		}
+		memberships = append(memberships, domain.TagMembership{
+			InsightID: dynItem.InsightID,
+			CreatedAt: dynItem.CreatedAt,
+		})
+	}
+	return memberships, nil
+}
+
 func (r *InsightAdapter) Update(ctx context.Context, insight domain.Insight) error {
 	key, err := attributevalue.MarshalMap(map[string]string{
 		"pk": pk(insight.TenantID),
@@ -152,6 +217,14 @@ func (r *InsightAdapter) Update(ctx context.Context, insight domain.Insight) err
 	}
 
 	now := r.now().UTC()
+
+	var oldTags []string
+	if insight.Enrichment != nil {
+		oldTags, err = r.currentTags(ctx, key)
+		if err != nil {
+			return fmt.Errorf("read current tags: %w", err)
+		}
+	}
 
 	updateExpr := "SET #source = :source, #text = :text, #notes = :notes, #updated_at = :updated_at"
 	exprNames := map[string]string{
@@ -191,13 +264,102 @@ func (r *InsightAdapter) Update(ctx context.Context, insight domain.Insight) err
 		ExpressionAttributeValues: exprValues,
 	})
 
-	if err == nil {
-		return nil
+	if err != nil {
+		if _, ok := errors.AsType[*types.ConditionalCheckFailedException](err); ok {
+			return fmt.Errorf("insight not found for update (pk/sk missing) or condition failed")
+		}
+		return err
 	}
 
-	if _, ok := errors.AsType[*types.ConditionalCheckFailedException](err); ok {
-		return fmt.Errorf("insight not found for update (pk/sk missing) or condition failed")
+	if insight.Enrichment != nil {
+		if err := r.syncTagMemberships(ctx, insight.TenantID, insight.ID, oldTags, insight.Enrichment.Tags, now); err != nil {
+			return fmt.Errorf("sync tag memberships: %w", err)
+		}
 	}
 
-	return err
+	return nil
+}
+
+func (r *InsightAdapter) currentTags(ctx context.Context, key map[string]types.AttributeValue) ([]string, error) {
+	out, err := r.client.GetItem(ctx, &dynamodb.GetItemInput{
+		TableName: aws.String(r.tableName),
+		Key:       key,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if out.Item == nil {
+		return nil, nil
+	}
+
+	var current dynamoInsightItem
+	if err := attributevalue.UnmarshalMap(out.Item, &current); err != nil {
+		return nil, err
+	}
+	if current.Enrichment == nil {
+		return nil, nil
+	}
+	return current.Enrichment.Tags, nil
+}
+
+// syncTagMemberships reconciles tag membership items with the newly enriched
+// tag set: tags no longer present are deleted, newly added tags get a fresh
+// membership item. Unchanged tags are left untouched so replaying the same
+// enrichment doesn't reset created_at or write duplicates.
+func (r *InsightAdapter) syncTagMemberships(ctx context.Context, tenantID, insightID string, oldTags, newTags []string, now time.Time) error {
+	oldSet := toTagSet(oldTags)
+	newSet := toTagSet(newTags)
+
+	for tag := range oldSet {
+		if newSet[tag] {
+			continue
+		}
+		key, err := attributevalue.MarshalMap(map[string]string{
+			"pk": pk(tenantID),
+			"sk": tagSK(tag, insightID),
+		})
+		if err != nil {
+			return err
+		}
+		if _, err := r.client.DeleteItem(ctx, &dynamodb.DeleteItemInput{
+			TableName: aws.String(r.tableName),
+			Key:       key,
+		}); err != nil {
+			return err
+		}
+	}
+
+	for tag := range newSet {
+		if oldSet[tag] {
+			continue
+		}
+		item := dynamoTagMembershipItem{
+			PK:        pk(tenantID),
+			SK:        tagSK(tag, insightID),
+			GSI1PK:    pk(tenantID),
+			GSI1SK:    tagSK(tag, insightID),
+			InsightID: insightID,
+			CreatedAt: now,
+		}
+		av, err := attributevalue.MarshalMap(item)
+		if err != nil {
+			return err
+		}
+		if _, err := r.client.PutItem(ctx, &dynamodb.PutItemInput{
+			TableName: aws.String(r.tableName),
+			Item:      av,
+		}); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func toTagSet(tags []string) map[string]bool {
+	set := make(map[string]bool, len(tags))
+	for _, t := range tags {
+		set[t] = true
+	}
+	return set
 }

@@ -3,6 +3,8 @@ module "dynamodb_insights" {
 
   name = "${var.project}-insights"
 
+  enable_tag_gsi = true
+
   tags = {
     Project = var.project
     Env     = var.env
