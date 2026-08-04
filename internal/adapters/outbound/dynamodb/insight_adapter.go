@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -205,6 +207,91 @@ func (r *InsightAdapter) ListByTag(ctx context.Context, tenantID, tag string) ([
 		})
 	}
 	return memberships, nil
+}
+
+// ListTags returns every tag in the tenant's partition aggregated with its
+// insight count and most recent tagging time, sorted by count descending.
+//
+// Aggregates in Go over one query of the TAG# prefix, per the
+// story's implementation notes. Fine at personal scale (a few hundred
+// membership items); a materialized per-tag counter item is the upgrade
+// path if this ever gets slow.
+func (r *InsightAdapter) ListTags(ctx context.Context, tenantID string) ([]domain.TagSummary, error) {
+	out, err := r.client.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(r.tableName),
+		KeyConditionExpression: aws.String("#pk = :pk AND begins_with(#sk, :skPrefix)"),
+		ExpressionAttributeNames: map[string]string{
+			"#pk": "pk",
+			"#sk": "sk",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":pk":       &types.AttributeValueMemberS{Value: pk(tenantID)},
+			":skPrefix": &types.AttributeValueMemberS{Value: "TAG#"},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	type aggregate struct {
+		count  int
+		lastAt time.Time
+	}
+	aggregates := make(map[string]*aggregate)
+	var tagOrder []string
+
+	for _, item := range out.Items {
+		var dynItem dynamoTagMembershipItem
+		if err := attributevalue.UnmarshalMap(item, &dynItem); err != nil {
+			return nil, err
+		}
+		tag, ok := parseTagFromSK(dynItem.SK)
+		if !ok {
+			continue
+		}
+
+		a, exists := aggregates[tag]
+		if !exists {
+			a = &aggregate{}
+			aggregates[tag] = a
+			tagOrder = append(tagOrder, tag)
+		}
+		a.count++
+		if dynItem.CreatedAt.After(a.lastAt) {
+			a.lastAt = dynItem.CreatedAt
+		}
+	}
+
+	summaries := make([]domain.TagSummary, 0, len(tagOrder))
+	for _, tag := range tagOrder {
+		a := aggregates[tag]
+		summaries = append(summaries, domain.TagSummary{
+			Tag:           tag,
+			InsightCount:  a.count,
+			LastInsightAt: a.lastAt,
+		})
+	}
+
+	sort.SliceStable(summaries, func(i, j int) bool {
+		return summaries[i].InsightCount > summaries[j].InsightCount
+	})
+
+	return summaries, nil
+}
+
+// parseTagFromSK extracts the tag from a membership item's sort key
+// ("TAG#<tag>#INSIGHT#<insightID>"); tags are normalized (see
+// domain.NormalizeTag) so they never contain "#".
+func parseTagFromSK(sk string) (string, bool) {
+	rest, ok := strings.CutPrefix(sk, "TAG#")
+	if !ok {
+		return "", false
+	}
+	tag, _, ok := strings.Cut(rest, "#INSIGHT#")
+	if !ok {
+		return "", false
+	}
+	return tag, true
 }
 
 func (r *InsightAdapter) Update(ctx context.Context, insight domain.Insight) error {

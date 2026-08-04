@@ -240,3 +240,69 @@ func TestInsightAdapter_ListByTag_ScopedByTenant(t *testing.T) {
 		t.Fatalf("ListByTag(t-1, shared) = %v, want only tenant t-1's insight", members)
 	}
 }
+
+func TestInsightAdapter_ListTags_AggregatesCountsSortsByCountDesc_ScopedByTenant(t *testing.T) {
+	ctx := context.Background()
+	f := newFakeDynamo()
+	t1 := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	a := newTestAdapter(f, t1)
+
+	// t-1: "a" tagged twice (second write is newer), "b" tagged once.
+	i1 := domain.Insight{ID: "i-1", TenantID: "t-1", Source: "readwise", Text: "hello"}
+	if _, err := a.CreateIfAbsent(ctx, i1); err != nil {
+		t.Fatalf("CreateIfAbsent(i-1): %v", err)
+	}
+	i1.Enrichment = &domain.Enrichment{Tags: []string{"a", "b"}}
+	if err := a.Update(ctx, i1); err != nil {
+		t.Fatalf("Update(i-1): %v", err)
+	}
+
+	t2 := t1.Add(time.Hour)
+	a.now = func() time.Time { return t2 }
+	i2 := domain.Insight{ID: "i-2", TenantID: "t-1", Source: "readwise", Text: "world"}
+	if _, err := a.CreateIfAbsent(ctx, i2); err != nil {
+		t.Fatalf("CreateIfAbsent(i-2): %v", err)
+	}
+	i2.Enrichment = &domain.Enrichment{Tags: []string{"a"}}
+	if err := a.Update(ctx, i2); err != nil {
+		t.Fatalf("Update(i-2): %v", err)
+	}
+
+	// t-2: unrelated tenant, must not leak into t-1's tags.
+	other := domain.Insight{ID: "i-other", TenantID: "t-2", Source: "readwise", Text: "hi"}
+	if _, err := a.CreateIfAbsent(ctx, other); err != nil {
+		t.Fatalf("CreateIfAbsent(i-other): %v", err)
+	}
+	other.Enrichment = &domain.Enrichment{Tags: []string{"c"}}
+	if err := a.Update(ctx, other); err != nil {
+		t.Fatalf("Update(i-other): %v", err)
+	}
+
+	tags, err := a.ListTags(ctx, "t-1")
+	if err != nil {
+		t.Fatalf("ListTags: %v", err)
+	}
+	if len(tags) != 2 {
+		t.Fatalf("ListTags = %v, want 2 tags", tags)
+	}
+	if tags[0].Tag != "a" || tags[0].InsightCount != 2 || !tags[0].LastInsightAt.Equal(t2) {
+		t.Fatalf("tags[0] = %+v, want tag=a count=2 lastInsightAt=%v", tags[0], t2)
+	}
+	if tags[1].Tag != "b" || tags[1].InsightCount != 1 || !tags[1].LastInsightAt.Equal(t1) {
+		t.Fatalf("tags[1] = %+v, want tag=b count=1 lastInsightAt=%v", tags[1], t1)
+	}
+}
+
+func TestInsightAdapter_ListTags_EmptyTenant_ReturnsEmptyNotNil(t *testing.T) {
+	ctx := context.Background()
+	f := newFakeDynamo()
+	a := newTestAdapter(f, time.Now())
+
+	tags, err := a.ListTags(ctx, "t-empty")
+	if err != nil {
+		t.Fatalf("ListTags: %v", err)
+	}
+	if len(tags) != 0 {
+		t.Fatalf("ListTags(empty tenant) = %v, want empty", tags)
+	}
+}

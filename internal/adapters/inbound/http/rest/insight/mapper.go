@@ -36,6 +36,18 @@ func mapInsightsToDTO(tenantID string, insights []domain.Insight) ListInsightsRe
 	return ListInsightsResponseDTO{TenantID: tenantID, Items: items}
 }
 
+func mapTagsToDTO(tenantID string, tags []domain.TagSummary) ListTagsResponseDTO {
+	items := make([]TagResponseDTO, len(tags))
+	for idx, t := range tags {
+		items[idx] = TagResponseDTO{
+			Tag:           t.Tag,
+			InsightCount:  t.InsightCount,
+			LastInsightAt: t.LastInsightAt,
+		}
+	}
+	return ListTagsResponseDTO{TenantID: tenantID, Items: items}
+}
+
 func mapCreateRequestToDomain(tenantID string, req CreateInsightRequestDTO) domain.Insight {
 	return domain.Insight{
 		ID:       newID(),

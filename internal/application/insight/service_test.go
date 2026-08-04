@@ -53,6 +53,10 @@ func (s *spyRepo) ListByTag(_ context.Context, _, _ string) ([]domain.TagMembers
 	return []domain.TagMembership{}, nil
 }
 
+func (s *spyRepo) ListTags(_ context.Context, _ string) ([]domain.TagSummary, error) {
+	return []domain.TagSummary{}, nil
+}
+
 type spyEnrichmentClient struct {
 	log *callLog
 

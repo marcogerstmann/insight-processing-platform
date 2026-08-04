@@ -66,3 +66,8 @@ func (r *InsightNoopAdapter) ListByTag(_ context.Context, tenantID, tag string) 
 	slog.Info("noop repo list insights by tag", "tenantID", tenantID, "tag", tag)
 	return []domain.TagMembership{}, nil
 }
+
+func (r *InsightNoopAdapter) ListTags(_ context.Context, tenantID string) ([]domain.TagSummary, error) {
+	slog.Info("noop repo list tags", "tenantID", tenantID)
+	return []domain.TagSummary{}, nil
+}

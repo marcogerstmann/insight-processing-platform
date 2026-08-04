@@ -31,6 +31,19 @@ func (h *Handler) ListByTenantID(c *gin.Context) {
 	c.JSON(http.StatusOK, mapInsightsToDTO(tenantID, insights))
 }
 
+func (h *Handler) ListTags(c *gin.Context) {
+	tenantID := c.GetString(auth.TenantIDKey)
+
+	tags, err := h.svc.ListTags(c.Request.Context(), tenantID)
+	if err != nil {
+		slog.ErrorContext(c.Request.Context(), "failed to list tags", "tenant_id", tenantID, "err", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal_server_error"})
+		return
+	}
+
+	c.JSON(http.StatusOK, mapTagsToDTO(tenantID, tags))
+}
+
 func (h *Handler) Create(c *gin.Context) {
 	tenantID := c.GetString(auth.TenantIDKey)
 

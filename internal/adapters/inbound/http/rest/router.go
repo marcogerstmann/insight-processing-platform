@@ -26,6 +26,7 @@ func NewRouter(insightHandler *insight.Handler, readwiseHandler *restreadwise.Ha
 	{
 		v1.GET("/insights", insightHandler.ListByTenantID)
 		v1.POST("/insights", insightHandler.Create)
+		v1.GET("/tags", insightHandler.ListTags)
 		v1.POST("/readwise/import", readwiseHandler.Import)
 	}
 

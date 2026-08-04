@@ -14,6 +14,12 @@ Accept: application/json
 
 ###
 
+GET {{base_url}}/v1/tags
+Authorization: Bearer {{auth_token}}
+Accept: application/json
+
+###
+
 # Import all Readwise highlights, using the server-configured READWISE_API_TOKEN.
 POST {{base_url}}/v1/readwise/import
 Authorization: Bearer {{auth_token}}

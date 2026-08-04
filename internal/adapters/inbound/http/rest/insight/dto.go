@@ -1,5 +1,7 @@
 package insight
 
+import "time"
+
 type EnrichmentDTO struct {
 	Tags []string `json:"tags"`
 }
@@ -24,4 +26,15 @@ type CreateInsightRequestDTO struct {
 type CreateInsightResponseDTO struct {
 	Inserted bool        `json:"inserted"`
 	Insight  ResponseDTO `json:"insight"`
+}
+
+type TagResponseDTO struct {
+	Tag           string    `json:"tag"`
+	InsightCount  int       `json:"insight_count"`
+	LastInsightAt time.Time `json:"last_insight_at"`
+}
+
+type ListTagsResponseDTO struct {
+	TenantID string           `json:"tenant_id"`
+	Items    []TagResponseDTO `json:"items"`
 }

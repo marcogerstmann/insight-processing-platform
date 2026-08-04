@@ -19,6 +19,7 @@ type Result struct {
 type Service interface {
 	Process(ctx context.Context, insight domain.Insight) (Result, error)
 	ListByTenantID(ctx context.Context, tenantID string) ([]domain.Insight, error)
+	ListTags(ctx context.Context, tenantID string) ([]domain.TagSummary, error)
 }
 
 type service struct {
@@ -75,4 +76,8 @@ func (s *service) Process(ctx context.Context, insight domain.Insight) (Result, 
 
 func (s *service) ListByTenantID(ctx context.Context, tenantID string) ([]domain.Insight, error) {
 	return s.repo.ListByTenantID(ctx, tenantID)
+}
+
+func (s *service) ListTags(ctx context.Context, tenantID string) ([]domain.TagSummary, error) {
+	return s.repo.ListTags(ctx, tenantID)
 }
