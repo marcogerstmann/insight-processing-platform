@@ -57,8 +57,8 @@ func (r *InsightNoopAdapter) Update(_ context.Context, insight domain.Insight) e
 	return nil
 }
 
-func (r *InsightNoopAdapter) ListByTenantID(_ context.Context, tenantID string) ([]domain.Insight, error) {
-	slog.Info("noop repo list insights", "tenantID", tenantID)
+func (r *InsightNoopAdapter) ListByTenantID(_ context.Context, tenantID, tag string) ([]domain.Insight, error) {
+	slog.Info("noop repo list insights", "tenantID", tenantID, "tag", tag)
 	return []domain.Insight{}, nil
 }
 

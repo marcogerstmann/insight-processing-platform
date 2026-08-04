@@ -18,7 +18,7 @@ type Result struct {
 
 type Service interface {
 	Process(ctx context.Context, insight domain.Insight) (Result, error)
-	ListByTenantID(ctx context.Context, tenantID string) ([]domain.Insight, error)
+	ListByTenantID(ctx context.Context, tenantID, tag string) ([]domain.Insight, error)
 	ListTags(ctx context.Context, tenantID string) ([]domain.TagSummary, error)
 }
 
@@ -74,8 +74,16 @@ func (s *service) Process(ctx context.Context, insight domain.Insight) (Result, 
 	return Result{Inserted: true}, nil
 }
 
-func (s *service) ListByTenantID(ctx context.Context, tenantID string) ([]domain.Insight, error) {
-	return s.repo.ListByTenantID(ctx, tenantID)
+func (s *service) ListByTenantID(ctx context.Context, tenantID, tag string) ([]domain.Insight, error) {
+	if tag == "" {
+		return s.repo.ListByTenantID(ctx, tenantID, "")
+	}
+
+	normalized, ok := domain.NormalizeTag(tag)
+	if !ok {
+		return []domain.Insight{}, nil
+	}
+	return s.repo.ListByTenantID(ctx, tenantID, string(normalized))
 }
 
 func (s *service) ListTags(ctx context.Context, tenantID string) ([]domain.TagSummary, error) {

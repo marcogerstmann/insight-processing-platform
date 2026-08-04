@@ -27,6 +27,10 @@ type spyRepo struct {
 
 	gotPutInsight    domain.Insight
 	gotUpdateInsight domain.Insight
+
+	listByTenantIDInsights []domain.Insight
+	gotListTag             string
+	listCalled             bool
 }
 
 func (s *spyRepo) CreateIfAbsent(_ context.Context, insight domain.Insight) (bool, error) {
@@ -45,8 +49,10 @@ func (s *spyRepo) Update(_ context.Context, insight domain.Insight) error {
 	return s.updateErr
 }
 
-func (s *spyRepo) ListByTenantID(_ context.Context, _ string) ([]domain.Insight, error) {
-	return []domain.Insight{}, nil
+func (s *spyRepo) ListByTenantID(_ context.Context, _, tag string) ([]domain.Insight, error) {
+	s.listCalled = true
+	s.gotListTag = tag
+	return s.listByTenantIDInsights, nil
 }
 
 func (s *spyRepo) ListByTag(_ context.Context, _, _ string) ([]domain.TagMembership, error) {
@@ -296,5 +302,45 @@ func TestService_Process_UpdateReceivesEnrichmentFromLLM(t *testing.T) {
 	}
 	if len(got.Tags) != 2 || got.Tags[0] != "learning" || got.Tags[1] != "growth" {
 		t.Fatalf("expected tags=[learning growth], got %v", got.Tags)
+	}
+}
+
+func TestService_ListByTenantID_NoTag_PassesThroughEmpty(t *testing.T) {
+	repo := &spyRepo{}
+	svc := NewService(repo, nil)
+
+	if _, err := svc.ListByTenantID(context.Background(), "t-1", ""); err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if !repo.listCalled || repo.gotListTag != "" {
+		t.Fatalf("expected repo called with empty tag, got called=%v tag=%q", repo.listCalled, repo.gotListTag)
+	}
+}
+
+func TestService_ListByTenantID_DenormalizedTag_NormalizesBeforeQuery(t *testing.T) {
+	repo := &spyRepo{}
+	svc := NewService(repo, nil)
+
+	if _, err := svc.ListByTenantID(context.Background(), "t-1", "Delegation"); err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if repo.gotListTag != "delegation" {
+		t.Fatalf("expected normalized tag %q, got %q", "delegation", repo.gotListTag)
+	}
+}
+
+func TestService_ListByTenantID_UnnormalizableTag_SkipsRepoReturnsEmpty(t *testing.T) {
+	repo := &spyRepo{}
+	svc := NewService(repo, nil)
+
+	insights, err := svc.ListByTenantID(context.Background(), "t-1", "###")
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if len(insights) != 0 {
+		t.Fatalf("expected empty result, got %v", insights)
+	}
+	if repo.listCalled {
+		t.Fatalf("expected repo not called for unnormalizable tag")
 	}
 }

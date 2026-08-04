@@ -20,8 +20,9 @@ func NewHandler(svc appinsight.Service) *Handler {
 
 func (h *Handler) ListByTenantID(c *gin.Context) {
 	tenantID := c.GetString(auth.TenantIDKey)
+	tag := c.Query("tag")
 
-	insights, err := h.svc.ListByTenantID(c.Request.Context(), tenantID)
+	insights, err := h.svc.ListByTenantID(c.Request.Context(), tenantID, tag)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "failed to list insights", "tenant_id", tenantID, "err", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal_server_error"})

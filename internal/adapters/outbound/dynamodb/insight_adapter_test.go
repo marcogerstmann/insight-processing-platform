@@ -162,7 +162,7 @@ func TestInsightAdapter_Update_WritesTagMembershipItems(t *testing.T) {
 
 	// Sparse GSI: the plain insight listing must not be polluted by tag
 	// membership items sharing the same tenant partition.
-	insights, err := a.ListByTenantID(ctx, "t-1")
+	insights, err := a.ListByTenantID(ctx, "t-1", "")
 	if err != nil {
 		t.Fatalf("ListByTenantID: %v", err)
 	}
@@ -290,6 +290,65 @@ func TestInsightAdapter_ListTags_AggregatesCountsSortsByCountDesc_ScopedByTenant
 	}
 	if tags[1].Tag != "b" || tags[1].InsightCount != 1 || !tags[1].LastInsightAt.Equal(t1) {
 		t.Fatalf("tags[1] = %+v, want tag=b count=1 lastInsightAt=%v", tags[1], t1)
+	}
+}
+
+func TestInsightAdapter_ListByTenantID_WithTag_ReturnsFullMatchingInsights(t *testing.T) {
+	ctx := context.Background()
+	f := newFakeDynamo()
+	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	a := newTestAdapter(f, now)
+
+	i1 := domain.Insight{ID: "i-1", TenantID: "t-1", Source: "readwise", Text: "hello"}
+	if _, err := a.CreateIfAbsent(ctx, i1); err != nil {
+		t.Fatalf("CreateIfAbsent(i-1): %v", err)
+	}
+	i1.Enrichment = &domain.Enrichment{Tags: []string{"a"}}
+	if err := a.Update(ctx, i1); err != nil {
+		t.Fatalf("Update(i-1): %v", err)
+	}
+
+	i2 := domain.Insight{ID: "i-2", TenantID: "t-1", Source: "readwise", Text: "world"}
+	if _, err := a.CreateIfAbsent(ctx, i2); err != nil {
+		t.Fatalf("CreateIfAbsent(i-2): %v", err)
+	}
+	i2.Enrichment = &domain.Enrichment{Tags: []string{"b"}}
+	if err := a.Update(ctx, i2); err != nil {
+		t.Fatalf("Update(i-2): %v", err)
+	}
+
+	insights, err := a.ListByTenantID(ctx, "t-1", "a")
+	if err != nil {
+		t.Fatalf("ListByTenantID(tag=a): %v", err)
+	}
+	if len(insights) != 1 || insights[0].ID != "i-1" || insights[0].Text != "hello" {
+		t.Fatalf("ListByTenantID(tag=a) = %v, want full insight i-1", insights)
+	}
+	if insights[0].Enrichment == nil || len(insights[0].Enrichment.Tags) != 1 || insights[0].Enrichment.Tags[0] != "a" {
+		t.Fatalf("ListByTenantID(tag=a) enrichment = %+v, want tags=[a]", insights[0].Enrichment)
+	}
+}
+
+func TestInsightAdapter_ListByTenantID_UnknownTag_ReturnsEmptyNotNil(t *testing.T) {
+	ctx := context.Background()
+	f := newFakeDynamo()
+	a := newTestAdapter(f, time.Now())
+
+	insight := domain.Insight{ID: "i-1", TenantID: "t-1", Source: "readwise", Text: "hello"}
+	if _, err := a.CreateIfAbsent(ctx, insight); err != nil {
+		t.Fatalf("CreateIfAbsent: %v", err)
+	}
+	insight.Enrichment = &domain.Enrichment{Tags: []string{"a"}}
+	if err := a.Update(ctx, insight); err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+
+	insights, err := a.ListByTenantID(ctx, "t-1", "unknown")
+	if err != nil {
+		t.Fatalf("ListByTenantID(tag=unknown): %v", err)
+	}
+	if len(insights) != 0 {
+		t.Fatalf("ListByTenantID(tag=unknown) = %v, want empty", insights)
 	}
 }
 

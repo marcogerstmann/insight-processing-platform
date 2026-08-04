@@ -133,7 +133,11 @@ func (r *InsightAdapter) CreateIfAbsent(ctx context.Context, insight domain.Insi
 	return false, err
 }
 
-func (r *InsightAdapter) ListByTenantID(ctx context.Context, tenantID string) ([]domain.Insight, error) {
+func (r *InsightAdapter) ListByTenantID(ctx context.Context, tenantID, tag string) ([]domain.Insight, error) {
+	if tag != "" {
+		return r.listByTag(ctx, tenantID, tag)
+	}
+
 	out, err := r.client.Query(ctx, &dynamodb.QueryInput{
 		TableName:              aws.String(r.tableName),
 		KeyConditionExpression: aws.String("#pk = :pk AND begins_with(#sk, :skPrefix)"),
@@ -152,27 +156,68 @@ func (r *InsightAdapter) ListByTenantID(ctx context.Context, tenantID string) ([
 
 	insights := make([]domain.Insight, 0, len(out.Items))
 	for _, item := range out.Items {
-		var dynItem dynamoInsightItem
-		if err := attributevalue.UnmarshalMap(item, &dynItem); err != nil {
+		insight, err := unmarshalInsight(item)
+		if err != nil {
 			return nil, err
 		}
-		insight := domain.Insight{
-			ID:       dynItem.ID,
-			TenantID: dynItem.TenantID,
-			Source:   dynItem.Source,
-			Text:     dynItem.Text,
-			Notes:    dynItem.Notes,
-		}
-
-		if dynItem.Enrichment != nil {
-			insight.Enrichment = &domain.Enrichment{
-				Tags: dynItem.Enrichment.Tags,
-			}
-		}
-
 		insights = append(insights, insight)
 	}
 	return insights, nil
+}
+
+// listByTag resolves matching insight IDs via the sparse GSI, then fetches
+// each full insight item. Fine at personal scale (a tag rarely spans more
+// than a handful of insights); a BatchGetItem is the upgrade path if that
+// ever stops being true.
+func (r *InsightAdapter) listByTag(ctx context.Context, tenantID, tag string) ([]domain.Insight, error) {
+	members, err := r.ListByTag(ctx, tenantID, tag)
+	if err != nil {
+		return nil, err
+	}
+
+	insights := make([]domain.Insight, 0, len(members))
+	for _, m := range members {
+		out, err := r.client.GetItem(ctx, &dynamodb.GetItemInput{
+			TableName: aws.String(r.tableName),
+			Key: map[string]types.AttributeValue{
+				"pk": &types.AttributeValueMemberS{Value: pk(tenantID)},
+				"sk": &types.AttributeValueMemberS{Value: sk(m.InsightID)},
+			},
+		})
+		if err != nil {
+			return nil, err
+		}
+		if out.Item == nil {
+			// Orphaned membership (insight deleted after tagging); skip it.
+			continue
+		}
+		insight, err := unmarshalInsight(out.Item)
+		if err != nil {
+			return nil, err
+		}
+		insights = append(insights, insight)
+	}
+	return insights, nil
+}
+
+func unmarshalInsight(item map[string]types.AttributeValue) (domain.Insight, error) {
+	var dynItem dynamoInsightItem
+	if err := attributevalue.UnmarshalMap(item, &dynItem); err != nil {
+		return domain.Insight{}, err
+	}
+	insight := domain.Insight{
+		ID:       dynItem.ID,
+		TenantID: dynItem.TenantID,
+		Source:   dynItem.Source,
+		Text:     dynItem.Text,
+		Notes:    dynItem.Notes,
+	}
+	if dynItem.Enrichment != nil {
+		insight.Enrichment = &domain.Enrichment{
+			Tags: dynItem.Enrichment.Tags,
+		}
+	}
+	return insight, nil
 }
 
 // ListByTag returns the tag's membership items for a tenant via the sparse

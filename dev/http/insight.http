@@ -4,6 +4,12 @@ Accept: application/json
 
 ###
 
+GET {{base_url}}/v1/insights?tag=purpose-driven-work
+Authorization: Bearer {{auth_token}}
+Accept: application/json
+
+###
+
 POST {{base_url}}/v1/insights
 Authorization: Bearer {{auth_token}}
 Accept: application/json
