@@ -8,9 +8,12 @@ type TagMembership struct {
 }
 
 // TagSummary is a tenant's tag aggregated across its memberships: how many
-// insights carry it and when the most recent one was tagged.
+// insights carry it, when the most recent one was tagged, and how relevant
+// that usage is overall (see TagRelevanceScore).
 type TagSummary struct {
-	Tag           string
-	InsightCount  int
-	LastInsightAt time.Time
+	Tag             string
+	InsightCount    int
+	LastInsightAt   time.Time
+	Score           float64
+	ScoreComponents TagScoreComponents
 }

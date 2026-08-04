@@ -241,7 +241,7 @@ func TestInsightAdapter_ListByTag_ScopedByTenant(t *testing.T) {
 	}
 }
 
-func TestInsightAdapter_ListTags_AggregatesCountsSortsByCountDesc_ScopedByTenant(t *testing.T) {
+func TestInsightAdapter_ListTags_AggregatesCountsSortsByScoreDesc_ScopedByTenant(t *testing.T) {
 	ctx := context.Background()
 	f := newFakeDynamo()
 	t1 := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
@@ -290,6 +290,9 @@ func TestInsightAdapter_ListTags_AggregatesCountsSortsByCountDesc_ScopedByTenant
 	}
 	if tags[1].Tag != "b" || tags[1].InsightCount != 1 || !tags[1].LastInsightAt.Equal(t1) {
 		t.Fatalf("tags[1] = %+v, want tag=b count=1 lastInsightAt=%v", tags[1], t1)
+	}
+	if tags[0].Score <= tags[1].Score {
+		t.Fatalf("tags[0].Score = %v, want > tags[1].Score = %v", tags[0].Score, tags[1].Score)
 	}
 }
 

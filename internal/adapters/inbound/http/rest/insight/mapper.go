@@ -43,6 +43,12 @@ func mapTagsToDTO(tenantID string, tags []domain.TagSummary) ListTagsResponseDTO
 			Tag:           t.Tag,
 			InsightCount:  t.InsightCount,
 			LastInsightAt: t.LastInsightAt,
+			Score:         t.Score,
+			ScoreComponents: TagScoreComponentsDTO{
+				Count:     t.ScoreComponents.Count,
+				Recency:   t.ScoreComponents.Recency,
+				Freshness: t.ScoreComponents.Freshness,
+			},
 		}
 	}
 	return ListTagsResponseDTO{TenantID: tenantID, Items: items}

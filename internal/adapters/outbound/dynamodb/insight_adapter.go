@@ -255,7 +255,8 @@ func (r *InsightAdapter) ListByTag(ctx context.Context, tenantID, tag string) ([
 }
 
 // ListTags returns every tag in the tenant's partition aggregated with its
-// insight count and most recent tagging time, sorted by count descending.
+// insight count, most recent tagging time, and relevance score, sorted by
+// score descending.
 //
 // Aggregates in Go over one query of the TAG# prefix, per the
 // story's implementation notes. Fine at personal scale (a few hundred
@@ -279,8 +280,9 @@ func (r *InsightAdapter) ListTags(ctx context.Context, tenantID string) ([]domai
 	}
 
 	type aggregate struct {
-		count  int
-		lastAt time.Time
+		count    int
+		lastAt   time.Time
+		taggedAt []time.Time
 	}
 	aggregates := make(map[string]*aggregate)
 	var tagOrder []string
@@ -302,23 +304,28 @@ func (r *InsightAdapter) ListTags(ctx context.Context, tenantID string) ([]domai
 			tagOrder = append(tagOrder, tag)
 		}
 		a.count++
+		a.taggedAt = append(a.taggedAt, dynItem.CreatedAt)
 		if dynItem.CreatedAt.After(a.lastAt) {
 			a.lastAt = dynItem.CreatedAt
 		}
 	}
 
+	now := r.now()
 	summaries := make([]domain.TagSummary, 0, len(tagOrder))
 	for _, tag := range tagOrder {
 		a := aggregates[tag]
+		score, components := domain.TagRelevanceScore(a.taggedAt, now)
 		summaries = append(summaries, domain.TagSummary{
-			Tag:           tag,
-			InsightCount:  a.count,
-			LastInsightAt: a.lastAt,
+			Tag:             tag,
+			InsightCount:    a.count,
+			LastInsightAt:   a.lastAt,
+			Score:           score,
+			ScoreComponents: components,
 		})
 	}
 
 	sort.SliceStable(summaries, func(i, j int) bool {
-		return summaries[i].InsightCount > summaries[j].InsightCount
+		return summaries[i].Score > summaries[j].Score
 	})
 
 	return summaries, nil

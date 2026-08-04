@@ -28,10 +28,18 @@ type CreateInsightResponseDTO struct {
 	Insight  ResponseDTO `json:"insight"`
 }
 
+type TagScoreComponentsDTO struct {
+	Count     float64 `json:"count"`
+	Recency   float64 `json:"recency"`
+	Freshness float64 `json:"freshness"`
+}
+
 type TagResponseDTO struct {
-	Tag           string    `json:"tag"`
-	InsightCount  int       `json:"insight_count"`
-	LastInsightAt time.Time `json:"last_insight_at"`
+	Tag             string                `json:"tag"`
+	InsightCount    int                   `json:"insight_count"`
+	LastInsightAt   time.Time             `json:"last_insight_at"`
+	Score           float64               `json:"score"`
+	ScoreComponents TagScoreComponentsDTO `json:"score_components"`
 }
 
 type ListTagsResponseDTO struct {
