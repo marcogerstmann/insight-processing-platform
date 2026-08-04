@@ -296,6 +296,62 @@ func TestInsightAdapter_ListTags_AggregatesCountsSortsByScoreDesc_ScopedByTenant
 	}
 }
 
+func TestInsightAdapter_ListTags_UsesHighlightedAtNotIngestionTime(t *testing.T) {
+	ctx := context.Background()
+	f := newFakeDynamo()
+	ingestedAt := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	a := newTestAdapter(f, ingestedAt)
+
+	// Readwise says this highlight is a year old, even though we're
+	// ingesting it (and thus the wall-clock "now") today. Relevance
+	// scoring must rank by the old highlight date, not ingestion time.
+	highlightedAt := ingestedAt.Add(-365 * 24 * time.Hour)
+	insight := domain.Insight{ID: "i-1", TenantID: "t-1", Source: "readwise", Text: "hello", HighlightedAt: highlightedAt}
+	if _, err := a.CreateIfAbsent(ctx, insight); err != nil {
+		t.Fatalf("CreateIfAbsent: %v", err)
+	}
+	insight.Enrichment = &domain.Enrichment{Tags: []string{"old"}}
+	if err := a.Update(ctx, insight); err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+
+	members, err := a.ListByTag(ctx, "t-1", "old")
+	if err != nil {
+		t.Fatalf("ListByTag: %v", err)
+	}
+	if len(members) != 1 || !members[0].HighlightedAt.Equal(highlightedAt) {
+		t.Fatalf("ListByTag = %+v, want HighlightedAt=%v (Readwise's highlighted_at, not ingestion now=%v)", members, highlightedAt, ingestedAt)
+	}
+	if !members[0].CreatedAt.Equal(ingestedAt) {
+		t.Fatalf("ListByTag = %+v, want CreatedAt=%v (our own audit trail, untouched by the source timestamp)", members, ingestedAt)
+	}
+}
+
+func TestInsightAdapter_ListTags_FallsBackToIngestionTimeWhenHighlightedAtUnset(t *testing.T) {
+	ctx := context.Background()
+	f := newFakeDynamo()
+	ingestedAt := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	a := newTestAdapter(f, ingestedAt)
+
+	// Manually-created insights have no source highlight date.
+	insight := domain.Insight{ID: "i-1", TenantID: "t-1", Source: "manual", Text: "hello"}
+	if _, err := a.CreateIfAbsent(ctx, insight); err != nil {
+		t.Fatalf("CreateIfAbsent: %v", err)
+	}
+	insight.Enrichment = &domain.Enrichment{Tags: []string{"manual"}}
+	if err := a.Update(ctx, insight); err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+
+	members, err := a.ListByTag(ctx, "t-1", "manual")
+	if err != nil {
+		t.Fatalf("ListByTag: %v", err)
+	}
+	if len(members) != 1 || !members[0].HighlightedAt.Equal(ingestedAt) {
+		t.Fatalf("ListByTag = %+v, want HighlightedAt=%v (fallback to ingestion time)", members, ingestedAt)
+	}
+}
+
 func TestInsightAdapter_ListByTenantID_WithTag_ReturnsFullMatchingInsights(t *testing.T) {
 	ctx := context.Background()
 	f := newFakeDynamo()

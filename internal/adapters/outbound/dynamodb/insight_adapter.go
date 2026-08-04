@@ -25,16 +25,17 @@ type dynamoEnrichmentItem struct {
 }
 
 type dynamoInsightItem struct {
-	PK         string                `dynamodbav:"pk"`
-	SK         string                `dynamodbav:"sk"`
-	TenantID   string                `dynamodbav:"tenant_id"`
-	ID         string                `dynamodbav:"id"`
-	Source     string                `dynamodbav:"source"`
-	Text       string                `dynamodbav:"text"`
-	Notes      string                `dynamodbav:"notes"`
-	Enrichment *dynamoEnrichmentItem `dynamodbav:"enrichment,omitempty"`
-	CreatedAt  time.Time             `dynamodbav:"created_at"`
-	UpdatedAt  time.Time             `dynamodbav:"updated_at"`
+	PK            string                `dynamodbav:"pk"`
+	SK            string                `dynamodbav:"sk"`
+	TenantID      string                `dynamodbav:"tenant_id"`
+	ID            string                `dynamodbav:"id"`
+	Source        string                `dynamodbav:"source"`
+	Text          string                `dynamodbav:"text"`
+	Notes         string                `dynamodbav:"notes"`
+	Enrichment    *dynamoEnrichmentItem `dynamodbav:"enrichment,omitempty"`
+	HighlightedAt time.Time             `dynamodbav:"highlighted_at"`
+	CreatedAt     time.Time             `dynamodbav:"created_at"`
+	UpdatedAt     time.Time             `dynamodbav:"updated_at"`
 }
 
 // dynamoTagMembershipItem lives in the same table/partition as its insight
@@ -42,12 +43,18 @@ type dynamoInsightItem struct {
 // are only ever set on these items, never on dynamoInsightItem, which is what
 // makes the GSI sparse: plain insights never appear in it.
 type dynamoTagMembershipItem struct {
-	PK        string    `dynamodbav:"pk"`
-	SK        string    `dynamodbav:"sk"`
-	GSI1PK    string    `dynamodbav:"gsi1pk"`
-	GSI1SK    string    `dynamodbav:"gsi1sk"`
-	InsightID string    `dynamodbav:"insight_id"`
+	PK        string `dynamodbav:"pk"`
+	SK        string `dynamodbav:"sk"`
+	GSI1PK    string `dynamodbav:"gsi1pk"`
+	GSI1SK    string `dynamodbav:"gsi1sk"`
+	InsightID string `dynamodbav:"insight_id"`
+	// CreatedAt is our own audit trail: when this membership row was
+	// written. Never used for relevance scoring — see HighlightedAt.
 	CreatedAt time.Time `dynamodbav:"created_at"`
+	// HighlightedAt is the source system's highlight-creation time (falling
+	// back to our ingestion time for sources with none). This, not
+	// CreatedAt, is what tag relevance scoring ranks on.
+	HighlightedAt time.Time `dynamodbav:"highlighted_at"`
 }
 
 func pk(tenantID string) string {
@@ -84,19 +91,30 @@ func NewInsightAdapter(client dynamoAPI, tableName string) *InsightAdapter {
 	}
 }
 
+// resolveHighlightedAt falls back to now for sources with no highlight
+// creation time of their own (e.g. manually created insights), so relevance
+// scoring always has a timestamp to work with.
+func resolveHighlightedAt(insight domain.Insight, now time.Time) time.Time {
+	if insight.HighlightedAt.IsZero() {
+		return now
+	}
+	return insight.HighlightedAt
+}
+
 func (r *InsightAdapter) CreateIfAbsent(ctx context.Context, insight domain.Insight) (bool, error) {
 	now := r.now().UTC()
 
 	item := dynamoInsightItem{
-		PK:        pk(insight.TenantID),
-		SK:        sk(insight.ID),
-		ID:        insight.ID,
-		TenantID:  insight.TenantID,
-		Source:    insight.Source,
-		Text:      insight.Text,
-		Notes:     insight.Notes,
-		CreatedAt: now,
-		UpdatedAt: now,
+		PK:            pk(insight.TenantID),
+		SK:            sk(insight.ID),
+		ID:            insight.ID,
+		TenantID:      insight.TenantID,
+		Source:        insight.Source,
+		Text:          insight.Text,
+		Notes:         insight.Notes,
+		HighlightedAt: resolveHighlightedAt(insight, now),
+		CreatedAt:     now,
+		UpdatedAt:     now,
 	}
 
 	if insight.Enrichment != nil {
@@ -247,8 +265,9 @@ func (r *InsightAdapter) ListByTag(ctx context.Context, tenantID, tag string) ([
 			return nil, err
 		}
 		memberships = append(memberships, domain.TagMembership{
-			InsightID: dynItem.InsightID,
-			CreatedAt: dynItem.CreatedAt,
+			InsightID:     dynItem.InsightID,
+			CreatedAt:     dynItem.CreatedAt,
+			HighlightedAt: dynItem.HighlightedAt,
 		})
 	}
 	return memberships, nil
@@ -304,9 +323,9 @@ func (r *InsightAdapter) ListTags(ctx context.Context, tenantID string) ([]domai
 			tagOrder = append(tagOrder, tag)
 		}
 		a.count++
-		a.taggedAt = append(a.taggedAt, dynItem.CreatedAt)
-		if dynItem.CreatedAt.After(a.lastAt) {
-			a.lastAt = dynItem.CreatedAt
+		a.taggedAt = append(a.taggedAt, dynItem.HighlightedAt)
+		if dynItem.HighlightedAt.After(a.lastAt) {
+			a.lastAt = dynItem.HighlightedAt
 		}
 	}
 
@@ -411,7 +430,8 @@ func (r *InsightAdapter) Update(ctx context.Context, insight domain.Insight) err
 	}
 
 	if insight.Enrichment != nil {
-		if err := r.syncTagMemberships(ctx, insight.TenantID, insight.ID, oldTags, insight.Enrichment.Tags, now); err != nil {
+		highlightedAt := resolveHighlightedAt(insight, now)
+		if err := r.syncTagMemberships(ctx, insight.TenantID, insight.ID, oldTags, insight.Enrichment.Tags, now, highlightedAt); err != nil {
 			return fmt.Errorf("sync tag memberships: %w", err)
 		}
 	}
@@ -444,8 +464,14 @@ func (r *InsightAdapter) currentTags(ctx context.Context, key map[string]types.A
 // syncTagMemberships reconciles tag membership items with the newly enriched
 // tag set: tags no longer present are deleted, newly added tags get a fresh
 // membership item. Unchanged tags are left untouched so replaying the same
-// enrichment doesn't reset created_at or write duplicates.
-func (r *InsightAdapter) syncTagMemberships(ctx context.Context, tenantID, insightID string, oldTags, newTags []string, now time.Time) error {
+// enrichment doesn't reset created_at/highlighted_at or write duplicates.
+//
+// now is our own wall-clock write time (audit trail, dynamoTagMembershipItem
+// .CreatedAt). highlightedAt is the source system's highlight-creation time,
+// falling back to now when the source has none (dynamoTagMembershipItem
+// .HighlightedAt) — that field, never CreatedAt, is what tag relevance
+// scoring (domain.TagRelevanceScore) ranks on.
+func (r *InsightAdapter) syncTagMemberships(ctx context.Context, tenantID, insightID string, oldTags, newTags []string, now, highlightedAt time.Time) error {
 	oldSet := toTagSet(oldTags)
 	newSet := toTagSet(newTags)
 
@@ -473,12 +499,13 @@ func (r *InsightAdapter) syncTagMemberships(ctx context.Context, tenantID, insig
 			continue
 		}
 		item := dynamoTagMembershipItem{
-			PK:        pk(tenantID),
-			SK:        tagSK(tag, insightID),
-			GSI1PK:    pk(tenantID),
-			GSI1SK:    tagSK(tag, insightID),
-			InsightID: insightID,
-			CreatedAt: now,
+			PK:            pk(tenantID),
+			SK:            tagSK(tag, insightID),
+			GSI1PK:        pk(tenantID),
+			GSI1SK:        tagSK(tag, insightID),
+			InsightID:     insightID,
+			CreatedAt:     now,
+			HighlightedAt: highlightedAt,
 		}
 		av, err := attributevalue.MarshalMap(item)
 		if err != nil {

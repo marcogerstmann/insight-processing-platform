@@ -24,10 +24,11 @@ func mapMessageDTOToDomain(dto messageDTO) (domain.IngestEvent, error) {
 		EventType:  dto.EventType,
 		ReceivedAt: dto.ReceivedAt,
 		Highlight: domain.Highlight{
-			ID:   dto.Highlight.ID,
-			Text: dto.Highlight.Text,
-			Note: dto.Highlight.Note,
-			URL:  dto.Highlight.URL,
+			ID:            dto.Highlight.ID,
+			Text:          dto.Highlight.Text,
+			Note:          dto.Highlight.Note,
+			URL:           dto.Highlight.URL,
+			HighlightedAt: dto.Highlight.HighlightedAt,
 		},
 	}, nil
 }

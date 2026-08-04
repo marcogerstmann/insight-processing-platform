@@ -12,11 +12,12 @@ import (
 
 func mapIngestEventToInsight(ev domain.IngestEvent) domain.Insight {
 	return domain.Insight{
-		ID:       ev.ID,
-		TenantID: ev.TenantID,
-		Source:   ev.Source,
-		Text:     strings.TrimSpace(ev.Highlight.Text),
-		Notes:    strings.TrimSpace(ev.Highlight.Note),
+		ID:            ev.ID,
+		TenantID:      ev.TenantID,
+		Source:        ev.Source,
+		Text:          strings.TrimSpace(ev.Highlight.Text),
+		Notes:         strings.TrimSpace(ev.Highlight.Note),
+		HighlightedAt: ev.Highlight.HighlightedAt,
 	}
 }
 

@@ -22,16 +22,22 @@ func mapReadwiseDTOToDomain(p webhookDTO, receivedAt time.Time, tenantID string)
 		return domain.IngestEvent{}, apperr.E(apperr.ErrInvalidPayload, fmt.Errorf("empty highlight text (id=%d)", p.ID))
 	}
 
+	highlightedAt := p.Updated
+	if p.HighlightedAt != nil {
+		highlightedAt = *p.HighlightedAt
+	}
+
 	ev := domain.IngestEvent{
 		TenantID:   tenantID,
 		Source:     "readwise",
 		EventType:  p.EventType,
 		ReceivedAt: receivedAt.UTC(),
 		Highlight: domain.Highlight{
-			ID:   strconv.FormatInt(p.ID, 10),
-			Text: p.Text,
-			Note: p.Note,
-			URL:  p.URL,
+			ID:            strconv.FormatInt(p.ID, 10),
+			Text:          p.Text,
+			Note:          p.Note,
+			URL:           p.URL,
+			HighlightedAt: highlightedAt,
 		},
 	}
 

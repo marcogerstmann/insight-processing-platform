@@ -2,6 +2,7 @@ package ingest
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 	"time"
@@ -89,6 +90,28 @@ func TestImport_OnlyFavoritesFiltersBeforeLimit(t *testing.T) {
 		Highlight: domain.Highlight{ID: "2"},
 	}) {
 		t.Fatalf("expected the most recent favorite (id=2) to be the one enqueued")
+	}
+}
+
+func TestImport_CarriesHighlightedAtFromReadwiseIntoEnqueuedEvent(t *testing.T) {
+	highlightedAt := time.Date(2025, 5, 1, 0, 0, 0, 0, time.UTC)
+	client := &fakeReadwiseClient{highlights: []ports.ReadwiseHighlight{
+		{ID: "1", Text: "first", HighlightedAt: highlightedAt},
+	}}
+	mp := &mockPublisher{}
+	svc := NewService(mp)
+	im := NewImporter(client, svc)
+
+	if _, err := im.Import(context.Background(), "tenant-1", "token", 0, false); err != nil {
+		t.Fatalf("Import returned error: %v", err)
+	}
+
+	var ev domain.IngestEvent
+	if err := json.Unmarshal(mp.lastMsg.Body, &ev); err != nil {
+		t.Fatalf("unmarshal enqueued event: %v", err)
+	}
+	if !ev.Highlight.HighlightedAt.Equal(highlightedAt) {
+		t.Fatalf("HighlightedAt = %v, want %v (Readwise's own highlight time)", ev.Highlight.HighlightedAt, highlightedAt)
 	}
 }
 

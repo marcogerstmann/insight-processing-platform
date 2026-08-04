@@ -12,8 +12,9 @@ type messageDTO struct {
 }
 
 type highlightDTO struct {
-	ID   string  `json:"id"`
-	Text string  `json:"text"`
-	Note string  `json:"note"`
-	URL  *string `json:"url"`
+	ID            string    `json:"id"`
+	Text          string    `json:"text"`
+	Note          string    `json:"note"`
+	URL           *string   `json:"url"`
+	HighlightedAt time.Time `json:"highlighted_at"`
 }

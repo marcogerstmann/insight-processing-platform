@@ -69,10 +69,11 @@ func (im *Importer) Import(ctx context.Context, tenantID, token string, limit in
 			EventType:  readwiseEventType,
 			ReceivedAt: receivedAt,
 			Highlight: domain.Highlight{
-				ID:   h.ID,
-				Text: h.Text,
-				Note: h.Note,
-				URL:  h.URL,
+				ID:            h.ID,
+				Text:          h.Text,
+				Note:          h.Note,
+				URL:           h.URL,
+				HighlightedAt: h.HighlightedAt,
 			},
 		}
 
