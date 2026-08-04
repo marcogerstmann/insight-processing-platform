@@ -258,6 +258,49 @@ body {
   width: 1%;
 }
 
+.tag-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem 0.8rem;
+}
+
+.tag-cloud-item {
+  border: none;
+  background: none;
+  color: var(--color-primary);
+  cursor: pointer;
+  padding: 0;
+  line-height: 1.2;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.tag-cloud-item:hover,
+.tag-cloud-item.active {
+  color: var(--color-primary-hover);
+  text-decoration: underline;
+}
+
+.tag-score-breakdown {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.3rem 0.8rem;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+  font-size: 0.85rem;
+}
+
+.tag-score-breakdown dt {
+  color: var(--color-text-muted);
+}
+
+.tag-score-breakdown dd {
+  margin: 0;
+  font-weight: 500;
+}
+
 .claims-table tr.highlight th,
 .claims-table tr.highlight td {
   background: var(--color-highlight);
