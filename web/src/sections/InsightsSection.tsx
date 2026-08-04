@@ -2,11 +2,18 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthContext.tsx";
 import { listInsights, type Insight } from "../api/insights.ts";
 
-// Insights list. On each mount (i.e. every time the section is opened) it calls
-// GET /v1/insights and renders the result as a plain table.
+interface InsightsSectionProps {
+  // Optional tag filter (IPP-109 drill-down). Undefined shows every insight,
+  // same as before that ticket.
+  tag?: string;
+}
+
+// Insights list. On each mount (i.e. every time the section is opened, or the
+// tag filter changes) it calls GET /v1/insights and renders the result as a
+// plain table.
 // Only ever mounted while signed in (App.tsx gates this), so `token` here is
 // always set.
-export function InsightsSection() {
+export function InsightsSection({ tag }: InsightsSectionProps = {}) {
   const { token } = useAuth();
   const [insights, setInsights] = useState<Insight[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +29,7 @@ export function InsightsSection() {
     setError(null);
     setInsights(null);
 
-    listInsights(token)
+    listInsights(token, tag)
       .then((items) => {
         if (!cancelled) setInsights(items);
       })
@@ -38,13 +45,13 @@ export function InsightsSection() {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, tag]);
 
   if (!token) return null;
 
   return (
     <section>
-      <h2>Insights</h2>
+      <h2>{tag ? `Insights tagged "${tag}"` : "Insights"}</h2>
       {loading && <p>Loading…</p>}
       {error && (
         <p className="error" role="alert">
@@ -52,7 +59,9 @@ export function InsightsSection() {
         </p>
       )}
       {!loading && !error && insights && insights.length === 0 && (
-        <p className="placeholder">No insights yet for this tenant.</p>
+        <p className="placeholder">
+          {tag ? `No insights tagged "${tag}".` : "No insights yet for this tenant."}
+        </p>
       )}
       {!loading && !error && insights && insights.length > 0 && (
         <div className="table-wrap">

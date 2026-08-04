@@ -276,8 +276,7 @@ body {
   overflow-wrap: anywhere;
 }
 
-.tag-cloud-item:hover,
-.tag-cloud-item.active {
+.tag-cloud-item:hover {
   color: var(--color-primary-hover);
   text-decoration: underline;
 }

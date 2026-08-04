@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthContext.tsx";
 import { listTags, type Tag } from "../api/tags.ts";
+import { InsightsSection } from "./InsightsSection.tsx";
 
 // Tag cloud sized by relevance `score`, not `insight_count` — that's the
 // point of the underlying ranking (see tags.ts). No charting library: font
@@ -55,6 +56,34 @@ export function KnowledgeSection() {
 
   if (!token) return null;
 
+  // IPP-109: selecting a tag drills into its insights instead of just showing
+  // the score breakdown. Tags stay in state, so going back doesn't refetch.
+  if (selected) {
+    return (
+      <section>
+        <h2>Knowledge</h2>
+        <button type="button" className="tag-cloud-item" onClick={() => setSelected(null)}>
+          ← Back to tag cloud
+        </button>
+        <dl className="tag-score-breakdown">
+          <dt>Tag</dt>
+          <dd>{selected.tag}</dd>
+          <dt>Insight count</dt>
+          <dd>{selected.insight_count}</dd>
+          <dt>Score</dt>
+          <dd>{selected.score.toFixed(3)}</dd>
+          <dt>Count component</dt>
+          <dd>{selected.score_components.count.toFixed(3)}</dd>
+          <dt>Recency component</dt>
+          <dd>{selected.score_components.recency.toFixed(3)}</dd>
+          <dt>Freshness component</dt>
+          <dd>{selected.score_components.freshness.toFixed(3)}</dd>
+        </dl>
+        <InsightsSection tag={selected.tag} />
+      </section>
+    );
+  }
+
   const scores = tags?.map((t) => t.score) ?? [];
   const minScore = scores.length ? Math.min(...scores) : 0;
   const maxScore = scores.length ? Math.max(...scores) : 0;
@@ -72,38 +101,20 @@ export function KnowledgeSection() {
         <p className="placeholder">No tags yet for this tenant.</p>
       )}
       {!loading && !error && tags && tags.length > 0 && (
-        <>
-          <div className="tag-cloud">
-            {tags.map((tag) => (
-              <button
-                key={tag.tag}
-                type="button"
-                className={tag.tag === selected?.tag ? "tag-cloud-item active" : "tag-cloud-item"}
-                style={{ fontSize: fontSizeFor(tag.score, minScore, maxScore) }}
-                title={`score ${tag.score.toFixed(2)} — count ${tag.score_components.count.toFixed(2)}, recency ${tag.score_components.recency.toFixed(2)}, freshness ${tag.score_components.freshness.toFixed(2)}`}
-                onClick={() => setSelected(tag.tag === selected?.tag ? null : tag)}
-              >
-                {tag.tag}
-              </button>
-            ))}
-          </div>
-          {selected && (
-            <dl className="tag-score-breakdown">
-              <dt>Tag</dt>
-              <dd>{selected.tag}</dd>
-              <dt>Insight count</dt>
-              <dd>{selected.insight_count}</dd>
-              <dt>Score</dt>
-              <dd>{selected.score.toFixed(3)}</dd>
-              <dt>Count component</dt>
-              <dd>{selected.score_components.count.toFixed(3)}</dd>
-              <dt>Recency component</dt>
-              <dd>{selected.score_components.recency.toFixed(3)}</dd>
-              <dt>Freshness component</dt>
-              <dd>{selected.score_components.freshness.toFixed(3)}</dd>
-            </dl>
-          )}
-        </>
+        <div className="tag-cloud">
+          {tags.map((tag) => (
+            <button
+              key={tag.tag}
+              type="button"
+              className="tag-cloud-item"
+              style={{ fontSize: fontSizeFor(tag.score, minScore, maxScore) }}
+              title={`score ${tag.score.toFixed(2)} — count ${tag.score_components.count.toFixed(2)}, recency ${tag.score_components.recency.toFixed(2)}, freshness ${tag.score_components.freshness.toFixed(2)}`}
+              onClick={() => setSelected(tag)}
+            >
+              {tag.tag}
+            </button>
+          ))}
+        </div>
       )}
     </section>
   );

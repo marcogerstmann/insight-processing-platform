@@ -19,10 +19,12 @@ interface ListInsightsResponse {
   items: Insight[];
 }
 
-// Fetch the tenant's insights. The tenant ID comes from the token's
-// custom:tenant_id claim, resolved server-side — never from the URL.
-export async function listInsights(token: string): Promise<Insight[]> {
-  const body = await apiRequest<ListInsightsResponse>("/v1/insights", token);
+// Fetch the tenant's insights, optionally filtered to one tag. The tenant ID
+// comes from the token's custom:tenant_id claim, resolved server-side — never
+// from the URL.
+export async function listInsights(token: string, tag?: string): Promise<Insight[]> {
+  const query = tag ? `?${new URLSearchParams({ tag })}` : "";
+  const body = await apiRequest<ListInsightsResponse>(`/v1/insights${query}`, token);
   return body.items;
 }
 
