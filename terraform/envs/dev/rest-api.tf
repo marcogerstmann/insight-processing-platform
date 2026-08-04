@@ -197,6 +197,16 @@ resource "aws_apigatewayv2_route" "post_insights" {
   target = "integrations/${aws_apigatewayv2_integration.rest_lambda.id}"
 }
 
+resource "aws_apigatewayv2_route" "get_tags" {
+  api_id    = aws_apigatewayv2_api.rest.id
+  route_key = "GET /v1/tags"
+
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito_jwt.id
+
+  target = "integrations/${aws_apigatewayv2_integration.rest_lambda.id}"
+}
+
 resource "aws_apigatewayv2_route" "post_readwise_import" {
   api_id    = aws_apigatewayv2_api.rest.id
   route_key = "POST /v1/readwise/import"
