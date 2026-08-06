@@ -29,7 +29,7 @@ var enrichTool = sdk.ToolUnionParam{
 				"tags": map[string]any{
 					"type":        "array",
 					"items":       map[string]any{"type": "string"},
-					"description": "3-5 mid-level topic tags for the highlight. Land one step below a whole field and one step above the highlight's exact wording, so different books on the same sub-theme converge on the same tag (e.g. \"habit-formation\", \"delayed-gratification\", \"deep-work\") — not a broad field everything falls into (e.g. \"psychology\", \"business\") and not a narrow one-off (e.g. \"the-5-second-rule\", \"chapter-3-morning-routine\").",
+					"description": "3-5 tags for the highlight, spanning a range of altitudes rather than 5 synonyms of the same idea. Include at least one broad field tag (e.g. \"psychology\", \"business\") the highlight clearly belongs to, then 2-4 tags that narrow into its specific facets (e.g. \"delayed-gratification\", \"locus-of-control\"). Never a narrow one-off tied to this highlight's exact wording (e.g. \"the-5-second-rule\", \"chapter-3-morning-routine\").",
 				},
 			},
 			Required: []string{"tags"},
@@ -38,7 +38,7 @@ var enrichTool = sdk.ToolUnionParam{
 }
 
 var systemPrompt = []sdk.TextBlockParam{
-	{Text: "You are a tagging specialist. Given a reading highlight, extract 3-5 mid-level topic tags that group it with similar highlights on the same sub-theme. Avoid whole-field umbrella tags (e.g. \"psychology\", \"business\") that everything collapses into, and avoid narrow one-off tags tied to this highlight's exact wording. Be direct and concise. No preamble, no filler."},
+	{Text: "You are a tagging specialist. Given a reading highlight, extract 3-5 tags spanning a range of altitudes: start with one broad field it belongs to (e.g. \"psychology\", \"business\"), then add 2-4 tags that narrow into its specific facets. Never produce 5 tags that are all just synonyms of one idea, and never a narrow one-off tied to this highlight's exact wording. Be direct and concise. No preamble, no filler."},
 }
 
 type enrichmentInput struct {
