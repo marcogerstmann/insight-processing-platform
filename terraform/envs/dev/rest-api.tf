@@ -31,7 +31,7 @@ resource "aws_iam_role_policy" "rest_dynamodb" {
     Statement = [
       {
         Effect   = "Allow"
-        Action   = ["dynamodb:Query", "dynamodb:PutItem"]
+        Action   = ["dynamodb:Query", "dynamodb:PutItem", "dynamodb:GetItem"]
         Resource = module.dynamodb_insights.table_arn
       },
       {
