@@ -261,6 +261,18 @@ data "aws_iam_policy_document" "github_actions_permissions" {
   }
 
   # ------------------------------------------------------------------
+  # EventBridge — Terraform manages the domain events bus
+  # ------------------------------------------------------------------
+  statement {
+    sid     = "EventBridgeManage"
+    effect  = "Allow"
+    actions = ["events:*"]
+    resources = [
+      "arn:aws:events:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:event-bus/${var.project}-*",
+    ]
+  }
+
+  # ------------------------------------------------------------------
   # API Gateway — Terraform manages the HTTP API and its routes
   # ------------------------------------------------------------------
   statement {

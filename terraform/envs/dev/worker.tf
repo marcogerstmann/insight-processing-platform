@@ -155,6 +155,22 @@ resource "aws_iam_role_policy_attachment" "worker_dynamodb" {
   policy_arn = aws_iam_policy.worker_dynamodb.arn
 }
 
+resource "aws_iam_role_policy" "worker_eventbridge_publish" {
+  name = "${var.project}-${var.env}-worker-eventbridge-publish"
+  role = module.worker_lambda_role.role_name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["events:PutEvents"]
+        Resource = module.domain_events_bus.bus_arn
+      }
+    ]
+  })
+}
+
 module "worker_lambda" {
   source      = "../../modules/lambda-image"
   name        = "${var.project}-${var.env}-worker"
@@ -164,9 +180,10 @@ module "worker_lambda" {
   memory_size = 256
 
   environment_variables = {
-    TABLE_NAME_INSIGHTS = module.dynamodb_insights.table_name
-    INGEST_DLQ_URL      = module.ingest_queue.dlq_url
-    ANTHROPIC_API_KEY   = "ssm:/${var.project}/${var.env}/anthropic/api_key"
+    TABLE_NAME_INSIGHTS    = module.dynamodb_insights.table_name
+    INGEST_DLQ_URL         = module.ingest_queue.dlq_url
+    ANTHROPIC_API_KEY      = "ssm:/${var.project}/${var.env}/anthropic/api_key"
+    DOMAIN_EVENTS_BUS_NAME = module.domain_events_bus.bus_name
   }
 
   depends_on = [aws_iam_role_policy.worker_ecr_pull, aws_ecr_repository_policy.worker]

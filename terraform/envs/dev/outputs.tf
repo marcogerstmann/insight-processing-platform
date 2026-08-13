@@ -18,6 +18,11 @@ output "worker_ecr_repository_url" {
   value       = aws_ecr_repository.worker.repository_url
 }
 
+output "domain_events_bus_name" {
+  description = "Name of the EventBridge bus domain events are published to"
+  value       = module.domain_events_bus.bus_name
+}
+
 output "rest_api_endpoint" {
   description = "Base URL of the REST API"
   value       = "https://${var.api_domain_name}"
