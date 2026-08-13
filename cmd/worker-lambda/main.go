@@ -12,6 +12,7 @@ import (
 	workersqs "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/sqs/worker"
 	anthropicAdapter "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/anthropic"
 	dynamoAdapters "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/dynamodb"
+	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/eventbridge"
 	sqsAdapters "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/sqs"
 	ssmAdapters "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/ssm"
 	"github.com/marcogerstmann/insight-processing-platform/internal/application/insight"
@@ -48,6 +49,12 @@ func main() {
 
 	insightRepo := dynamoAdapters.NewInsightAdapter(dbclient, mustEnv("TABLE_NAME_INSIGHTS"))
 
+	domainEvents, err := eventbridge.NewDomainEventPublisher(ctx)
+	if err != nil {
+		log.Error("failed to create domain event publisher", "err", err)
+		os.Exit(1)
+	}
+
 	var llmService *llm.Service
 	apiKey, err := envutil.ResolveSecret(ctx, "ANTHROPIC_API_KEY", secretProvider)
 	if err != nil {
@@ -58,7 +65,7 @@ func main() {
 		llmService = llm.NewService(anthropicAdapter.NewClient(apiKey))
 	}
 
-	svc := insight.NewService(insightRepo, llmService)
+	svc := insight.NewService(insightRepo, llmService, domainEvents)
 
 	h := workersqs.NewHandler(svc, dlqPublisher)
 	lambda.Start(h.Handle)

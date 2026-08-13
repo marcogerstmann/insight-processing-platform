@@ -71,13 +71,14 @@ func main() {
 
 	noopRepo := memory.NewInsightNoopAdapter()
 	dlqPublisher := memory.NewDLQNoopAdapter()
+	domainEvents := memory.NewDomainEventNoopAdapter()
 
 	var llmService *llm.Service
 	if apiKey := strings.TrimSpace(os.Getenv("ANTHROPIC_API_KEY")); apiKey != "" {
 		llmService = llm.NewService(anthropicAdapter.NewClient(apiKey))
 	}
 
-	svc := insight.NewService(noopRepo, llmService)
+	svc := insight.NewService(noopRepo, llmService, domainEvents)
 	h := workersqs.NewHandler(svc, dlqPublisher)
 
 	log.Info("invoking worker handler (local)",

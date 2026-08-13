@@ -15,6 +15,7 @@ import (
 	restinsight "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/insight"
 	restreadwise "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/readwise"
 	dynamodbadapter "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/dynamodb"
+	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/memory"
 	readwiseclient "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/readwise"
 	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/sqs"
 	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/ssm"
@@ -50,7 +51,7 @@ func main() {
 	dynamoClient := awsdynamodb.NewFromConfig(awsCfg)
 	insightAdapter := dynamodbadapter.NewInsightAdapter(dynamoClient, tableName)
 	// Enrichment is async and belongs to the worker path only — REST returns fast.
-	insightSvc := insight.NewService(insightAdapter, nil)
+	insightSvc := insight.NewService(insightAdapter, nil, memory.NewDomainEventNoopAdapter())
 
 	publisher, err := sqs.NewSQSEventPublisher(ctx)
 	if err != nil {

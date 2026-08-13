@@ -74,3 +74,35 @@ func TestDomainEventJSONRoundTrip(t *testing.T) {
 		t.Fatalf("decoded envelope fields = %+v, want match for %+v", decoded, original)
 	}
 }
+
+func TestNewInsightEventConstructors(t *testing.T) {
+	now := time.Date(2026, 8, 13, 12, 0, 0, 0, time.UTC)
+	insight := Insight{ID: "insight-1", TenantID: "tenant-1", Source: "readwise"}
+
+	t.Run("InsightCreated carries id and source", func(t *testing.T) {
+		ev := NewInsightCreatedEvent(insight, now)
+		if ev.EventType != InsightCreated || ev.TenantID != "tenant-1" {
+			t.Fatalf("got %+v", ev)
+		}
+		payload, ok := ev.Payload.(InsightCreatedPayload)
+		if !ok || payload.InsightID != "insight-1" || payload.Source != "readwise" {
+			t.Fatalf("payload = %+v, ok=%v", ev.Payload, ok)
+		}
+	})
+
+	t.Run("InsightEnriched carries tags, nil enrichment yields none", func(t *testing.T) {
+		ev := NewInsightEnrichedEvent(insight, now)
+		payload, ok := ev.Payload.(InsightEnrichedPayload)
+		if !ok || len(payload.Tags) != 0 {
+			t.Fatalf("expected no tags for nil enrichment, got %+v ok=%v", payload, ok)
+		}
+
+		enriched := insight
+		enriched.Enrichment = &Enrichment{Tags: []string{"stoicism"}}
+		ev2 := NewInsightEnrichedEvent(enriched, now)
+		payload2 := ev2.Payload.(InsightEnrichedPayload)
+		if len(payload2.Tags) != 1 || payload2.Tags[0] != "stoicism" {
+			t.Fatalf("expected tags=[stoicism], got %v", payload2.Tags)
+		}
+	})
+}

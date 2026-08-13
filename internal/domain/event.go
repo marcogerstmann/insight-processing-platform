@@ -49,3 +49,39 @@ func deterministicEventID(eventType EventType, subjectID string) string {
 	sum := sha256.Sum256([]byte(string(eventType) + "|" + subjectID))
 	return hex.EncodeToString(sum[:])
 }
+
+// InsightCreatedPayload is the InsightCreated event's payload. Kept small —
+// subscribers read the full record themselves if they need more than this
+// notification carries; the envelope already carries TenantID/OccurredAt.
+type InsightCreatedPayload struct {
+	InsightID string `json:"insight_id"`
+	Source    string `json:"source"`
+}
+
+// InsightEnrichedPayload is the InsightEnriched event's payload.
+type InsightEnrichedPayload struct {
+	InsightID string   `json:"insight_id"`
+	Tags      []string `json:"tags"`
+}
+
+// NewInsightCreatedEvent builds the envelope published right after an
+// insight is durably written for the first time.
+func NewInsightCreatedEvent(insight Insight, occurredAt time.Time) DomainEvent {
+	return NewDomainEvent(InsightCreated, insight.TenantID, insight.ID, occurredAt, InsightCreatedPayload{
+		InsightID: insight.ID,
+		Source:    insight.Source,
+	})
+}
+
+// NewInsightEnrichedEvent builds the envelope published right after an
+// insight's enrichment is durably written.
+func NewInsightEnrichedEvent(insight Insight, occurredAt time.Time) DomainEvent {
+	var tags []string
+	if insight.Enrichment != nil {
+		tags = insight.Enrichment.Tags
+	}
+	return NewDomainEvent(InsightEnriched, insight.TenantID, insight.ID, occurredAt, InsightEnrichedPayload{
+		InsightID: insight.ID,
+		Tags:      tags,
+	})
+}

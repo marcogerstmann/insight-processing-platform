@@ -3,8 +3,10 @@ package insight
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/marcogerstmann/insight-processing-platform/internal/apperr"
 	"github.com/marcogerstmann/insight-processing-platform/internal/application/llm"
@@ -23,14 +25,16 @@ type Service interface {
 }
 
 type service struct {
-	repo ports.InsightRepository
-	llm  *llm.Service
+	repo   ports.InsightRepository
+	llm    *llm.Service
+	events ports.DomainEventPublisher
 }
 
-func NewService(repo ports.InsightRepository, llm *llm.Service) Service {
+func NewService(repo ports.InsightRepository, llm *llm.Service, events ports.DomainEventPublisher) Service {
 	return &service{
-		repo: repo,
-		llm:  llm,
+		repo:   repo,
+		llm:    llm,
+		events: events,
 	}
 }
 
@@ -47,6 +51,17 @@ func (s *service) Process(ctx context.Context, insight domain.Insight) (Result, 
 	}
 	if !inserted {
 		return Result{Inserted: false}, nil
+	}
+
+	// ponytail: a publish failure here (or after Update below) returns a
+	// plain (transient) error so SQS redelivers — but on redelivery
+	// CreateIfAbsent finds the record already there and short-circuits
+	// above before reaching this publish. If publishing keeps failing
+	// across every retry, the event is dropped despite the write having
+	// succeeded. A "published" flag on the record (or an outbox table)
+	// closes that gap if it ever bites; not worth it until it does.
+	if err := s.publish(ctx, domain.NewInsightCreatedEvent(insight, time.Now())); err != nil {
+		return Result{}, err
 	}
 
 	if s.llm == nil {
@@ -71,7 +86,18 @@ func (s *service) Process(ctx context.Context, insight domain.Insight) (Result, 
 		return Result{}, err
 	}
 
+	if err := s.publish(ctx, domain.NewInsightEnrichedEvent(insight, time.Now())); err != nil {
+		return Result{}, err
+	}
+
 	return Result{Inserted: true}, nil
+}
+
+func (s *service) publish(ctx context.Context, event domain.DomainEvent) error {
+	if err := s.events.Publish(ctx, event); err != nil {
+		return fmt.Errorf("publish %s event: %w", event.EventType, err)
+	}
+	return nil
 }
 
 func (s *service) ListByTenantID(ctx context.Context, tenantID, tag string) ([]domain.Insight, error) {

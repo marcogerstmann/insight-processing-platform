@@ -44,6 +44,22 @@ resource "aws_iam_role_policy" "rest_dynamodb" {
   })
 }
 
+resource "aws_iam_role_policy" "rest_eventbridge_publish" {
+  name = "${var.project}-${var.env}-rest-eventbridge-publish"
+  role = module.rest_lambda_role.role_name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["events:PutEvents"]
+        Resource = module.domain_events_bus.bus_arn
+      }
+    ]
+  })
+}
+
 resource "aws_iam_role_policy" "rest_readwise_ssm_read" {
   name = "${var.project}-${var.env}-rest-readwise-ssm-read"
   role = module.rest_lambda_role.role_name
@@ -72,10 +88,11 @@ module "rest_lambda" {
   timeout          = 10
 
   environment_variables = {
-    TABLE_NAME_INSIGHTS  = module.dynamodb_insights.table_name
-    COGNITO_USER_POOL_ID = aws_cognito_user_pool.rest_api.id
-    COGNITO_CLIENT_ID    = aws_cognito_user_pool_client.rest_api.id
-    INGEST_QUEUE_URL     = module.ingest_queue.queue_url
+    TABLE_NAME_INSIGHTS    = module.dynamodb_insights.table_name
+    COGNITO_USER_POOL_ID   = aws_cognito_user_pool.rest_api.id
+    COGNITO_CLIENT_ID      = aws_cognito_user_pool_client.rest_api.id
+    INGEST_QUEUE_URL       = module.ingest_queue.queue_url
+    DOMAIN_EVENTS_BUS_NAME = module.domain_events_bus.bus_name
     # Falls back to this when a request doesn't pass its own "token"; must be
     # created out-of-band the same way readwise/webhook_secret is (no
     # aws_ssm_parameter resource in this repo — see readwise.tf).

@@ -16,6 +16,7 @@ import (
 	restinsight "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/insight"
 	restreadwise "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/readwise"
 	dynamodbadapter "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/dynamodb"
+	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/eventbridge"
 	readwiseclient "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/readwise"
 	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/sqs"
 	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/ssm"
@@ -55,7 +56,12 @@ func init() {
 
 	dynamoClient := awsdynamodb.NewFromConfig(awsCfg)
 	insightAdapter := dynamodbadapter.NewInsightAdapter(dynamoClient, tableName)
-	insightSvc := insight.NewService(insightAdapter, nil)
+	domainEvents, err := eventbridge.NewDomainEventPublisher(ctx)
+	if err != nil {
+		slog.Error("domain event publisher init failed", "err", err)
+		os.Exit(1)
+	}
+	insightSvc := insight.NewService(insightAdapter, nil, domainEvents)
 	insightHandler := restinsight.NewHandler(insightSvc)
 
 	publisher, err := sqs.NewSQSEventPublisher(ctx)
