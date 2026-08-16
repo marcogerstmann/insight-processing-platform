@@ -32,6 +32,7 @@ Which means there are two different kinds of change, and they are not interchang
 | --- | --- | --- |
 | [ADR-005](005-hexagonal-architecture.md) | Hexagonal Architecture (Ports and Adapters) | 2026-01-16 |
 | [ADR-006](006-manual-di-and-paired-entrypoints.md) | Manual DI and Paired Lambda/Local Entrypoints | 2026-01-25 |
+| [ADR-017](017-idiomatic-python-in-the-ai-service.md) | Idiomatic Python in the AI Service | 2026-08-16 |
 
 ## Ingest pipeline
 

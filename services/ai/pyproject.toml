@@ -1,0 +1,40 @@
+[project]
+name = "ipp-ai"
+version = "0.1.0"
+description = "AI service — event-driven Python counterpart to the Go insight pipeline"
+authors = [
+    { name = "Marco Gerstmann", email = "m.gerstmann@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "boto3>=1.34",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.6",
+    "pytest>=8.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 100
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "TID"]
+
+# Compiler-enforced in Go by `internal/`; ruff is the closest CI-checked
+# equivalent Python has. domain/ports/application never import adapters —
+# adapters are wired only in a composition root. See ADR-017.
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"ipp_ai.adapters".msg = "domain, ports, and application must not import adapters — wire adapters only in a composition root (ADR-017)."
+
+[tool.ruff.lint.per-file-ignores]
+"src/ipp_ai/__main__.py" = ["TID251"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

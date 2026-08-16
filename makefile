@@ -25,7 +25,7 @@ WORKER_TAG ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo manual)
 WORKER_REPO ?= $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/$(PROJECT)-worker
 WORKER_FUNCTION ?= $(PROJECT)-worker
 
-.PHONY: test lint readwise-build rest-build raindrop-poll-build worker-build worker-push tf-init tf-apply tf-destroy deploy tf-backend-bootstrap
+.PHONY: test lint readwise-build rest-build raindrop-poll-build worker-build worker-push tf-init tf-apply tf-destroy deploy tf-backend-bootstrap ai-test ai-lint ai-run-local
 
 # ============================================================
 # General
@@ -36,6 +36,19 @@ test:
 
 lint:
 	golangci-lint run ./...
+
+# ============================================================
+# AI service (Python)
+# ============================================================
+
+ai-test:
+	cd services/ai && uv run pytest
+
+ai-lint:
+	cd services/ai && uv run ruff check . && uv run ruff format --check .
+
+ai-run-local:
+	cd services/ai && uv run python -m ipp_ai
 
 # ============================================================
 # Terraform

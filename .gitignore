@@ -25,3 +25,9 @@ cmd/*/bootstrap
 web/node_modules/
 web/dist/
 web/*.tsbuildinfo
+
+# AI service (Python/uv)
+services/ai/.venv/
+services/ai/**/__pycache__/
+services/ai/.pytest_cache/
+services/ai/.ruff_cache/
