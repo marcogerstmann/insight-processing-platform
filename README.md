@@ -63,11 +63,23 @@ Ingest Lambda                    - fetch highlights
             │                    - soft-fail: LLM down != system down
             ◄───────────────────────────┘
                         │
-                        ▼
-                    DynamoDB
+            ├───────────────────────────┐
+            ▼                           ▼
+        DynamoDB                EventBridge (domain bus)
+                                         │
+                                         ▼
+                                Subscriber SQS Queue + DLQ
+                                (one pair per subscriber, via
+                                 terraform/modules/event-subscription)
+                                         │
+                                         ▼
+                                 Subscriber Lambda
+                                 (knowledge graph, Action Agent, ...)
 ```
 
 Both ingest paths converge on the same queue and dedupe against each other via the shared idempotency key — a highlight imported through the REST import endpoints, Readwise's webhook, or a Raindrop poll all hash to the same key. See [ADR-010](docs/adr/010-multi-source-ingestion.md) for why polling replaces a webhook for Raindrop and why there's no poll cursor, and [ADR-008](docs/adr/008-idempotency-via-deterministic-key.md) for the key itself.
+
+The SQS queue and the EventBridge bus are not interchangeable: the queue is point-to-point work distribution for the ingest pipeline (one consumer, retries, a DLQ); the bus is fan-out for domain facts (`InsightCreated`, `InsightEnriched`, ...), N subscribers, each isolated behind its own queue and DLQ. See [ADR-014](docs/adr/014-domain-events-on-eventbridge.md) for the full reasoning.
 
 **Failure behavior**
 
@@ -90,6 +102,7 @@ All decisions are intentional and documented in ADRs.
 - Event-driven system design with explicit decoupling at every layer
 - Idempotent ingestion and safe at-least-once delivery handling
 - Explicit failure taxonomy: DLQ for permanent errors, retries for transient, soft-fail for LLM
+- Work queue vs. fact bus as a deliberate split, not an accident: SQS for point-to-point pipeline transport, EventBridge for fan-out domain events, each subscriber isolated behind its own queue and DLQ
 - LLM integration as a first-class, disciplined dependency: timeout, retry-with-backoff, token cap, graceful degradation; scaling from single-insight enrichment to cross-insight relationships and self-critiqued planning
 - Hexagonal architecture: domain logic fully decoupled from AWS infrastructure via ports and adapters
 - Operational thinking (structured logging, cost-aware design, alarms)

@@ -41,9 +41,16 @@ The ingest queue already moves messages between two components of one pipeline. 
 
 **Thin payloads.** `InsightCreatedPayload` carries an ID and a source, not the insight body. Subscribers read what they need; the event stays a notification rather than a replication channel.
 
+**The ingest queue stays off the bus.** The converse question — why facts don't go on the work queue — is answered above; the other direction matters just as much. At-least-once work distribution with a DLQ and one consumer draining it is exactly what SQS is for ([ADR-007](007-asynchronous-ingest-via-sqs.md)), and EventBridge doesn't replace that: it has no per-message visibility timeout or single-consumer delivery guarantee to move. Migrating the ingest queue onto the bus would trade a solved problem for a fan-out mechanism that solves a different one.
+
+**Per-subscriber queue, not a shared one.** A subscriber attaches with `terraform/modules/event-subscription/`: bus rule → the subscriber's own SQS queue → the subscriber's own DLQ → its Lambda. Nobody shares a queue, so nobody shares a failure — one subscriber's redrive storm or bad deploy never blocks or delays another's, and each gets independent retries and its own DLQ to triage. The rule is scoped in code so subscribing is variables-in, ARNs-out.
+
 ## Consequences
 
 - **Nothing subscribes to the bus yet.** No EventBridge rules are defined, and `KnowledgeUpdated` is declared but never published. This is infrastructure built ahead of its consumers — deliberate, since the knowledge-graph work is what it exists for, but it is unproven until the first subscriber lands.
 - Publishing is a dual write with no transaction: the insight is stored, then the event is published. A publish failure returns a transient error so SQS redelivers, but on redelivery `CreateIfAbsent` short-circuits before the publish is reached — so a persistently failing bus drops the event while keeping the write. Closing that gap needs a published flag or an outbox table; the shortcut is marked in `insight/service.go` and is not worth paying for until it bites.
 - Adding a subscriber is a Terraform rule, not a code change in the publisher.
+- **Extra latency hop.** A fact now takes worker → EventBridge → subscriber queue → subscriber Lambda instead of a direct call. Fine for the async, eventually-reactive consumers this is built for; wrong choice if a subscriber ever needs a synchronous answer.
+- **At-least-once on both legs.** EventBridge retries target delivery and SQS redelivers on visibility timeout expiry — two independent at-least-once hops stacked on top of each other. The deterministic `event_id` is what makes that survivable; a subscriber that doesn't dedupe on it will double-process.
+- **One more AWS service to reason about.** Rules, targets, and per-subscriber queues are all state that can drift or misconfigure independently of the code that publishes or consumes — the queue policy in particular fails silently (rule reports healthy, messages just don't arrive) if the `SendMessage` grant is missing or scoped wrong.
 - EventBridge appears twice in this system for unrelated reasons: this bus, and EventBridge Scheduler as the Raindrop poll trigger ([ADR-010](010-multi-source-ingestion.md)). They share a service name and nothing else.
