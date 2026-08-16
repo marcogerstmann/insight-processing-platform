@@ -16,7 +16,7 @@ src/ipp_ai/
   domain/            pure types and rules; no I/O, no AWS, no framework imports
   ports.py           typing.Protocol definitions the application depends on
   application/       use-case orchestration; reads env vars directly (see below)
-  adapters/outbound/ things the service calls out to (SSM today; DynamoDB reads land in IPP-93)
+  adapters/outbound/ things the service calls out to (SSM, and a read-only DynamoDB insight reader)
   errors.py          PermanentError: permanent failure -> DLQ, everything else -> retry
 ```
 
@@ -28,6 +28,19 @@ argues against.
 
 Same convention as the Go services (`internal/envutil.ResolveSecret`): one env var per secret, holding either
 the value directly (local dev) or an `ssm:`-prefixed SSM parameter path (AWS). See `application/secrets.py`.
+
+## Read-only access to the insights table
+
+`adapters/outbound/dynamodb.py` (`DynamoDbInsightReader`, satisfying `ports.InsightReader`) is this service's
+only path to the insights table, and it only ever calls `GetItem` / `Query`. There is no write path here on
+purpose: **the Lambda execution role this adapter runs under (wired up in IPP-95) must grant only `GetItem`
+and `Query` on the table and its `gsi1` index** — no `PutItem`, `UpdateItem`, or `DeleteItem`. Enforcing that
+at IAM makes the read-only boundary a property of the infrastructure, not a code-review convention. Writes
+back into the domain go through the Go REST API instead (IPP-94).
+
+Key schema (`pk = TENANT#<tenant_id>`, `sk = INSIGHT#<id>`, tag membership queried via the sparse `gsi1`
+index) is copied from `internal/adapters/outbound/dynamodb/insight_adapter.go` — two languages now unmarshal
+the same items, so a schema change there is a two-repo-location change, not a one-line diff.
 
 ## Dev
 
