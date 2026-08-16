@@ -20,6 +20,15 @@ import (
 
 const highlightsURL = "https://api.raindrop.io/rest/v1/highlights"
 
+// EventType is stamped on every domain.IngestEvent produced from a Raindrop
+// highlight, by both the REST import handler (rest/raindrop) and the
+// scheduled poll (schedule/raindrop). Raindrop has no push webhook to match
+// against, unlike Readwise's own webhook event_type, but the value must
+// still be identical across both import paths so a highlight imported
+// through either one hashes to the same idempotency key and dedupes against
+// the other (see ingest.Importer's doc comment).
+const EventType = "raindrop.highlight.created"
+
 // perPage is Raindrop's documented maximum for this endpoint.
 const perPage = 50
 

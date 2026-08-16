@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/auth"
+	raindropclient "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/raindrop"
 	"github.com/marcogerstmann/insight-processing-platform/internal/application/ingest"
 	"github.com/marcogerstmann/insight-processing-platform/internal/envutil"
 	"github.com/marcogerstmann/insight-processing-platform/internal/ports"
@@ -18,13 +19,6 @@ import (
 // raindropTokenEnv is the env var (or "ssm:" reference, see envutil.ResolveSecret)
 // holding the token used when a request doesn't supply its own.
 const raindropTokenEnv = "RAINDROP_API_TOKEN"
-
-// raindropEventType is stamped on every highlight imported from Raindrop.
-// Raindrop has no push webhook (unlike Readwise), so unlike
-// readwiseEventType this doesn't need to match anything else — it only
-// needs to be stable across imports and poll runs so re-fetched highlights
-// dedupe against each other via buildIdempotencyKey.
-const raindropEventType = "raindrop.highlight.created"
 
 type Handler struct {
 	svc     ingest.Service
@@ -66,7 +60,7 @@ func (h *Handler) Import(c *gin.Context) {
 
 	// Constructed per request (rather than once at startup) because token may
 	// be a caller-supplied override rather than the server-configured one.
-	importer := ingest.NewImporter(h.newSource(token), h.svc, "raindrop", raindropEventType)
+	importer := ingest.NewImporter(h.newSource(token), h.svc, "raindrop", raindropclient.EventType)
 	result, err := importer.Import(c.Request.Context(), tenantID, req.Limit, false)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "raindrop import failed", "tenant_id", tenantID, "err", err)

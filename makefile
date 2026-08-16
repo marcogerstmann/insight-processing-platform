@@ -18,11 +18,14 @@ READWISE_GOARCH ?= amd64
 REST_GOOS ?= linux
 REST_GOARCH ?= amd64
 
+RAINDROP_POLL_GOOS ?= linux
+RAINDROP_POLL_GOARCH ?= amd64
+
 WORKER_TAG ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo manual)
 WORKER_REPO ?= $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/$(PROJECT)-worker
 WORKER_FUNCTION ?= $(PROJECT)-worker
 
-.PHONY: test lint readwise-build rest-build worker-build worker-push tf-init tf-apply tf-destroy deploy tf-backend-bootstrap
+.PHONY: test lint readwise-build rest-build raindrop-poll-build worker-build worker-push tf-init tf-apply tf-destroy deploy tf-backend-bootstrap
 
 # ============================================================
 # General
@@ -47,7 +50,7 @@ tf-backend-bootstrap:
 tf-init:
 	cd $(TF_DIR) && $(TF_AWS_CREDS) && terraform init
 
-tf-apply: tf-init readwise-build rest-build
+tf-apply: tf-init readwise-build rest-build raindrop-poll-build
 	cd $(TF_DIR) && $(TF_AWS_CREDS) && terraform apply -var="worker_image_uri=$(WORKER_REPO):$(WORKER_TAG)"
 
 tf-destroy: tf-init
@@ -69,6 +72,15 @@ readwise-build:
 rest-build:
 	cd cmd/rest-lambda && \
 	GOOS=$(REST_GOOS) GOARCH=$(REST_GOARCH) CGO_ENABLED=$(CGO_ENABLED) \
+	go build -trimpath -ldflags="-s -w" -o bootstrap main.go
+
+# ============================================================
+# Raindrop Poll Lambda
+# ============================================================
+
+raindrop-poll-build:
+	cd cmd/raindrop-poll-lambda && \
+	GOOS=$(RAINDROP_POLL_GOOS) GOARCH=$(RAINDROP_POLL_GOARCH) CGO_ENABLED=$(CGO_ENABLED) \
 	go build -trimpath -ldflags="-s -w" -o bootstrap main.go
 
 # ============================================================
