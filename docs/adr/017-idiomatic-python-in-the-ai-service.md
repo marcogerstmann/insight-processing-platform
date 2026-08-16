@@ -60,8 +60,9 @@ threading it through every call site.
 for free — the Go compiler refuses to build a cyclic or unauthorized import once packages are split that
 way. Python has no build-time package-privacy concept equivalent to `internal/`, so the same guarantee has
 to be opted into: `lint.flake8-tidy-imports.banned-api` bans importing `ipp_ai.adapters` anywhere, and
-`per-file-ignores` re-permits it only in the composition root (`__main__.py`, and later the event handler
-from IPP-95) that is allowed to construct adapters and wire them into the application layer. This moves the
+`per-file-ignores` re-permits it only in the composition root (`__main__.py`, and the event handler in
+`adapters/inbound/event_subscription.py` since IPP-95) that is allowed to construct adapters and wire them
+into the application layer. This moves the
 dependency-direction check from code review — where it can be missed — to `ruff check`, which is what
 `make ai-lint` runs and CI will gate on (IPP-96).
 
@@ -72,9 +73,10 @@ per concept as those concepts actually appear (starting with `secret.py`), not p
 
 ## Consequences
 
-- `services/ai/adapters/inbound/` does not exist yet. There is nothing inbound to put there until IPP-95
-  adds the EventBridge/SQS handler; creating it now would be exactly the empty-package-for-shape's-sake
-  this ADR argues against elsewhere. It appears in the tree when it has a file worth putting there.
+- `services/ai/adapters/inbound/` stayed empty through IPP-92 and IPP-93 — there was nothing inbound to put
+  there, and creating it anyway would have been exactly the empty-package-for-shape's-sake this ADR argues
+  against elsewhere. IPP-95 is what finally gives it a file: `event_subscription.py`, the EventBridge
+  subscription handler.
 - `ports.py` and `errors.py` are single modules, not packages — deliberately, per the table above. Adding a
   tenth port does not spawn a tenth file; it grows `ports.py`. Revisit only if the file becomes hard to scan
   in one screen, the same bar [ADR-005](005-hexagonal-architecture.md) sets for the Go `internal/ports`

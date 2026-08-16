@@ -35,6 +35,7 @@ select = ["E", "F", "I", "UP", "TID"]
 
 [tool.ruff.lint.per-file-ignores]
 "src/ipp_ai/__main__.py" = ["TID251"]
+"src/ipp_ai/adapters/inbound/event_subscription.py" = ["TID251"]
 "tests/*.py" = ["TID251"]
 
 [tool.pytest.ini_options]

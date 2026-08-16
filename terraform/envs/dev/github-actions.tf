@@ -47,7 +47,7 @@ resource "aws_iam_role" "github_actions" {
 
 data "aws_iam_policy_document" "github_actions_permissions" {
   # ------------------------------------------------------------------
-  # ECR — authenticate and push the worker container image
+  # ECR — authenticate and push the worker + AI service container images
   # ------------------------------------------------------------------
   statement {
     sid     = "ECRAuth"
@@ -68,7 +68,7 @@ data "aws_iam_policy_document" "github_actions_permissions" {
       "ecr:PutImage",
       "ecr:BatchGetImage",
     ]
-    resources = [aws_ecr_repository.worker.arn]
+    resources = [aws_ecr_repository.worker.arn, aws_ecr_repository.ai.arn]
   }
 
   # ------------------------------------------------------------------
@@ -92,7 +92,7 @@ data "aws_iam_policy_document" "github_actions_permissions" {
       "ecr:SetRepositoryPolicy",
       "ecr:DeleteRepositoryPolicy",
     ]
-    resources = [aws_ecr_repository.worker.arn]
+    resources = [aws_ecr_repository.worker.arn, aws_ecr_repository.ai.arn]
   }
 
   # ------------------------------------------------------------------

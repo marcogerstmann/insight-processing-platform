@@ -18,6 +18,11 @@ output "worker_ecr_repository_url" {
   value       = aws_ecr_repository.worker.repository_url
 }
 
+output "ai_ecr_repository_url" {
+  description = "ECR repository URL for pushing AI service container images"
+  value       = aws_ecr_repository.ai.repository_url
+}
+
 output "raindrop_poll_function_name" {
   description = "Name of the Raindrop poll Lambda function"
   value       = module.raindrop_poll_lambda.lambda_function_name

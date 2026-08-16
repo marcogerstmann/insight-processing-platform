@@ -25,7 +25,10 @@ WORKER_TAG ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo manual)
 WORKER_REPO ?= $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/$(PROJECT)-worker
 WORKER_FUNCTION ?= $(PROJECT)-worker
 
-.PHONY: test lint readwise-build rest-build raindrop-poll-build worker-build worker-push tf-init tf-apply tf-destroy deploy tf-backend-bootstrap ai-test ai-lint ai-run-local
+AI_TAG ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo manual)
+AI_REPO ?= $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/$(PROJECT)-ai
+
+.PHONY: test lint readwise-build rest-build raindrop-poll-build worker-build worker-push tf-init tf-apply tf-destroy deploy tf-backend-bootstrap ai-test ai-lint ai-run-local ai-build ai-push
 
 # ============================================================
 # General
@@ -50,6 +53,20 @@ ai-lint:
 ai-run-local:
 	cd services/ai && uv run python -m ipp_ai
 
+ai-build:
+	docker buildx build --platform linux/amd64 \
+		--provenance=false --sbom=false \
+		--load \
+		-t $(PROJECT)-ai:$(AI_TAG) \
+		-f services/ai/Dockerfile services/ai
+
+ai-push:
+	aws ecr get-login-password --region $(AWS_REGION) | docker login --username AWS --password-stdin $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com
+	docker tag $(PROJECT)-ai:$(AI_TAG) $(AI_REPO):$(AI_TAG)
+	docker push $(AI_REPO):$(AI_TAG)
+	docker rmi $(PROJECT)-ai:$(AI_TAG) || true
+	docker rmi $(AI_REPO):$(AI_TAG) || true
+
 # ============================================================
 # Terraform
 # ============================================================
@@ -64,7 +81,9 @@ tf-init:
 	cd $(TF_DIR) && $(TF_AWS_CREDS) && terraform init
 
 tf-apply: tf-init readwise-build rest-build raindrop-poll-build
-	cd $(TF_DIR) && $(TF_AWS_CREDS) && terraform apply -var="worker_image_uri=$(WORKER_REPO):$(WORKER_TAG)"
+	cd $(TF_DIR) && $(TF_AWS_CREDS) && terraform apply \
+		-var="worker_image_uri=$(WORKER_REPO):$(WORKER_TAG)" \
+		-var="ai_image_uri=$(AI_REPO):$(AI_TAG)"
 
 tf-destroy: tf-init
 	cd $(TF_DIR) && $(TF_AWS_CREDS) && terraform destroy
@@ -118,4 +137,4 @@ worker-push:
 # Deployment
 # ============================================================
 
-deploy: worker-build worker-push tf-apply
+deploy: worker-build worker-push ai-build ai-push tf-apply

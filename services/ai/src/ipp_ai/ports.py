@@ -35,3 +35,14 @@ class InsightReader(Protocol):
     def get_by_id(self, tenant_id: str, insight_id: str) -> Insight | None: ...
     def list_by_tenant(self, tenant_id: str) -> list[Insight]: ...
     def list_by_tag(self, tenant_id: str, tag: str) -> list[Insight]: ...
+
+
+class DlqPublisher(Protocol):
+    """Forwards a failed record's raw body to a dead-letter queue, tagged
+    with the failure reason. Mirrors internal/ports.DLQPublisher — narrower,
+    since nothing here needs to forward SQS message attributes (this
+    service's only inbound record shape is an EventBridge envelope, which
+    carries none worth preserving).
+    """
+
+    def send(self, body: str, reason: str) -> None: ...

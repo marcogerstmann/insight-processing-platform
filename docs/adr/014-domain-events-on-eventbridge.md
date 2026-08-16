@@ -47,7 +47,7 @@ The ingest queue already moves messages between two components of one pipeline. 
 
 ## Consequences
 
-- **Nothing subscribes to the bus yet.** No EventBridge rules are defined, and `KnowledgeUpdated` is declared but never published. This is infrastructure built ahead of its consumers — deliberate, since the knowledge-graph work is what it exists for, but it is unproven until the first subscriber lands.
+- **One subscriber so far.** The AI service subscribes to `InsightEnriched` (`terraform/envs/dev/ai.tf`, IPP-95) — the first proof the fan-out mechanism works end to end. `KnowledgeUpdated` is still declared but never published; that consumer hasn't landed yet.
 - Publishing is a dual write with no transaction: the insight is stored, then the event is published. A publish failure returns a transient error so SQS redelivers, but on redelivery `CreateIfAbsent` short-circuits before the publish is reached — so a persistently failing bus drops the event while keeping the write. Closing that gap needs a published flag or an outbox table; the shortcut is marked in `insight/service.go` and is not worth paying for until it bites.
 - Adding a subscriber is a Terraform rule, not a code change in the publisher.
 - **Extra latency hop.** A fact now takes worker → EventBridge → subscriber queue → subscriber Lambda instead of a direct call. Fine for the async, eventually-reactive consumers this is built for; wrong choice if a subscriber ever needs a synchronous answer.

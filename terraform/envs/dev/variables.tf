@@ -21,6 +21,11 @@ variable "worker_image_uri" {
   type        = string
 }
 
+variable "ai_image_uri" {
+  description = "Full ECR image URI for the AI service Lambda"
+  type        = string
+}
+
 variable "default_tenant_id" {
   description = "Defautlt tenant ID"
   type        = string
