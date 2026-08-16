@@ -4,6 +4,7 @@ import { LoginSection } from "./sections/LoginSection.tsx";
 import { InsightsSection } from "./sections/InsightsSection.tsx";
 import { CreateInsightSection } from "./sections/CreateInsightSection.tsx";
 import { ImportReadwiseSection } from "./sections/ImportReadwiseSection.tsx";
+import { ImportRaindropSection } from "./sections/ImportRaindropSection.tsx";
 import { KnowledgeSection } from "./sections/KnowledgeSection.tsx";
 import { ProfileSection } from "./sections/ProfileSection.tsx";
 
@@ -12,12 +13,13 @@ import { ProfileSection } from "./sections/ProfileSection.tsx";
 // URLs worth deep-linking to, so react-router would be dead weight here.
 // Login isn't a tab: it's what renders instead of this whole app when signed
 // out (see the `!token` branch below), so there's nothing to gate per-section.
-type SectionId = "insights" | "create" | "import-readwise" | "knowledge" | "profile";
+type SectionId = "insights" | "create" | "import-readwise" | "import-raindrop" | "knowledge" | "profile";
 
 const SECTIONS: { id: SectionId; label: string }[] = [
   { id: "insights", label: "Insights" },
   { id: "create", label: "Create Insight" },
   { id: "import-readwise", label: "Import Readwise Highlights" },
+  { id: "import-raindrop", label: "Import Raindrop Highlights" },
   { id: "knowledge", label: "Knowledge" },
   { id: "profile", label: "Profile" },
 ];
@@ -61,6 +63,7 @@ function App() {
         {active === "insights" && <InsightsSection />}
         {active === "create" && <CreateInsightSection />}
         {active === "import-readwise" && <ImportReadwiseSection />}
+        {active === "import-raindrop" && <ImportRaindropSection />}
         {active === "knowledge" && <KnowledgeSection />}
         {active === "profile" && <ProfileSection />}
       </main>
