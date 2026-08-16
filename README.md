@@ -17,54 +17,57 @@ It is **not** a chatbot demo. There's no "ask your notes" search box shipped for
 - still a dependency like any other: timeout, retry-with-backoff, token cap, graceful degradation
 - isolated so a failing call degrades one feature, never system reliability
 
-**Readwise**
+**Sources (Readwise, Raindrop.io)**
 
-- data source
-- event generator
+- data sources
+- event generators
 - not the business model
 
-The value lies in **how events are processed, enriched, connected, and acted on**, not in the integration itself.
+The value lies in **how events are processed, enriched, connected, and acted on**, not in the integrations themselves.
 
-The architecture is source-agnostic and remains valid if Readwise is replaced.
+The architecture is source-agnostic — not as an assertion, but as something the repo demonstrates: Readwise and Raindrop.io are two adapters (`internal/adapters/outbound/{readwise,raindrop}`) behind the same `ports.HighlightSource` port. Adding the second source touched only that adapter, its trigger transport (Readwise pushes a webhook; Raindrop has none, so it's polled on a schedule instead), and composition-root wiring. SQS, the worker, enrichment, tag membership, and EventBridge domain events did not change.
 
 **Today vs. next:** shipped so far is ingestion → Go enrichment (Anthropic Claude, soft-fail). The roadmap (see `vision-backlog`-labeled epics) adds tag-based relationships across insights and a weekly Action Agent that generates, critiques, and revises its own plan, the system's one deliberate agentic loop, not a pattern used everywhere.
 
 ## High-level architecture overview
 
 ```
-Readwise Webhook
-      │
-      ▼
-API Gateway
-      │
-Ingest Lambda
-  - validate
-  - normalize
-  - generate idempotency key
-      │
-      ▼
-SQS Queue
-  - buffering
-  - retry control
-  - backpressure
-      │
-      ▼
-Core Processing Service (Go)
-  - domain logic
-  - idempotent persistence
-      │
-      ├─────────────────────────┐
-      │                         ▼
-      │                Anthropic Claude
-      │                  - enrich insight
-      │                  - timeout + retry + token cap
-      │                  - soft-fail: LLM down != system down
-      │                         │
-      ◄─────────────────────────┘
-      │
-      ▼
-DynamoDB
+Readwise Webhook (push)          Raindrop.io (pull)
+      │                                 │
+      ▼                          EventBridge Scheduler
+API Gateway                             │
+      │                                 ▼
+      ▼                          Raindrop Poll Lambda
+Ingest Lambda                    - fetch highlights
+  - validate                     - generate idempotency key
+  - normalize                           │
+  - generate idempotency key            │
+      │                                 │
+      └────────────────┬────────────────┘
+                        ▼
+                   SQS Queue
+                     - buffering
+                     - retry control
+                     - backpressure
+                        │
+                        ▼
+          Core Processing Service (Go)
+            - domain logic
+            - idempotent persistence
+                        │
+            ├───────────────────────────┐
+            │                           ▼
+            │                  Anthropic Claude
+            │                    - enrich insight
+            │                    - timeout + retry + token cap
+            │                    - soft-fail: LLM down != system down
+            ◄───────────────────────────┘
+                        │
+                        ▼
+                    DynamoDB
 ```
+
+Both ingest paths converge on the same queue and dedupe against each other via the shared idempotency key — a highlight imported through the REST API, Readwise's webhook, or a Raindrop poll all hash to the same key. See [ADR-008](docs/adr.md#adr-008-multi-source-ingestion) for why polling replaces a webhook for Raindrop and why there's no poll cursor.
 
 **Failure behavior**
 
