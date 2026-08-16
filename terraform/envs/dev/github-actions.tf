@@ -261,7 +261,11 @@ data "aws_iam_policy_document" "github_actions_permissions" {
   }
 
   # ------------------------------------------------------------------
-  # EventBridge — Terraform manages the domain events bus
+  # EventBridge — Terraform manages the domain events bus and, since
+  # IPP-95, per-subscriber rules on it (event-subscription module). Rules
+  # are a distinct ARN namespace from the bus itself
+  # (rule/<bus-name>/<rule-name> vs event-bus/<bus-name>) — easy to miss,
+  # as this repo's first subscriber did.
   # ------------------------------------------------------------------
   statement {
     sid     = "EventBridgeManage"
@@ -269,6 +273,7 @@ data "aws_iam_policy_document" "github_actions_permissions" {
     actions = ["events:*"]
     resources = [
       "arn:aws:events:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:event-bus/${var.project}-*",
+      "arn:aws:events:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:rule/${var.project}-*/*",
     ]
   }
 
