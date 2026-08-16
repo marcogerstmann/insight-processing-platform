@@ -4,13 +4,14 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/auth"
 	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/insight"
+	restraindrop "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/raindrop"
 	restreadwise "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/readwise"
 )
 
 // NewRouter builds the REST engine. allowedOrigins enables browser CORS for
 // those origins; pass nil in environments where CORS is handled upstream (AWS
 // API Gateway), and the Vite dev origin from the local runner.
-func NewRouter(insightHandler *insight.Handler, readwiseHandler *restreadwise.Handler, authValidator *auth.CognitoValidator, allowedOrigins []string) *gin.Engine {
+func NewRouter(insightHandler *insight.Handler, readwiseHandler *restreadwise.Handler, raindropHandler *restraindrop.Handler, authValidator *auth.CognitoValidator, allowedOrigins []string) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Recovery())
 
@@ -28,6 +29,7 @@ func NewRouter(insightHandler *insight.Handler, readwiseHandler *restreadwise.Ha
 		v1.POST("/insights", insightHandler.Create)
 		v1.GET("/tags", insightHandler.ListTags)
 		v1.POST("/readwise/import", readwiseHandler.Import)
+		v1.POST("/raindrop/import", raindropHandler.Import)
 	}
 
 	return r

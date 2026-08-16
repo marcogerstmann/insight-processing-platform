@@ -13,6 +13,7 @@ import (
 	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest"
 	restauth "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/auth"
 	restinsight "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/insight"
+	restraindrop "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/raindrop"
 	restreadwise "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/readwise"
 	dynamodbadapter "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/dynamodb"
 	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/memory"
@@ -62,6 +63,7 @@ func main() {
 	}
 	ingestSvc := ingest.NewService(publisher)
 	readwiseHandler := restreadwise.NewHandler(ingestSvc, secretProvider)
+	raindropHandler := restraindrop.NewHandler(ingestSvc, secretProvider)
 
 	authValidator, err := restauth.NewCognitoValidator(ctx, awsCfg.Region, userPoolID, clientID)
 	if err != nil {
@@ -71,7 +73,7 @@ func main() {
 	insightHandler := restinsight.NewHandler(insightSvc)
 	// Allow the web app's Vite dev server to call this local API from the
 	// browser. In AWS this is API Gateway's job; locally the Go server must do it.
-	router := rest.NewRouter(insightHandler, readwiseHandler, authValidator, []string{"http://localhost:5173"})
+	router := rest.NewRouter(insightHandler, readwiseHandler, raindropHandler, authValidator, []string{"http://localhost:5173"})
 
 	addr := ":8081"
 	log.Printf("REST server listening on http://localhost%s", addr)

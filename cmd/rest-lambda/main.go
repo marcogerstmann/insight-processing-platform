@@ -14,6 +14,7 @@ import (
 	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest"
 	restauth "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/auth"
 	restinsight "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/insight"
+	restraindrop "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/raindrop"
 	restreadwise "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/readwise"
 	dynamodbadapter "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/dynamodb"
 	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/eventbridge"
@@ -75,6 +76,7 @@ func init() {
 	}
 	ingestSvc := ingest.NewService(publisher)
 	readwiseHandler := restreadwise.NewHandler(ingestSvc, secretProvider)
+	raindropHandler := restraindrop.NewHandler(ingestSvc, secretProvider)
 
 	authValidator, err := restauth.NewCognitoValidator(ctx, awsCfg.Region, userPoolID, clientID)
 	if err != nil {
@@ -84,7 +86,7 @@ func init() {
 
 	// CORS is handled by API Gateway (terraform/envs/dev/rest-api.tf), so no
 	// allowed origins are passed here.
-	ginLambda = ginadapter.NewV2(rest.NewRouter(insightHandler, readwiseHandler, authValidator, nil))
+	ginLambda = ginadapter.NewV2(rest.NewRouter(insightHandler, readwiseHandler, raindropHandler, authValidator, nil))
 }
 
 func handler(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
