@@ -76,6 +76,25 @@ resource "aws_iam_role_policy" "rest_readwise_ssm_read" {
   })
 }
 
+# RAINDROP 3's POST /v1/raindrop/import endpoint needs this too — easy to
+# wire only the poll Lambda (raindrop.tf) and be confused when the manual
+# import 500s in dev.
+resource "aws_iam_role_policy" "rest_raindrop_ssm_read" {
+  name = "${var.project}-${var.env}-rest-raindrop-ssm-read"
+  role = module.rest_lambda_role.role_name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["ssm:GetParameter"]
+        Resource = "arn:aws:ssm:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:parameter/${var.project}/${var.env}/raindrop/api_token"
+      }
+    ]
+  })
+}
+
 module "rest_lambda" {
   source           = "../../modules/lambda-zip"
   name             = "${var.project}-${var.env}-rest"
@@ -97,6 +116,7 @@ module "rest_lambda" {
     # created out-of-band the same way readwise/webhook_secret is (no
     # aws_ssm_parameter resource in this repo — see readwise.tf).
     READWISE_API_TOKEN = "ssm:/${var.project}/${var.env}/readwise/api_token"
+    RAINDROP_API_TOKEN = "ssm:/${var.project}/${var.env}/raindrop/api_token"
   }
 }
 
@@ -227,6 +247,16 @@ resource "aws_apigatewayv2_route" "get_tags" {
 resource "aws_apigatewayv2_route" "post_readwise_import" {
   api_id    = aws_apigatewayv2_api.rest.id
   route_key = "POST /v1/readwise/import"
+
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito_jwt.id
+
+  target = "integrations/${aws_apigatewayv2_integration.rest_lambda.id}"
+}
+
+resource "aws_apigatewayv2_route" "post_raindrop_import" {
+  api_id    = aws_apigatewayv2_api.rest.id
+  route_key = "POST /v1/raindrop/import"
 
   authorization_type = "JWT"
   authorizer_id      = aws_apigatewayv2_authorizer.cognito_jwt.id

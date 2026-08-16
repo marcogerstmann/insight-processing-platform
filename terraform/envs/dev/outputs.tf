@@ -18,6 +18,16 @@ output "worker_ecr_repository_url" {
   value       = aws_ecr_repository.worker.repository_url
 }
 
+output "raindrop_poll_function_name" {
+  description = "Name of the Raindrop poll Lambda function"
+  value       = module.raindrop_poll_lambda.lambda_function_name
+}
+
+output "raindrop_poll_function_arn" {
+  description = "ARN of the Raindrop poll Lambda function"
+  value       = module.raindrop_poll_lambda.lambda_arn
+}
+
 output "domain_events_bus_name" {
   description = "Name of the EventBridge bus domain events are published to"
   value       = module.domain_events_bus.bus_name

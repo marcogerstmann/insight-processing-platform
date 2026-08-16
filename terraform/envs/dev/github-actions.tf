@@ -273,6 +273,29 @@ data "aws_iam_policy_document" "github_actions_permissions" {
   }
 
   # ------------------------------------------------------------------
+  # EventBridge Scheduler — Terraform manages the Raindrop poll schedule
+  # (raindrop.tf). A distinct service/action namespace (scheduler:*) from
+  # EventBridge's own event bus (events:*, EventBridgeManage above) — easy
+  # to miss since both are "EventBridge" by name.
+  # ------------------------------------------------------------------
+  statement {
+    sid    = "SchedulerManage"
+    effect = "Allow"
+    actions = [
+      "scheduler:CreateSchedule",
+      "scheduler:GetSchedule",
+      "scheduler:UpdateSchedule",
+      "scheduler:DeleteSchedule",
+      "scheduler:TagResource",
+      "scheduler:UntagResource",
+      "scheduler:ListTagsForResource",
+    ]
+    resources = [
+      "arn:aws:scheduler:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:schedule/default/${var.project}-*",
+    ]
+  }
+
+  # ------------------------------------------------------------------
   # API Gateway — Terraform manages the HTTP API and its routes
   # ------------------------------------------------------------------
   statement {

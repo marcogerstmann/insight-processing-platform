@@ -44,3 +44,15 @@ variable "api_domain_name" {
   type        = string
   default     = "api.ipp.marcogerstmann.com"
 }
+
+variable "raindrop_poll_interval_hours" {
+  description = "How often the Raindrop poll Lambda runs. A cost/noise knob, not a capacity one — the free tier and Raindrop's 120 req/min rate limit are nowhere near binding."
+  type        = number
+  default     = 3
+}
+
+variable "raindrop_poll_limit" {
+  description = "Max highlights the Raindrop poll enqueues per run"
+  type        = number
+  default     = 50
+}
