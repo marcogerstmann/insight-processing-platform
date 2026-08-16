@@ -18,11 +18,13 @@ import (
 	restreadwise "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/readwise"
 	dynamodbadapter "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/dynamodb"
 	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/eventbridge"
+	raindropclient "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/raindrop"
 	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/sqs"
 	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/ssm"
 	"github.com/marcogerstmann/insight-processing-platform/internal/application/ingest"
 	"github.com/marcogerstmann/insight-processing-platform/internal/application/insight"
 	"github.com/marcogerstmann/insight-processing-platform/internal/logging"
+	"github.com/marcogerstmann/insight-processing-platform/internal/ports"
 )
 
 var ginLambda *ginadapter.GinLambdaV2
@@ -76,7 +78,9 @@ func init() {
 	}
 	ingestSvc := ingest.NewService(publisher)
 	readwiseHandler := restreadwise.NewHandler(ingestSvc, secretProvider)
-	raindropHandler := restraindrop.NewHandler(ingestSvc, secretProvider)
+	raindropHandler := restraindrop.NewHandler(ingestSvc, secretProvider, func(token string) ports.HighlightSource {
+		return raindropclient.NewClient(token)
+	})
 
 	authValidator, err := restauth.NewCognitoValidator(ctx, awsCfg.Region, userPoolID, clientID)
 	if err != nil {

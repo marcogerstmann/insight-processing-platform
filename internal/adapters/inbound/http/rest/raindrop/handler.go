@@ -10,7 +10,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/auth"
-	raindropclient "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/raindrop"
 	"github.com/marcogerstmann/insight-processing-platform/internal/application/ingest"
 	"github.com/marcogerstmann/insight-processing-platform/internal/envutil"
 	"github.com/marcogerstmann/insight-processing-platform/internal/ports"
@@ -30,20 +29,15 @@ const raindropEventType = "raindrop.highlight.created"
 type Handler struct {
 	svc     ingest.Service
 	secrets ports.SecretProvider
-	// newSource builds the HighlightSource for a resolved token. A field
-	// rather than a direct raindropclient.NewClient call so tests can swap
-	// in a fake without making a real HTTP request.
+	// newSource builds the HighlightSource for a resolved token. Supplied by
+	// the composition root (cmd/) rather than constructed here, so this
+	// package never imports the concrete raindrop client adapter — and
+	// tests can swap in a fake without making a real HTTP request.
 	newSource func(token string) ports.HighlightSource
 }
 
-func NewHandler(svc ingest.Service, secrets ports.SecretProvider) *Handler {
-	return &Handler{
-		svc:     svc,
-		secrets: secrets,
-		newSource: func(token string) ports.HighlightSource {
-			return raindropclient.NewClient(token)
-		},
-	}
+func NewHandler(svc ingest.Service, secrets ports.SecretProvider, newSource func(token string) ports.HighlightSource) *Handler {
+	return &Handler{svc: svc, secrets: secrets, newSource: newSource}
 }
 
 func (h *Handler) Import(c *gin.Context) {
