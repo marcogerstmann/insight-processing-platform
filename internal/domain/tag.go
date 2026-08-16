@@ -20,7 +20,7 @@ type Tag string
 // lowercases, strips punctuation, collapses whitespace, and joins words
 // with hyphens. It reports false if the result is empty or too long.
 //
-// ponytail: no stemming/lemmatization, so "delegating" and "delegation"
+// TRADE-OFF: no stemming/lemmatization, so "delegating" and "delegation"
 // stay distinct tags. Add a consolidation pass only if real data shows
 // synonym drift that this cheap normalization doesn't catch.
 func NormalizeTag(raw string) (Tag, bool) {

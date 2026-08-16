@@ -53,7 +53,7 @@ func (s *service) Process(ctx context.Context, insight domain.Insight) (Result, 
 		return Result{Inserted: false}, nil
 	}
 
-	// ponytail: a publish failure here (or after Update below) returns a
+	// TRADE-OFF: a publish failure here (or after Update below) returns a
 	// plain (transient) error so SQS redelivers — but on redelivery
 	// CreateIfAbsent finds the record already there and short-circuits
 	// above before reaching this publish. If publishing keeps failing
