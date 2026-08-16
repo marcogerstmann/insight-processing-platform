@@ -67,7 +67,7 @@ Ingest Lambda                    - fetch highlights
                     DynamoDB
 ```
 
-Both ingest paths converge on the same queue and dedupe against each other via the shared idempotency key — a highlight imported through the REST API, Readwise's webhook, or a Raindrop poll all hash to the same key. See [ADR-008](docs/adr.md#adr-008-multi-source-ingestion) for why polling replaces a webhook for Raindrop and why there's no poll cursor.
+Both ingest paths converge on the same queue and dedupe against each other via the shared idempotency key — a highlight imported through the REST import endpoints, Readwise's webhook, or a Raindrop poll all hash to the same key. See [ADR-010](docs/adr/010-multi-source-ingestion.md) for why polling replaces a webhook for Raindrop and why there's no poll cursor, and [ADR-008](docs/adr/008-idempotency-via-deterministic-key.md) for the key itself.
 
 **Failure behavior**
 
@@ -107,6 +107,6 @@ Constraints are part of the design.
 
 ## Further documentation
 
-- Architectural decisions: [`docs/adr.md`](docs/adr.md)
+- Architectural decisions: [`docs/adr/`](docs/adr/README.md)
 - Setup & development: [`docs/setup.md`](docs/setup.md)
 - Web UI (demo client): [`web/README.md`](web/README.md)
