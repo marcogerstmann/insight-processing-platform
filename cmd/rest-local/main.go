@@ -16,7 +16,6 @@ import (
 	restreadwise "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/readwise"
 	dynamodbadapter "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/dynamodb"
 	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/memory"
-	readwiseclient "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/readwise"
 	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/sqs"
 	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/ssm"
 	"github.com/marcogerstmann/insight-processing-platform/internal/application/ingest"
@@ -62,8 +61,7 @@ func main() {
 		log.Fatalf("ssm provider init failed: %v", err)
 	}
 	ingestSvc := ingest.NewService(publisher)
-	importer := ingest.NewImporter(readwiseclient.NewClient(), ingestSvc)
-	readwiseHandler := restreadwise.NewHandler(importer, secretProvider)
+	readwiseHandler := restreadwise.NewHandler(ingestSvc, secretProvider)
 
 	authValidator, err := restauth.NewCognitoValidator(ctx, awsCfg.Region, userPoolID, clientID)
 	if err != nil {

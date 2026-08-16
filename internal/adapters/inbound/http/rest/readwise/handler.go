@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/auth"
+	readwiseclient "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/readwise"
 	"github.com/marcogerstmann/insight-processing-platform/internal/application/ingest"
 	"github.com/marcogerstmann/insight-processing-platform/internal/envutil"
 	"github.com/marcogerstmann/insight-processing-platform/internal/ports"
@@ -19,13 +20,19 @@ import (
 // holding the token used when a request doesn't supply its own.
 const readwiseTokenEnv = "READWISE_API_TOKEN"
 
+// readwiseEventType must match the Readwise webhook's event_type for created
+// highlights (see apigw/readwise's webhookDTO and dev/http/readwise-webhook.http)
+// so that a highlight imported here and the same highlight delivered via the
+// webhook hash to the same idempotency key and dedupe against each other.
+const readwiseEventType = "readwise.highlight.created"
+
 type Handler struct {
-	importer *ingest.Importer
-	secrets  ports.SecretProvider
+	svc     ingest.Service
+	secrets ports.SecretProvider
 }
 
-func NewHandler(importer *ingest.Importer, secrets ports.SecretProvider) *Handler {
-	return &Handler{importer: importer, secrets: secrets}
+func NewHandler(svc ingest.Service, secrets ports.SecretProvider) *Handler {
+	return &Handler{svc: svc, secrets: secrets}
 }
 
 func (h *Handler) Import(c *gin.Context) {
@@ -52,7 +59,10 @@ func (h *Handler) Import(c *gin.Context) {
 		return
 	}
 
-	result, err := h.importer.Import(c.Request.Context(), tenantID, token, req.Limit, req.OnlyFavorites)
+	// Constructed per request (rather than once at startup) because token may
+	// be a caller-supplied override rather than the server-configured one.
+	importer := ingest.NewImporter(readwiseclient.NewClient(token), h.svc, "readwise", readwiseEventType)
+	result, err := importer.Import(c.Request.Context(), tenantID, req.Limit, req.OnlyFavorites)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "readwise import failed", "tenant_id", tenantID, "err", err)
 		c.JSON(http.StatusBadGateway, gin.H{"error": "readwise_import_failed"})

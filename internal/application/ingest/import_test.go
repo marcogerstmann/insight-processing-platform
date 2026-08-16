@@ -11,26 +11,26 @@ import (
 	"github.com/marcogerstmann/insight-processing-platform/internal/ports"
 )
 
-type fakeReadwiseClient struct {
-	highlights []ports.ReadwiseHighlight
+type fakeHighlightSource struct {
+	highlights []ports.SourceHighlight
 	err        error
 }
 
-func (f *fakeReadwiseClient) FetchHighlights(_ context.Context, _ string) ([]ports.ReadwiseHighlight, error) {
+func (f *fakeHighlightSource) FetchHighlights(_ context.Context) ([]ports.SourceHighlight, error) {
 	return f.highlights, f.err
 }
 
 func TestImport_EnqueuesAllByDefault(t *testing.T) {
-	client := &fakeReadwiseClient{highlights: []ports.ReadwiseHighlight{
+	client := &fakeHighlightSource{highlights: []ports.SourceHighlight{
 		{ID: "1", Text: "first", HighlightedAt: time.Now()},
 		{ID: "2", Text: "second", HighlightedAt: time.Now()},
 		{ID: "3", Text: "  ", HighlightedAt: time.Now()}, // blank text, skipped
 	}}
 	mp := &mockPublisher{}
 	svc := NewService(mp)
-	im := NewImporter(client, svc)
+	im := NewImporter(client, svc, "readwise", "readwise.highlight.created")
 
-	result, err := im.Import(context.Background(), "tenant-1", "token", 0, false)
+	result, err := im.Import(context.Background(), "tenant-1", 0, false)
 	if err != nil {
 		t.Fatalf("Import returned error: %v", err)
 	}
@@ -43,16 +43,16 @@ func TestImport_EnqueuesAllByDefault(t *testing.T) {
 }
 
 func TestImport_RespectsLimit(t *testing.T) {
-	client := &fakeReadwiseClient{highlights: []ports.ReadwiseHighlight{
+	client := &fakeHighlightSource{highlights: []ports.SourceHighlight{
 		{ID: "1", Text: "first"},
 		{ID: "2", Text: "second"},
 		{ID: "3", Text: "third"},
 	}}
 	mp := &mockPublisher{}
 	svc := NewService(mp)
-	im := NewImporter(client, svc)
+	im := NewImporter(client, svc, "readwise", "readwise.highlight.created")
 
-	result, err := im.Import(context.Background(), "tenant-1", "token", 2, false)
+	result, err := im.Import(context.Background(), "tenant-1", 2, false)
 	if err != nil {
 		t.Fatalf("Import returned error: %v", err)
 	}
@@ -66,7 +66,7 @@ func TestImport_OnlyFavoritesFiltersBeforeLimit(t *testing.T) {
 	// favorites — with onlyFavorites+limit=1, the result must be the single
 	// most recent favorite ("2"), not a favorite among the top 1 overall
 	// (which would find none, since "1" isn't a favorite).
-	client := &fakeReadwiseClient{highlights: []ports.ReadwiseHighlight{
+	client := &fakeHighlightSource{highlights: []ports.SourceHighlight{
 		{ID: "1", Text: "not favorite", IsFavorite: false},
 		{ID: "2", Text: "favorite", IsFavorite: true},
 		{ID: "3", Text: "not favorite", IsFavorite: false},
@@ -74,9 +74,9 @@ func TestImport_OnlyFavoritesFiltersBeforeLimit(t *testing.T) {
 	}}
 	mp := &mockPublisher{}
 	svc := NewService(mp)
-	im := NewImporter(client, svc)
+	im := NewImporter(client, svc, "readwise", "readwise.highlight.created")
 
-	result, err := im.Import(context.Background(), "tenant-1", "token", 1, true)
+	result, err := im.Import(context.Background(), "tenant-1", 1, true)
 	if err != nil {
 		t.Fatalf("Import returned error: %v", err)
 	}
@@ -95,14 +95,14 @@ func TestImport_OnlyFavoritesFiltersBeforeLimit(t *testing.T) {
 
 func TestImport_CarriesHighlightedAtFromReadwiseIntoEnqueuedEvent(t *testing.T) {
 	highlightedAt := time.Date(2025, 5, 1, 0, 0, 0, 0, time.UTC)
-	client := &fakeReadwiseClient{highlights: []ports.ReadwiseHighlight{
+	client := &fakeHighlightSource{highlights: []ports.SourceHighlight{
 		{ID: "1", Text: "first", HighlightedAt: highlightedAt},
 	}}
 	mp := &mockPublisher{}
 	svc := NewService(mp)
-	im := NewImporter(client, svc)
+	im := NewImporter(client, svc, "readwise", "readwise.highlight.created")
 
-	if _, err := im.Import(context.Background(), "tenant-1", "token", 0, false); err != nil {
+	if _, err := im.Import(context.Background(), "tenant-1", 0, false); err != nil {
 		t.Fatalf("Import returned error: %v", err)
 	}
 
@@ -116,23 +116,23 @@ func TestImport_CarriesHighlightedAtFromReadwiseIntoEnqueuedEvent(t *testing.T) 
 }
 
 func TestImport_ClientErrorPropagated(t *testing.T) {
-	client := &fakeReadwiseClient{err: errors.New("readwise down")}
+	client := &fakeHighlightSource{err: errors.New("readwise down")}
 	svc := NewService(&mockPublisher{})
-	im := NewImporter(client, svc)
+	im := NewImporter(client, svc, "readwise", "readwise.highlight.created")
 
-	_, err := im.Import(context.Background(), "tenant-1", "token", 0, false)
+	_, err := im.Import(context.Background(), "tenant-1", 0, false)
 	if err == nil {
 		t.Fatal("expected error to be propagated from client")
 	}
 }
 
 func TestImport_SameHighlightSameEventTypeAsWebhook(t *testing.T) {
-	client := &fakeReadwiseClient{highlights: []ports.ReadwiseHighlight{{ID: "42", Text: "text"}}}
+	client := &fakeHighlightSource{highlights: []ports.SourceHighlight{{ID: "42", Text: "text"}}}
 	mp := &mockPublisher{}
 	svc := NewService(mp)
-	im := NewImporter(client, svc)
+	im := NewImporter(client, svc, "readwise", "readwise.highlight.created")
 
-	if _, err := im.Import(context.Background(), "tenant-1", "token", 0, false); err != nil {
+	if _, err := im.Import(context.Background(), "tenant-1", 0, false); err != nil {
 		t.Fatalf("Import returned error: %v", err)
 	}
 

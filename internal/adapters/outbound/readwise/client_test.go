@@ -43,9 +43,9 @@ func TestFetchHighlights_PaginatesFiltersAndSortsNewestFirst(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := &Client{httpClient: srv.Client(), baseURL: srv.URL}
+	c := &Client{httpClient: srv.Client(), baseURL: srv.URL, token: "test-token"}
 
-	got, err := c.FetchHighlights(context.Background(), "test-token")
+	got, err := c.FetchHighlights(context.Background())
 	if err != nil {
 		t.Fatalf("FetchHighlights returned error: %v", err)
 	}
@@ -79,9 +79,9 @@ func TestFetchHighlights_NumericNextPageCursor(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := &Client{httpClient: srv.Client(), baseURL: srv.URL}
+	c := &Client{httpClient: srv.Client(), baseURL: srv.URL, token: "test-token"}
 
-	got, err := c.FetchHighlights(context.Background(), "test-token")
+	got, err := c.FetchHighlights(context.Background())
 	if err != nil {
 		t.Fatalf("FetchHighlights returned error: %v", err)
 	}
@@ -96,9 +96,9 @@ func TestFetchHighlights_Unauthorized(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := &Client{httpClient: srv.Client(), baseURL: srv.URL}
+	c := &Client{httpClient: srv.Client(), baseURL: srv.URL, token: "bad-token"}
 
-	_, err := c.FetchHighlights(context.Background(), "bad-token")
+	_, err := c.FetchHighlights(context.Background())
 	if err == nil {
 		t.Fatal("expected error for 401 response")
 	}

@@ -1,4 +1,4 @@
-// Package readwise implements ports.ReadwiseClient against Readwise's export
+// Package readwise implements ports.HighlightSource against Readwise's export
 // API (https://readwise.io/api_deets), for bulk-importing a tenant's
 // highlights. This is distinct from apigw/readwise, which handles Readwise's
 // push webhook.
@@ -23,12 +23,14 @@ const exportURL = "https://readwise.io/api/v2/export/"
 type Client struct {
 	httpClient *http.Client
 	baseURL    string
+	token      string
 }
 
-func NewClient() *Client {
+func NewClient(token string) *Client {
 	return &Client{
 		httpClient: &http.Client{Timeout: 30 * time.Second},
 		baseURL:    exportURL,
+		token:      token,
 	}
 }
 
@@ -74,12 +76,12 @@ func (c *cursorValue) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (c *Client) FetchHighlights(ctx context.Context, token string) ([]ports.ReadwiseHighlight, error) {
-	var out []ports.ReadwiseHighlight
+func (c *Client) FetchHighlights(ctx context.Context) ([]ports.SourceHighlight, error) {
+	var out []ports.SourceHighlight
 	cursor := ""
 
 	for {
-		page, err := c.fetchPage(ctx, token, cursor)
+		page, err := c.fetchPage(ctx, cursor)
 		if err != nil {
 			return nil, err
 		}
@@ -93,7 +95,7 @@ func (c *Client) FetchHighlights(ctx context.Context, token string) ([]ports.Rea
 				if h.HighlightedAt != nil {
 					at = *h.HighlightedAt
 				}
-				out = append(out, ports.ReadwiseHighlight{
+				out = append(out, ports.SourceHighlight{
 					ID:            strconv.FormatInt(h.ID, 10),
 					Text:          h.Text,
 					Note:          h.Note,
@@ -117,7 +119,7 @@ func (c *Client) FetchHighlights(ctx context.Context, token string) ([]ports.Rea
 	return out, nil
 }
 
-func (c *Client) fetchPage(ctx context.Context, token, cursor string) (exportResponse, error) {
+func (c *Client) fetchPage(ctx context.Context, cursor string) (exportResponse, error) {
 	u, err := url.Parse(c.baseURL)
 	if err != nil {
 		return exportResponse{}, err
@@ -132,7 +134,7 @@ func (c *Client) fetchPage(ctx context.Context, token, cursor string) (exportRes
 	if err != nil {
 		return exportResponse{}, err
 	}
-	req.Header.Set("Authorization", "Token "+token)
+	req.Header.Set("Authorization", "Token "+c.token)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {

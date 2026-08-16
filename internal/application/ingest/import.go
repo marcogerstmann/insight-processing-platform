@@ -9,42 +9,43 @@ import (
 	"github.com/marcogerstmann/insight-processing-platform/internal/ports"
 )
 
-// readwiseEventType must match the Readwise webhook's event_type for created
-// highlights (see apigw/readwise's webhookDTO and dev/http/readwise-webhook.http)
-// so that a highlight imported here and the same highlight delivered via the
-// webhook hash to the same idempotency key (buildIdempotencyKey) and dedupe
-// against each other at the DynamoDB layer (CreateIfAbsent).
-const readwiseEventType = "readwise.highlight.created"
-
 type ImportResult struct {
 	Fetched  int
 	Enqueued int
 }
 
-// Importer bulk-imports a tenant's Readwise highlights through the same
-// Enqueue path the webhook uses, so enrichment stays async and dedup is free.
+// Importer bulk-imports a tenant's highlights from a source through the same
+// Enqueue path a push webhook uses, so enrichment stays async and dedup is
+// free. source and eventType are stamped onto every enqueued
+// domain.IngestEvent; eventType must match the source's own webhook
+// event_type for created highlights (e.g. apigw/readwise's webhookDTO) so
+// that a highlight imported here and the same highlight delivered via that
+// webhook hash to the same idempotency key (buildIdempotencyKey) and dedupe
+// against each other at the DynamoDB layer (CreateIfAbsent).
 type Importer struct {
-	client ports.ReadwiseClient
-	svc    Service
+	client    ports.HighlightSource
+	svc       Service
+	source    string
+	eventType string
 }
 
-func NewImporter(client ports.ReadwiseClient, svc Service) *Importer {
-	return &Importer{client: client, svc: svc}
+func NewImporter(client ports.HighlightSource, svc Service, source, eventType string) *Importer {
+	return &Importer{client: client, svc: svc, source: source, eventType: eventType}
 }
 
-// Import fetches tenantID's Readwise highlights and enqueues each one.
+// Import fetches tenantID's highlights and enqueues each one.
 // onlyFavorites, when true, drops non-favorited highlights before limit is
 // applied, so "latest N favorites" means the N most recent favorites, not
 // favorites among the N most recent highlights overall. limit <= 0 imports
 // everything that survives filtering; otherwise only the limit most recently
 // highlighted ones (FetchHighlights returns newest first).
-func (im *Importer) Import(ctx context.Context, tenantID, token string, limit int, onlyFavorites bool) (ImportResult, error) {
-	fetched, err := im.client.FetchHighlights(ctx, token)
+func (im *Importer) Import(ctx context.Context, tenantID string, limit int, onlyFavorites bool) (ImportResult, error) {
+	fetched, err := im.client.FetchHighlights(ctx)
 	if err != nil {
 		return ImportResult{}, err
 	}
 
-	highlights := make([]ports.ReadwiseHighlight, 0, len(fetched))
+	highlights := make([]ports.SourceHighlight, 0, len(fetched))
 	for _, h := range fetched {
 		if onlyFavorites && !h.IsFavorite {
 			continue
@@ -65,8 +66,8 @@ func (im *Importer) Import(ctx context.Context, tenantID, token string, limit in
 	for _, h := range highlights {
 		ev := domain.IngestEvent{
 			TenantID:   tenantID,
-			Source:     "readwise",
-			EventType:  readwiseEventType,
+			Source:     im.source,
+			EventType:  im.eventType,
 			ReceivedAt: receivedAt,
 			Highlight: domain.Highlight{
 				ID:            h.ID,
