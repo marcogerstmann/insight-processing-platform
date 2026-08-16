@@ -35,7 +35,7 @@ func TestFetchHighlights_PaginatesAndSortsNewestFirst(t *testing.T) {
 			t.Fatalf("unexpected page: %q", page)
 		}
 
-		_, _ = w.Write([]byte(fmt.Sprintf(`{"result":true,"items":[%s]}`, strings.Join(items, ","))))
+		_, _ = fmt.Fprintf(w, `{"result":true,"items":[%s]}`, strings.Join(items, ","))
 	}))
 	defer srv.Close()
 
