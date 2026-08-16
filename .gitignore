@@ -18,7 +18,10 @@ cmd/*/bootstrap
 # IDE
 .idea/
 
+# macOS
+.DS_Store
+
 # Web UI (Node/Vite)
 web/node_modules/
 web/dist/
-web/tsconfig.tsbuildinfo
+web/*.tsbuildinfo
