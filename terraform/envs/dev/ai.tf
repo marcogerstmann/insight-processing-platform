@@ -4,6 +4,17 @@
 #
 # EventBridge -> this service's own queue+DLQ (event-subscription module,
 # EVT 4) -> this Lambda. See services/ai/README.md and ADR-014.
+#
+# Bootstrapping a brand-new image-based service hits the same chicken-and-egg
+# problem github-actions.tf's OIDC comment describes: `make deploy` pushes an
+# image before applying Terraform, but the ECR repo and the CI role's push
+# permission for it are themselves created by that same apply. The one-time
+# fix (as it was here): a local, Docker-free, targeted apply for just the new
+# repo + lifecycle policy + `aws_iam_role_policy.github_actions` —
+#   terraform apply -target=aws_ecr_repository.ai \
+#     -target=aws_ecr_repository_policy.ai -target=aws_ecr_lifecycle_policy.ai \
+#     -target=aws_iam_role_policy.github_actions
+# — after which `make deploy` in CI can push and apply the rest unaided.
 
 resource "aws_ecr_repository" "ai" {
   name                 = "${var.project}-${var.env}-ai"
