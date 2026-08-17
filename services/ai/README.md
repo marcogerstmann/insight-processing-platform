@@ -18,7 +18,7 @@ src/ipp_ai/
   application/       use-case orchestration; reads env vars directly (see below)
   adapters/inbound/  things that call into the service (the EventBridge subscription handler)
   adapters/outbound/ things the service calls out to (SSM, a read-only DynamoDB insight reader,
-                     a DynamoDB embedding writer, Voyage AI, DLQ)
+                     a DynamoDB embedding writer, OpenAI embeddings, DLQ)
   errors.py          PermanentError: permanent failure -> DLQ, everything else -> retry
   logging_config.py  structured JSON logging, field names matching the Go service's
 ```
@@ -37,7 +37,7 @@ EventBridge envelope into a `domain.event.DomainEvent`, log it structurally (`te
 `application/embedding.py`'s `embed_insight` loads the insight the event names, embeds its tags (a summary
 of the highlight) plus its raw text, and stores the vector. A malformed envelope, or an event naming an
 insight that doesn't exist, raises `PermanentError`, caught here and routed to the subscription's own DLQ;
-anything else — including a Voyage API failure — propagates so the runtime redelivers, the same taxonomy as
+anything else — including an OpenAI API failure — propagates so the runtime redelivers, the same taxonomy as
 `internal/adapters/inbound/sqs/worker.Handler` ([ADR-009](../../docs/adr/009-error-taxonomy-and-dlq-routing.md)).
 Unlike Go's LLM enrichment ([ADR-013](../../docs/adr/013-llm-as-optional-enrichment.md)), embedding failure
 isn't swallowed — there's no already-durable write it's protecting, so it's left to redeliver and, after this
@@ -78,10 +78,13 @@ the same items, so a schema change there is a two-repo-location change, not a on
 
 `InsightEnriched` triggers `embed_insight`: load the insight, embed its tags plus its text via
 `ports.EmbeddingClient`, store the result via `ports.EmbeddingWriter`. The provider is
-`adapters/outbound/voyage.py`'s `VoyageEmbeddingClient` — Anthropic doesn't serve embeddings, and Voyage is
-its documented embeddings partner — but nothing outside that one file knows that: the port is what makes the
-provider swappable. It's a plain `urllib.request` call, bounded the same way the Go worker's Anthropic client
-is ([ADR-013](../../docs/adr/013-llm-as-optional-enrichment.md)'s discipline, applied to a second provider):
+`adapters/outbound/openai.py`'s `OpenAiEmbeddingClient` — `text-embedding-3-small`, requested at 512
+dimensions rather than its 1536 default, because vectors are compared by brute force and stored as DynamoDB
+`Decimal` lists, so width sets item size, read cost and comparison cost at once
+([ADR-018](../../docs/adr/018-one-provider-for-model-capabilities.md)). Nothing outside that one file knows
+the provider: the port is what made replacing Voyage with OpenAI a single-file change. It's a plain
+`urllib.request` call, bounded the same way the Go worker's OpenAI client
+is ([ADR-013](../../docs/adr/013-llm-as-optional-enrichment.md)'s discipline, applied to a second capability):
 a per-attempt timeout, capped retries (skipped on a 4xx — retrying a bad key or a bad request changes
 nothing), and the input truncated before it's sent, all bounded in total to fit inside the Lambda's own 30s
 timeout alongside the DynamoDB calls either side of it.

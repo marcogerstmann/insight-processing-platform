@@ -20,7 +20,7 @@ class FakeReader:
 
 @dataclass
 class SpyEmbedder:
-    model: str = "voyage-3"
+    model: str = "text-embedding-3-small"
     dimension: int = 2
     vector: tuple[float, ...] = (0.5, 0.6)
     received: list[str] = field(default_factory=list)
@@ -59,7 +59,7 @@ def test_embeds_tags_and_text_together_when_enriched() -> None:
 
     assert embedder.received == ["work, focus\n\nthe highlight text"]
     assert writer.puts[0].vector == (0.5, 0.6)
-    assert writer.puts[0].model == "voyage-3"
+    assert writer.puts[0].model == "text-embedding-3-small"
     assert writer.puts[0].dimension == 2
 
 

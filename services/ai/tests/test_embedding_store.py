@@ -16,7 +16,7 @@ def test_put_writes_the_deterministic_key_and_decimal_vector(stubbed_writer) -> 
                 "sk": "EMBEDDING#i1",
                 "tenant_id": "t1",
                 "insight_id": "i1",
-                "model": "voyage-3",
+                "model": "text-embedding-3-small",
                 "dimension": 3,
                 # DynamoDB has no float type — Decimal is what boto3's
                 # resource layer requires on the wire.
@@ -29,7 +29,7 @@ def test_put_writes_the_deterministic_key_and_decimal_vector(stubbed_writer) -> 
         Embedding(
             insight_id="i1",
             tenant_id="t1",
-            model="voyage-3",
+            model="text-embedding-3-small",
             dimension=3,
             vector=(0.1, 0.2, 0.3),
         )
@@ -42,7 +42,7 @@ def test_put_is_idempotent_by_key(stubbed_writer) -> None:
     rather than erroring or duplicating (IPP-97's idempotency requirement).
     """
     embedding = Embedding(
-        insight_id="i1", tenant_id="t1", model="voyage-3", dimension=1, vector=(0.9,)
+        insight_id="i1", tenant_id="t1", model="text-embedding-3-small", dimension=1, vector=(0.9,)
     )
     for _ in range(2):
         stubbed_writer.stubber.add_response(
@@ -55,7 +55,7 @@ def test_put_is_idempotent_by_key(stubbed_writer) -> None:
                     "sk": "EMBEDDING#i1",
                     "tenant_id": "t1",
                     "insight_id": "i1",
-                    "model": "voyage-3",
+                    "model": "text-embedding-3-small",
                     "dimension": 1,
                     "vector": [Decimal("0.9")],
                 },

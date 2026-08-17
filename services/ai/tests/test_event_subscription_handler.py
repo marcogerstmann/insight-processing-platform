@@ -30,7 +30,7 @@ class FakeReader:
 
 @dataclass
 class FakeEmbedder:
-    model: str = "voyage-3"
+    model: str = "text-embedding-3-small"
     dimension: int = 3
     vector: tuple[float, ...] = (0.1, 0.2, 0.3)
     error: Exception | None = None
@@ -124,7 +124,7 @@ def test_handle_valid_record_logs_embeds_and_skips_dlq(caplog: pytest.LogCapture
     stored = writer.puts[0]
     assert stored.insight_id == "i1"
     assert stored.tenant_id == "t1"
-    assert stored.model == "voyage-3"
+    assert stored.model == "text-embedding-3-small"
     assert stored.dimension == 3
     assert stored.vector == (0.1, 0.2, 0.3)
 
@@ -199,7 +199,7 @@ def test_handle_unexpected_error_propagates_for_redelivery(monkeypatch: pytest.M
 
 def test_handle_embedder_failure_propagates_for_redelivery() -> None:
     reader = FakeReader({("t1", "i1"): _insight()})
-    embedder = FakeEmbedder(error=RuntimeError("voyage unavailable"))
+    embedder = FakeEmbedder(error=RuntimeError("embeddings provider unavailable"))
     handler, dlq, *_ = _handler(reader=reader, embedder=embedder)
 
     with pytest.raises(RuntimeError):

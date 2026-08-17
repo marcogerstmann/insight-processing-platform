@@ -27,9 +27,9 @@ from typing import Any
 
 from ipp_ai.adapters.outbound.dynamodb import DynamoDbInsightReader
 from ipp_ai.adapters.outbound.embedding_store import DynamoDbEmbeddingWriter
+from ipp_ai.adapters.outbound.openai import OpenAiEmbeddingClient
 from ipp_ai.adapters.outbound.sqs import SqsDlqPublisher
 from ipp_ai.adapters.outbound.ssm import SsmSecretProvider
-from ipp_ai.adapters.outbound.voyage import VoyageEmbeddingClient
 from ipp_ai.application.embedding import embed_insight
 from ipp_ai.application.secrets import resolve_secret
 from ipp_ai.domain.event import DomainEvent
@@ -119,9 +119,9 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> None:
     reader = DynamoDbInsightReader(os.environ["TABLE_NAME_INSIGHTS"])
     writer = DynamoDbEmbeddingWriter(os.environ["TABLE_NAME_EMBEDDINGS"])
 
-    api_key = resolve_secret("VOYAGE_API_KEY", SsmSecretProvider())
+    api_key = resolve_secret("OPENAI_API_KEY", SsmSecretProvider())
     if not api_key:
-        raise RuntimeError("VOYAGE_API_KEY not configured")
-    embedder = VoyageEmbeddingClient(api_key)
+        raise RuntimeError("OPENAI_API_KEY not configured")
+    embedder = OpenAiEmbeddingClient(api_key)
 
     Handler(dlq, reader, embedder, writer).handle(event)
