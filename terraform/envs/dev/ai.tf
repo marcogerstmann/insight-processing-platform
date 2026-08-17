@@ -67,12 +67,25 @@ resource "aws_ecr_lifecycle_policy" "ai" {
   })
 }
 
+# Same class of flake as rest-api.tf's cognito_iam_propagation: this table
+# and aws_iam_role_policy.github_actions have no natural resource
+# dependency, so Terraform applies them concurrently by default. When the
+# CI role's dynamodb:UpdateContinuousBackups grant lands in the same apply
+# as a new table, the policy update can still be propagating in IAM when
+# CreateTable's PITR call fires. Force ordering plus a short wait.
+resource "time_sleep" "ai_embeddings_iam_propagation" {
+  depends_on      = [aws_iam_role_policy.github_actions]
+  create_duration = "15s"
+}
+
 # This service's own table (IPP-97) — pk = TENANT#<id>, sk = EMBEDDING#<insightID>.
 # Not the shared insights table: nothing outside this service reads or
 # writes an embedding, so it doesn't belong in storage.tf with the table
 # the Go core owns.
 module "dynamodb_ai_embeddings" {
   source = "../../modules/dynamodb"
+
+  depends_on = [time_sleep.ai_embeddings_iam_propagation]
 
   name = "${var.project}-ai-embeddings"
 
