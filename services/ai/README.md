@@ -48,10 +48,13 @@ per-record loop only fails-safe with one record per invocation.
 
 `make ai-build` / `make ai-push` mirror `worker-build` / `worker-push`; `make deploy` runs `ai-deploy`, which
 skips both when `AI_TAG` (the last commit that touched `services/ai`) is already in the immutable ECR repo —
-a push that doesn't touch this service reuses its existing image instead of pushing a new one. Both build+push
-steps run only in CI ([`deploy.yml`](../../.github/workflows/deploy.yml)) — nobody's laptop uploads a
-production image. `ruff check`/`ruff format --check`/`pytest` (`make ai-lint` / `make ai-test`) run on every
-push and gate the deploy job, same as the Go service.
+a push that doesn't touch this service reuses its existing image instead of pushing a new one. `worker-deploy`
+guards the worker's build+push the same way, for a different reason: both repos are IMMUTABLE, so re-running
+a deploy that already pushed an image (e.g. after a later step like `tf-apply` failed) would otherwise try to
+overwrite that tag and get rejected. Both build+push steps run only in CI
+([`deploy.yml`](../../.github/workflows/deploy.yml)) — nobody's laptop uploads a production image. `ruff
+check`/`ruff format --check`/`pytest` (`make ai-lint` / `make ai-test`) run on every push and gate the deploy
+job, same as the Go service.
 
 ## Config and secrets
 

@@ -31,7 +31,7 @@ WORKER_FUNCTION ?= $(PROJECT)-worker
 AI_TAG ?= $(shell git log -1 --format=%h -- services/ai 2>/dev/null || echo manual)
 AI_REPO ?= $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/$(PROJECT)-ai
 
-.PHONY: test lint readwise-build rest-build raindrop-poll-build worker-build worker-push tf-init tf-apply tf-destroy deploy tf-backend-bootstrap ai-test ai-lint ai-run-local ai-build ai-push ai-deploy
+.PHONY: test lint readwise-build rest-build raindrop-poll-build worker-build worker-push worker-deploy tf-init tf-apply tf-destroy deploy tf-backend-bootstrap ai-test ai-lint ai-run-local ai-build ai-push ai-deploy
 
 # ============================================================
 # General
@@ -145,8 +145,19 @@ worker-push:
 	docker rmi $(PROJECT)-worker:$(WORKER_TAG) || true
 	docker rmi $(WORKER_REPO):$(WORKER_TAG) || true
 
+# Skips build+push when WORKER_TAG is already in ECR — same guard as
+# ai-deploy, needed for the same reason: a deploy can push the image and
+# then fail later in tf-apply, and retriggering re-runs the same commit's
+# tag against the IMMUTABLE repo.
+worker-deploy:
+	@if aws ecr describe-images --region $(AWS_REGION) --repository-name $(PROJECT)-worker --image-ids imageTag=$(WORKER_TAG) >/dev/null 2>&1; then \
+		echo "Worker image $(WORKER_TAG) already in ECR, skipping build+push"; \
+	else \
+		$(MAKE) worker-build worker-push; \
+	fi
+
 # ============================================================
 # Deployment
 # ============================================================
 
-deploy: worker-build worker-push ai-deploy tf-apply
+deploy: worker-deploy ai-deploy tf-apply
