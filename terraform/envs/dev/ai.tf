@@ -67,6 +67,21 @@ resource "aws_ecr_lifecycle_policy" "ai" {
   })
 }
 
+# This service's own table (IPP-97) — pk = TENANT#<id>, sk = EMBEDDING#<insightID>.
+# Not the shared insights table: nothing outside this service reads or
+# writes an embedding, so it doesn't belong in storage.tf with the table
+# the Go core owns.
+module "dynamodb_ai_embeddings" {
+  source = "../../modules/dynamodb"
+
+  name = "${var.project}-ai-embeddings"
+
+  tags = {
+    Project = var.project
+    Env     = var.env
+  }
+}
+
 module "ai_subscription" {
   source = "../../modules/event-subscription"
 
@@ -135,9 +150,10 @@ resource "aws_iam_role_policy" "ai_sqs_consume" {
 
 # Read-only, per IPP-93: the AI service's insight repository only ever calls
 # GetItem/Query. No PutItem, UpdateItem, or DeleteItem — see
-# services/ai/README.md. Nothing in this Lambda calls it yet (IPP-95's
-# handler does no more than log), but there is exactly one execution role
-# for the whole service, so this is the one place that boundary is drawn.
+# services/ai/README.md. IPP-97's embedding step is the first caller
+# (get_by_id, to load the text to embed), but there is exactly one
+# execution role for the whole service, so this is the one place that
+# boundary is drawn.
 resource "aws_iam_role_policy" "ai_dynamodb_read" {
   name = "${var.project}-${var.env}-ai-dynamodb-read"
   role = module.ai_lambda_role.role_name
@@ -164,6 +180,44 @@ resource "aws_iam_role_policy" "ai_dynamodb_read" {
   })
 }
 
+# Write access to this service's own embeddings table (IPP-97) — a
+# separate policy from ai_dynamodb_read above, which is scoped to the
+# shared insights table and must stay GetItem/Query only.
+resource "aws_iam_role_policy" "ai_embeddings_write" {
+  name = "${var.project}-${var.env}-ai-embeddings-write"
+  role = module.ai_lambda_role.role_name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid      = "PutEmbedding"
+        Effect   = "Allow"
+        Action   = ["dynamodb:PutItem"]
+        Resource = module.dynamodb_ai_embeddings.table_arn
+      }
+    ]
+  })
+}
+
+# Same pattern as worker.tf's worker_ssm_read for ANTHROPIC_API_KEY — the
+# parameter itself is created out of band, not by Terraform.
+resource "aws_iam_role_policy" "ai_voyage_ssm_read" {
+  name = "${var.project}-${var.env}-ai-voyage-ssm-read"
+  role = module.ai_lambda_role.role_name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["ssm:GetParameter"]
+        Resource = "arn:aws:ssm:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:parameter/${var.project}/${var.env}/voyage/api_key"
+      }
+    ]
+  })
+}
+
 module "ai_lambda" {
   source      = "../../modules/lambda-image"
   name        = "${var.project}-${var.env}-ai"
@@ -174,6 +228,9 @@ module "ai_lambda" {
 
   environment_variables = {
     AI_SUBSCRIPTION_DLQ_URL = module.ai_subscription.dlq_url
+    TABLE_NAME_INSIGHTS     = module.dynamodb_insights.table_name
+    TABLE_NAME_EMBEDDINGS   = module.dynamodb_ai_embeddings.table_name
+    VOYAGE_API_KEY          = "ssm:/${var.project}/${var.env}/voyage/api_key"
   }
 
   depends_on = [aws_iam_role_policy.ai_ecr_pull, aws_ecr_repository_policy.ai]

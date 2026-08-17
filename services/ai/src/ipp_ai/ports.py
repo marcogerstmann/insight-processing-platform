@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
+from ipp_ai.domain.embedding import Embedding
 from ipp_ai.domain.insight import Insight
 
 
@@ -35,6 +36,31 @@ class InsightReader(Protocol):
     def get_by_id(self, tenant_id: str, insight_id: str) -> Insight | None: ...
     def list_by_tenant(self, tenant_id: str) -> list[Insight]: ...
     def list_by_tag(self, tenant_id: str, tag: str) -> list[Insight]: ...
+
+
+class EmbeddingClient(Protocol):
+    """Turns text into a vector. Mirrors internal/ports.EnrichmentClient's
+    shape (one bounded call in, one result out) but the result is a
+    fixed-size vector rather than tags; `model`/`dimension` are exposed so
+    a caller can stamp them on the stored Embedding (per IPP-97) without
+    the port hard-coding one provider's identifiers.
+    """
+
+    model: str
+    dimension: int
+
+    def embed(self, text: str) -> tuple[float, ...]: ...
+
+
+class EmbeddingWriter(Protocol):
+    """Upserts an insight's embedding into the AI service's own table.
+
+    Unlike InsightReader this is a write — see adapters/outbound/embedding_store.py
+    for why this table, unlike the shared insights table, is this service's
+    to write. Idempotent: re-processing the same event overwrites in place.
+    """
+
+    def put(self, embedding: Embedding) -> None: ...
 
 
 class DlqPublisher(Protocol):

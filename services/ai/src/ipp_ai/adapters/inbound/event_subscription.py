@@ -6,15 +6,15 @@ EventBridge delivers events matching this service's rule
 its own SQS queue; each record's body is the full EventBridge envelope, and
 "detail" is the JSON of internal/domain.DomainEvent.
 
-This does the minimum IPP-95 asks for: unmarshal, log structurally, done —
-no repository call, no business logic. That arrives with whatever agent
-story first needs one.
+IPP-95 did the minimum: unmarshal, log structurally, done. IPP-97 adds the
+first real business logic — embedding the insight the event names
+(`application/embedding.py`) — behind the same DLQ-or-propagate branch.
 
-`Handler` wires nothing itself (only depends on the DlqPublisher port, so
-it's testable without AWS); `lambda_handler` is the composition root that
-constructs the real adapter and is what the Dockerfile's CMD points at —
-per ADR-017, Python's handler does its own manual DI instead of a separate
-main.go.
+`Handler` wires nothing itself (only depends on the ports its constructor
+takes, so it's testable without AWS); `lambda_handler` is the composition
+root that constructs the real adapters and is what the Dockerfile's CMD
+points at — per ADR-017, Python's handler does its own manual DI instead of
+a separate main.go.
 """
 
 from __future__ import annotations
@@ -25,37 +25,60 @@ import os
 from datetime import datetime
 from typing import Any
 
+from ipp_ai.adapters.outbound.dynamodb import DynamoDbInsightReader
+from ipp_ai.adapters.outbound.embedding_store import DynamoDbEmbeddingWriter
 from ipp_ai.adapters.outbound.sqs import SqsDlqPublisher
+from ipp_ai.adapters.outbound.ssm import SsmSecretProvider
+from ipp_ai.adapters.outbound.voyage import VoyageEmbeddingClient
+from ipp_ai.application.embedding import embed_insight
+from ipp_ai.application.secrets import resolve_secret
 from ipp_ai.domain.event import DomainEvent
 from ipp_ai.errors import PermanentError
 from ipp_ai.logging_config import configure
-from ipp_ai.ports import DlqPublisher
+from ipp_ai.ports import DlqPublisher, EmbeddingClient, EmbeddingWriter, InsightReader
 
 configure()
 logger = logging.getLogger(__name__)
 
 
 class Handler:
-    """Permanent unmarshal failure -> DLQ + continue; everything else
-    propagates so the runtime redelivers (ADR-009's taxonomy, translated).
+    """Permanent failure (malformed envelope, unknown insight) -> DLQ +
+    continue; everything else propagates so the runtime redelivers
+    (ADR-009's taxonomy, translated).
 
     Safe as a per-record loop only because the event source mapping in
     terraform/envs/dev/ai.tf keeps batch_size = 1 — same constraint as the
     Go worker; raising it needs ReportBatchItemFailures first.
     """
 
-    def __init__(self, dlq: DlqPublisher) -> None:
+    def __init__(
+        self,
+        dlq: DlqPublisher,
+        reader: InsightReader,
+        embedder: EmbeddingClient,
+        writer: EmbeddingWriter,
+    ) -> None:
         self._dlq = dlq
+        self._reader = reader
+        self._embedder = embedder
+        self._writer = writer
 
     def handle(self, event: dict[str, Any]) -> None:
         for record in event["Records"]:
             body = record["body"]
             try:
                 domain_event = _parse_envelope(body)
+                _log_event(domain_event)
+                embed_insight(
+                    domain_event.tenant_id,
+                    domain_event.payload.get("insight_id"),
+                    reader=self._reader,
+                    embedder=self._embedder,
+                    writer=self._writer,
+                )
             except PermanentError as exc:
                 self._route_to_dlq(body, exc)
                 continue
-            _log_event(domain_event)
 
     def _route_to_dlq(self, body: str, reason: PermanentError) -> None:
         logger.error("permanent error, routed to DLQ", extra={"err": str(reason)})
@@ -93,4 +116,12 @@ def _log_event(event: DomainEvent) -> None:
 
 def lambda_handler(event: dict[str, Any], _context: Any) -> None:
     dlq = SqsDlqPublisher(os.environ["AI_SUBSCRIPTION_DLQ_URL"])
-    Handler(dlq).handle(event)
+    reader = DynamoDbInsightReader(os.environ["TABLE_NAME_INSIGHTS"])
+    writer = DynamoDbEmbeddingWriter(os.environ["TABLE_NAME_EMBEDDINGS"])
+
+    api_key = resolve_secret("VOYAGE_API_KEY", SsmSecretProvider())
+    if not api_key:
+        raise RuntimeError("VOYAGE_API_KEY not configured")
+    embedder = VoyageEmbeddingClient(api_key)
+
+    Handler(dlq, reader, embedder, writer).handle(event)

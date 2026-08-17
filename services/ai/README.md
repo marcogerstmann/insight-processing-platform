@@ -17,7 +17,8 @@ src/ipp_ai/
   ports.py           typing.Protocol definitions the application depends on
   application/       use-case orchestration; reads env vars directly (see below)
   adapters/inbound/  things that call into the service (the EventBridge subscription handler)
-  adapters/outbound/ things the service calls out to (SSM, a read-only DynamoDB insight reader, DLQ)
+  adapters/outbound/ things the service calls out to (SSM, a read-only DynamoDB insight reader,
+                     a DynamoDB embedding writer, Voyage AI, DLQ)
   errors.py          PermanentError: permanent failure -> DLQ, everything else -> retry
   logging_config.py  structured JSON logging, field names matching the Go service's
 ```
@@ -30,11 +31,18 @@ via `terraform/modules/event-subscription` (its own SQS queue + DLQ, isolated fr
 see [ADR-014](../../docs/adr/014-domain-events-on-eventbridge.md)), and wires that queue to the Lambda with an
 event source mapping.
 
-`adapters/inbound/event_subscription.py`'s `Handler` does the minimum IPP-95 asks for: unmarshal the
+`adapters/inbound/event_subscription.py`'s `Handler` did the minimum IPP-95 asked for: unmarshal the
 EventBridge envelope into a `domain.event.DomainEvent`, log it structurally (`tenant_id`, `insight_id`,
-`event_type` — matching the Go service's field names), done. A malformed envelope raises `PermanentError`,
-caught here and routed to the subscription's own DLQ; anything else propagates so the runtime redelivers —
-the same taxonomy as `internal/adapters/inbound/sqs/worker.Handler` ([ADR-009](../../docs/adr/009-error-taxonomy-and-dlq-routing.md)).
+`event_type` — matching the Go service's field names). IPP-97 adds the first real step after that:
+`application/embedding.py`'s `embed_insight` loads the insight the event names, embeds its tags (a summary
+of the highlight) plus its raw text, and stores the vector. A malformed envelope, or an event naming an
+insight that doesn't exist, raises `PermanentError`, caught here and routed to the subscription's own DLQ;
+anything else — including a Voyage API failure — propagates so the runtime redelivers, the same taxonomy as
+`internal/adapters/inbound/sqs/worker.Handler` ([ADR-009](../../docs/adr/009-error-taxonomy-and-dlq-routing.md)).
+Unlike Go's LLM enrichment ([ADR-013](../../docs/adr/013-llm-as-optional-enrichment.md)), embedding failure
+isn't swallowed — there's no already-durable write it's protecting, so it's left to redeliver and, after this
+subscription's own retry budget, land on its DLQ. Either way it can never block an insight write: this
+service is a subscriber off to the side of the Go core.
 The event source mapping's `batch_size` must stay `1` for the same reason the Go worker's does: this
 per-record loop only fails-safe with one record per invocation.
 
@@ -57,13 +65,30 @@ only path to the insights table, and it only ever calls `GetItem` / `Query`. The
 purpose: **the Lambda execution role (`terraform/envs/dev/ai.tf`) grants only `GetItem` and `Query`** on the
 table and its `gsi1` index — no `PutItem`, `UpdateItem`, or `DeleteItem`. Enforcing that at IAM makes the
 read-only boundary a property of the infrastructure, not a code-review convention. Writes back into the
-domain go through the Go REST API instead (IPP-94). Nothing calls this adapter yet — IPP-95's handler does no
-more than log an event — the grant exists ahead of its first caller because there is exactly one execution
-role for the whole service.
+domain go through the Go REST API instead (IPP-94).
 
 Key schema (`pk = TENANT#<tenant_id>`, `sk = INSIGHT#<id>`, tag membership queried via the sparse `gsi1`
 index) is copied from `internal/adapters/outbound/dynamodb/insight_adapter.go` — two languages now unmarshal
 the same items, so a schema change there is a two-repo-location change, not a one-line diff.
+
+## Embeddings (IPP-97)
+
+`InsightEnriched` triggers `embed_insight`: load the insight, embed its tags plus its text via
+`ports.EmbeddingClient`, store the result via `ports.EmbeddingWriter`. The provider is
+`adapters/outbound/voyage.py`'s `VoyageEmbeddingClient` — Anthropic doesn't serve embeddings, and Voyage is
+its documented embeddings partner — but nothing outside that one file knows that: the port is what makes the
+provider swappable. It's a plain `urllib.request` call, bounded the same way the Go worker's Anthropic client
+is ([ADR-013](../../docs/adr/013-llm-as-optional-enrichment.md)'s discipline, applied to a second provider):
+a per-attempt timeout, capped retries (skipped on a 4xx — retrying a bad key or a bad request changes
+nothing), and the input truncated before it's sent, all bounded in total to fit inside the Lambda's own 30s
+timeout alongside the DynamoDB calls either side of it.
+
+Vectors land in **this service's own table** (`dynamodb_ai_embeddings` in `terraform/envs/dev/ai.tf`), not
+the shared insights table — `pk = TENANT#<tenant_id>`, `sk = EMBEDDING#<insight_id>`, alongside the model
+name and dimension so a future model change is detectable instead of silently mixing incompatible vector
+spaces. `PutItem` with no condition, so re-processing the same event overwrites in place — the same
+deterministic-key idempotency as everywhere else in this codebase
+([ADR-008](../../docs/adr/008-idempotency-via-deterministic-key.md)).
 
 ## Dev
 
