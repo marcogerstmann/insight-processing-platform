@@ -27,7 +27,7 @@ The system has low to moderate traffic, unpredictable load, and no strict latenc
 
 Lambda minimizes idle cost, removes server management, and fits naturally with event-driven workflows.
 
-The worker ships as a container image because it carries the heaviest dependency set (AWS SDK, Anthropic SDK) and benefits from full control over the build; the edge functions stay as zips, which deploy faster and cold-start smaller for the thin request-mapping work they do. Mixing both packaging modes is deliberate — `terraform/modules/lambda-zip` and `terraform/modules/lambda-image` exist side by side so each function pays only for what it needs.
+The worker ships as a container image because it carries the heaviest dependency set (AWS SDK, OpenAI SDK) and benefits from full control over the build; the edge functions stay as zips, which deploy faster and cold-start smaller for the thin request-mapping work they do. Mixing both packaging modes is deliberate — `terraform/modules/lambda-zip` and `terraform/modules/lambda-image` exist side by side so each function pays only for what it needs.
 
 ## Consequences
 

@@ -13,7 +13,7 @@ related: [ADR-002, ADR-005]
 Wire dependencies by hand in `main()`. No DI container, no code generation. Every deployed function ships as a pair of entrypoints under `cmd/`:
 
 ```
-cmd/worker-lambda/   real adapters (DynamoDB, SQS, EventBridge, Anthropic, SSM)
+cmd/worker-lambda/   real adapters (DynamoDB, SQS, EventBridge, OpenAI, SSM)
 cmd/worker-local/    in-memory adapters, no AWS credentials required
 ```
 

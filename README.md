@@ -3,7 +3,7 @@
 An event-driven backend system that ingests webhook events, processes them asynchronously, enriches them with LLM-based
 analysis, and stores structured insights using idempotent, reliable pipelines.
 
-**Built with:** Go, AWS Lambda, SQS, DynamoDB, API Gateway, Cognito, Terraform, LLM (Anthropic Claude)
+**Built with:** Go, Python, AWS Lambda, SQS, DynamoDB, EventBridge, API Gateway, Cognito, Terraform, LLM + embeddings (OpenAI)
 
 ## What this project is - and is not
 
@@ -27,11 +27,11 @@ The value lies in **how events are processed, enriched, connected, and acted on*
 
 The architecture is source-agnostic — not as an assertion, but as something the repo demonstrates: Readwise and Raindrop.io are two adapters (`internal/adapters/outbound/{readwise,raindrop}`) behind the same `ports.HighlightSource` port. Adding the second source touched only that adapter, its trigger transport (Readwise pushes a webhook; Raindrop has none, so it's polled on a schedule instead), and composition-root wiring. SQS, the worker, enrichment, tag membership, and EventBridge domain events did not change.
 
-**Today vs. next:** shipped so far is ingestion → Go enrichment (Anthropic Claude, soft-fail). The roadmap (see `vision-backlog`-labeled epics) adds tag-based relationships across insights and a weekly Action Agent that generates, critiques, and revises its own plan, the system's one deliberate agentic loop, not a pattern used everywhere.
+**Today vs. next:** shipped so far is ingestion → Go enrichment (OpenAI, soft-fail) → embeddings in a separate Python service. The roadmap (see `vision-backlog`-labeled epics) adds tag-based relationships across insights and a weekly Action Agent that generates, critiques, and revises its own plan, the system's one deliberate agentic loop, not a pattern used everywhere.
 
 ## High-level architecture overview
 
-![Architecture overview: two ingest paths (Readwise webhook, Raindrop poll) converging on one SQS work queue, a Go core service writing to DynamoDB and enriching via Anthropic Claude, and an EventBridge domain bus fanning out to per-subscriber queues](docs/architecture.png)
+![Architecture overview: two ingest paths (Readwise webhook, Raindrop poll) converging on one SQS work queue, a Go core service writing to DynamoDB and enriching via OpenAI, and an EventBridge domain bus fanning out to per-subscriber queues](docs/architecture.png)
 
 <details>
 <summary>Same flow as text, with per-stage responsibilities</summary>
@@ -62,7 +62,7 @@ Ingest Lambda                    - fetch highlights
                         │
             ├───────────────────────────┐
             │                           ▼
-            │                  Anthropic Claude
+            │                  OpenAI (enrichment)
             │                    - enrich insight
             │                    - timeout + retry + token cap
             │                    - soft-fail: LLM down != system down
