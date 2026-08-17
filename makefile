@@ -25,10 +25,13 @@ WORKER_TAG ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo manual)
 WORKER_REPO ?= $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/$(PROJECT)-worker
 WORKER_FUNCTION ?= $(PROJECT)-worker
 
-AI_TAG ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo manual)
+# Tied to the last commit that *touched* services/ai, not HEAD, so a push
+# that doesn't change the Python service reuses its existing image instead of
+# pushing a new one — see ai-deploy below (the ECR repo is IMMUTABLE).
+AI_TAG ?= $(shell git log -1 --format=%h -- services/ai 2>/dev/null || echo manual)
 AI_REPO ?= $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/$(PROJECT)-ai
 
-.PHONY: test lint readwise-build rest-build raindrop-poll-build worker-build worker-push tf-init tf-apply tf-destroy deploy tf-backend-bootstrap ai-test ai-lint ai-run-local ai-build ai-push
+.PHONY: test lint readwise-build rest-build raindrop-poll-build worker-build worker-push tf-init tf-apply tf-destroy deploy tf-backend-bootstrap ai-test ai-lint ai-run-local ai-build ai-push ai-deploy
 
 # ============================================================
 # General
@@ -66,6 +69,15 @@ ai-push:
 	docker push $(AI_REPO):$(AI_TAG)
 	docker rmi $(PROJECT)-ai:$(AI_TAG) || true
 	docker rmi $(AI_REPO):$(AI_TAG) || true
+
+# Skips build+push when AI_TAG is already in ECR (i.e. services/ai didn't
+# change in this push) — avoids a pointless push to the immutable ai repo.
+ai-deploy:
+	@if aws ecr describe-images --region $(AWS_REGION) --repository-name $(PROJECT)-ai --image-ids imageTag=$(AI_TAG) >/dev/null 2>&1; then \
+		echo "AI image $(AI_TAG) already in ECR, skipping build+push"; \
+	else \
+		$(MAKE) ai-build ai-push; \
+	fi
 
 # ============================================================
 # Terraform
@@ -137,4 +149,4 @@ worker-push:
 # Deployment
 # ============================================================
 
-deploy: worker-build worker-push ai-build ai-push tf-apply
+deploy: worker-build worker-push ai-deploy tf-apply

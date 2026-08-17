@@ -38,8 +38,12 @@ the same taxonomy as `internal/adapters/inbound/sqs/worker.Handler` ([ADR-009](.
 The event source mapping's `batch_size` must stay `1` for the same reason the Go worker's does: this
 per-record loop only fails-safe with one record per invocation.
 
-`make ai-build` / `make ai-push` mirror `worker-build` / `worker-push`; `make deploy` builds and pushes both
-images before `terraform apply`. Both build+push steps run only in CI ([`deploy.yml`](../../.github/workflows/deploy.yml)) — nobody's laptop uploads a production image.
+`make ai-build` / `make ai-push` mirror `worker-build` / `worker-push`; `make deploy` runs `ai-deploy`, which
+skips both when `AI_TAG` (the last commit that touched `services/ai`) is already in the immutable ECR repo —
+a push that doesn't touch this service reuses its existing image instead of pushing a new one. Both build+push
+steps run only in CI ([`deploy.yml`](../../.github/workflows/deploy.yml)) — nobody's laptop uploads a
+production image. `ruff check`/`ruff format --check`/`pytest` (`make ai-lint` / `make ai-test`) run on every
+push and gate the deploy job, same as the Go service.
 
 ## Config and secrets
 

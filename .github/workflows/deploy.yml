@@ -2,7 +2,6 @@ name: Deploy
 
 on:
   push:
-    branches: [main]
 
 permissions:
   id-token: write  # required to request the OIDC JWT from GitHub
@@ -35,8 +34,33 @@ jobs:
         with:
           version: v2.12
 
+  ai-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - run: make ai-test
+
+  ai-lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - run: make ai-lint
+
   deploy:
-    needs: [test, lint]
+    needs: [test, lint, ai-test, ai-lint]
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
 
     env:
@@ -48,7 +72,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          fetch-depth: 0  # full history so git rev-parse --short HEAD is accurate for WORKER_TAG
+          fetch-depth: 0  # full history: WORKER_TAG needs HEAD, AI_TAG needs the last commit touching services/ai
 
       - uses: actions/setup-go@v6
         with:
