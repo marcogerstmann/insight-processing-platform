@@ -116,7 +116,7 @@ resource "aws_iam_role_policy" "worker_ssm_read" {
       {
         Effect   = "Allow"
         Action   = ["ssm:GetParameter"]
-        Resource = "arn:aws:ssm:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:parameter/${var.project}/${var.env}/anthropic/api_key"
+        Resource = "arn:aws:ssm:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:parameter/${var.project}/${var.env}/openai/api_key"
       }
     ]
   })
@@ -182,7 +182,7 @@ module "worker_lambda" {
   environment_variables = {
     TABLE_NAME_INSIGHTS    = module.dynamodb_insights.table_name
     INGEST_DLQ_URL         = module.ingest_queue.dlq_url
-    ANTHROPIC_API_KEY      = "ssm:/${var.project}/${var.env}/anthropic/api_key"
+    OPENAI_API_KEY         = "ssm:/${var.project}/${var.env}/openai/api_key"
     DOMAIN_EVENTS_BUS_NAME = module.domain_events_bus.bus_name
   }
 

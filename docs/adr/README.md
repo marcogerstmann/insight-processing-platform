@@ -56,6 +56,7 @@ Which means there are two different kinds of change, and they are not interchang
 | --- | --- | --- |
 | [ADR-013](013-llm-as-optional-enrichment.md) | LLM as Optional Enrichment | 2026-01-04 |
 | [ADR-014](014-domain-events-on-eventbridge.md) | Domain Events on EventBridge | 2026-08-13 |
+| [ADR-018](018-one-provider-for-model-capabilities.md) | One Provider for All Model Capabilities | 2026-08-17 |
 
 ## Access
 

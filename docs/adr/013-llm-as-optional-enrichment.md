@@ -29,7 +29,7 @@ The system must remain correct and operational even if the LLM fails or is unava
 
 **Ordering.** `insight.Service.Process` writes the insight and publishes `InsightCreated` *before* calling the LLM. By the time enrichment can fail, the durable record already exists.
 
-**Bounded calls.** The Anthropic client caps a request at 512 output tokens, 30 seconds, and 3 SDK retries. Those bounds are what let the worker's own 30s Lambda timeout ([ADR-002](002-serverless-first-compute.md)) hold.
+**Bounded calls.** The enrichment client caps a request at 512 output tokens, 30 seconds, and 3 SDK retries. Those bounds are what let the worker's own 30s Lambda timeout ([ADR-002](002-serverless-first-compute.md)) hold. They survived the provider change in [ADR-018](018-one-provider-for-model-capabilities.md) unchanged, which is the point of stating them as bounds rather than as a vendor's defaults.
 
 ## Consequences
 

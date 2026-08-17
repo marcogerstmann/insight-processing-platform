@@ -213,10 +213,13 @@ resource "aws_iam_role_policy" "ai_embeddings_write" {
   })
 }
 
-# Same pattern as worker.tf's worker_ssm_read for ANTHROPIC_API_KEY — the
-# parameter itself is created out of band, not by Terraform.
-resource "aws_iam_role_policy" "ai_voyage_ssm_read" {
-  name = "${var.project}-${var.env}-ai-voyage-ssm-read"
+# The same parameter worker.tf grants the Go worker: since IPP-135 one key
+# serves enrichment and embeddings both, so this is two readers of one
+# secret rather than two secrets. The parameter itself is created out of
+# band, not by Terraform — a managed aws_ssm_parameter would put the key in
+# state.
+resource "aws_iam_role_policy" "ai_openai_ssm_read" {
+  name = "${var.project}-${var.env}-ai-openai-ssm-read"
   role = module.ai_lambda_role.role_name
 
   policy = jsonencode({
@@ -225,7 +228,7 @@ resource "aws_iam_role_policy" "ai_voyage_ssm_read" {
       {
         Effect   = "Allow"
         Action   = ["ssm:GetParameter"]
-        Resource = "arn:aws:ssm:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:parameter/${var.project}/${var.env}/voyage/api_key"
+        Resource = "arn:aws:ssm:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:parameter/${var.project}/${var.env}/openai/api_key"
       }
     ]
   })
@@ -243,7 +246,7 @@ module "ai_lambda" {
     AI_SUBSCRIPTION_DLQ_URL = module.ai_subscription.dlq_url
     TABLE_NAME_INSIGHTS     = module.dynamodb_insights.table_name
     TABLE_NAME_EMBEDDINGS   = module.dynamodb_ai_embeddings.table_name
-    VOYAGE_API_KEY          = "ssm:/${var.project}/${var.env}/voyage/api_key"
+    OPENAI_API_KEY          = "ssm:/${var.project}/${var.env}/openai/api_key"
   }
 
   depends_on = [aws_iam_role_policy.ai_ecr_pull, aws_ecr_repository_policy.ai]

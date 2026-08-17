@@ -18,7 +18,7 @@ internal/application/  use-case services (ingest, insight, llm, tenant)
 internal/ports/        interfaces the application depends on
 internal/adapters/
   inbound/             apigw, http/rest, schedule, sqs — things that call in
-  outbound/            dynamodb, sqs, eventbridge, anthropic, readwise,
+  outbound/            dynamodb, sqs, eventbridge, openai, readwise,
                        raindrop, ssm, memory — things the app calls out to
 ```
 
