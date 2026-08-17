@@ -327,6 +327,7 @@ data "aws_iam_policy_document" "github_actions_permissions" {
       "dynamodb:TagResource",
       "dynamodb:UntagResource",
       "dynamodb:DescribeContinuousBackups",
+      "dynamodb:UpdateContinuousBackups",
       "dynamodb:DescribeTimeToLive",
     ]
     resources = [
