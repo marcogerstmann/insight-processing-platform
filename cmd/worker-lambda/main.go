@@ -10,9 +10,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	workersqs "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/sqs/worker"
-	anthropicAdapter "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/anthropic"
 	dynamoAdapters "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/dynamodb"
 	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/eventbridge"
+	openaiAdapter "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/openai"
 	sqsAdapters "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/sqs"
 	ssmAdapters "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/ssm"
 	"github.com/marcogerstmann/insight-processing-platform/internal/application/insight"
@@ -56,13 +56,13 @@ func main() {
 	}
 
 	var llmService *llm.Service
-	apiKey, err := envutil.ResolveSecret(ctx, "ANTHROPIC_API_KEY", secretProvider)
+	apiKey, err := envutil.ResolveSecret(ctx, "OPENAI_API_KEY", secretProvider)
 	if err != nil {
-		log.Error("failed to resolve Anthropic API key", "err", err)
+		log.Error("failed to resolve OpenAI API key", "err", err)
 		os.Exit(1)
 	}
 	if apiKey != "" {
-		llmService = llm.NewService(anthropicAdapter.NewClient(apiKey))
+		llmService = llm.NewService(openaiAdapter.NewClient(apiKey))
 	}
 
 	svc := insight.NewService(insightRepo, llmService, domainEvents)

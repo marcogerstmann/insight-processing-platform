@@ -12,8 +12,8 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 
 	workersqs "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/sqs/worker"
-	anthropicAdapter "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/anthropic"
 	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/memory"
+	openaiAdapter "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/openai"
 	"github.com/marcogerstmann/insight-processing-platform/internal/application/insight"
 	"github.com/marcogerstmann/insight-processing-platform/internal/application/llm"
 	"github.com/marcogerstmann/insight-processing-platform/internal/logging"
@@ -74,8 +74,8 @@ func main() {
 	domainEvents := memory.NewDomainEventNoopAdapter()
 
 	var llmService *llm.Service
-	if apiKey := strings.TrimSpace(os.Getenv("ANTHROPIC_API_KEY")); apiKey != "" {
-		llmService = llm.NewService(anthropicAdapter.NewClient(apiKey))
+	if apiKey := strings.TrimSpace(os.Getenv("OPENAI_API_KEY")); apiKey != "" {
+		llmService = llm.NewService(openaiAdapter.NewClient(apiKey))
 	}
 
 	svc := insight.NewService(noopRepo, llmService, domainEvents)
