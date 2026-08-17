@@ -67,6 +67,12 @@ data "aws_iam_policy_document" "github_actions_permissions" {
       "ecr:CompleteLayerUpload",
       "ecr:PutImage",
       "ecr:BatchGetImage",
+      # Read by ai-deploy/worker-deploy's "is this tag already pushed?"
+      # check (Makefile) before build+push — without it, describe-images
+      # 403s, the check silently treats that as "not found" (its stderr is
+      # discarded), and every deploy rebuilds and pushes even an unchanged
+      # tag, which the IMMUTABLE repo then rejects as a duplicate.
+      "ecr:DescribeImages",
     ]
     resources = [aws_ecr_repository.worker.arn, aws_ecr_repository.ai.arn]
   }

@@ -66,12 +66,17 @@ ai-build:
 ai-push:
 	aws ecr get-login-password --region $(AWS_REGION) | docker login --username AWS --password-stdin $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com
 	docker tag $(PROJECT)-ai:$(AI_TAG) $(AI_REPO):$(AI_TAG)
-	docker push $(AI_REPO):$(AI_TAG)
+	@out=$$(docker push $(AI_REPO):$(AI_TAG) 2>&1); status=$$?; echo "$$out"; \
+	if [ $$status -ne 0 ]; then \
+		echo "$$out" | grep -qi "already exists" && echo "$(AI_REPO):$(AI_TAG) already in ECR, treating as deployed" || exit $$status; \
+	fi
 	docker rmi $(PROJECT)-ai:$(AI_TAG) || true
 	docker rmi $(AI_REPO):$(AI_TAG) || true
 
 # Skips build+push when AI_TAG is already in ECR (i.e. services/ai didn't
-# change in this push) — avoids a pointless push to the immutable ai repo.
+# change in this push) — pure optimization; ai-push's own idempotent-push
+# fallback is what actually guarantees correctness if this check can't run
+# (e.g. before ecr:DescribeImages is granted) or races a concurrent push.
 ai-deploy:
 	@if aws ecr describe-images --region $(AWS_REGION) --repository-name $(PROJECT)-ai --image-ids imageTag=$(AI_TAG) >/dev/null 2>&1; then \
 		echo "AI image $(AI_TAG) already in ECR, skipping build+push"; \
@@ -141,14 +146,19 @@ worker-build:
 worker-push:
 	aws ecr get-login-password --region $(AWS_REGION) | docker login --username AWS --password-stdin $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com
 	docker tag $(PROJECT)-worker:$(WORKER_TAG) $(WORKER_REPO):$(WORKER_TAG)
-	docker push $(WORKER_REPO):$(WORKER_TAG)
+	@out=$$(docker push $(WORKER_REPO):$(WORKER_TAG) 2>&1); status=$$?; echo "$$out"; \
+	if [ $$status -ne 0 ]; then \
+		echo "$$out" | grep -qi "already exists" && echo "$(WORKER_REPO):$(WORKER_TAG) already in ECR, treating as deployed" || exit $$status; \
+	fi
 	docker rmi $(PROJECT)-worker:$(WORKER_TAG) || true
 	docker rmi $(WORKER_REPO):$(WORKER_TAG) || true
 
-# Skips build+push when WORKER_TAG is already in ECR — same guard as
-# ai-deploy, needed for the same reason: a deploy can push the image and
-# then fail later in tf-apply, and retriggering re-runs the same commit's
-# tag against the IMMUTABLE repo.
+# Skips build+push when WORKER_TAG is already in ECR — pure optimization,
+# same relationship to worker-push's idempotent-push fallback as ai-deploy
+# has to ai-push. A deploy can push the image and then fail in a later step
+# (tf-apply); retriggering re-runs the same commit's tag against the
+# IMMUTABLE repo, and it's worker-push's fallback, not this check, that
+# makes that safe.
 worker-deploy:
 	@if aws ecr describe-images --region $(AWS_REGION) --repository-name $(PROJECT)-worker --image-ids imageTag=$(WORKER_TAG) >/dev/null 2>&1; then \
 		echo "Worker image $(WORKER_TAG) already in ECR, skipping build+push"; \
