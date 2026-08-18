@@ -402,6 +402,25 @@ data "aws_iam_policy_document" "github_actions_permissions" {
   }
 
   # ------------------------------------------------------------------
+  # Actions AWS does not support resource-level scoping for at all — both
+  # discovered by the IPP-94 deploy actually failing on them, not from
+  # documentation: DescribeUserPoolDomain (Terraform polls it after create
+  # to confirm the domain went ACTIVE) and DescribeParameters (SSM's
+  # provider reads it back for an SSM parameter's metadata after create,
+  # separately from the GetParameter grant above, which is value-only and
+  # does support the userpool/parameter-scoped ARN each has above).
+  # ------------------------------------------------------------------
+  statement {
+    sid    = "UnscopableDescribeActions"
+    effect = "Allow"
+    actions = [
+      "cognito-idp:DescribeUserPoolDomain",
+      "ssm:DescribeParameters",
+    ]
+    resources = ["*"]
+  }
+
+  # ------------------------------------------------------------------
   # CloudWatch Logs — Lambda execution roles emit logs; Terraform may
   # manage log group retention settings via the Lambda modules.
   # ------------------------------------------------------------------
