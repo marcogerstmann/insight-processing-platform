@@ -64,3 +64,4 @@ Which means there are two different kinds of change, and they are not interchang
 | --- | --- | --- |
 | [ADR-015](015-tenant-identity-and-isolation.md) | Tenant Identity and Isolation | 2026-07-22 |
 | [ADR-016](016-rest-api-and-static-web-client.md) | REST API and Static Web Client | 2026-06-03 |
+| [ADR-019](019-machine-to-machine-auth-for-agent-writes.md) | Machine-to-Machine Auth for Agent Writes | 2026-08-18 |

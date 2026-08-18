@@ -234,6 +234,27 @@ resource "aws_iam_role_policy" "ai_openai_ssm_read" {
   })
 }
 
+# The AI service's own machine credentials (IPP-94) — unlike the OpenAI
+# key, this parameter *is* managed by Terraform (rest-api.tf's
+# aws_ssm_parameter.agent_client_secret), because the secret originates
+# from a Terraform-managed resource (Cognito generates it) rather than
+# being hand-typed into state for the first time.
+resource "aws_iam_role_policy" "ai_agent_secret_ssm_read" {
+  name = "${var.project}-${var.env}-ai-agent-secret-ssm-read"
+  role = module.ai_lambda_role.role_name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["ssm:GetParameter"]
+        Resource = aws_ssm_parameter.agent_client_secret.arn
+      }
+    ]
+  })
+}
+
 module "ai_lambda" {
   source      = "../../modules/lambda-image"
   name        = "${var.project}-${var.env}-ai"

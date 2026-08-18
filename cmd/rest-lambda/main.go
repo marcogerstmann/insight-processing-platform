@@ -48,6 +48,11 @@ func init() {
 		slog.Error("COGNITO_CLIENT_ID env var is required")
 		os.Exit(1)
 	}
+	agentClientID := os.Getenv("COGNITO_AGENT_CLIENT_ID")
+	if agentClientID == "" {
+		slog.Error("COGNITO_AGENT_CLIENT_ID env var is required")
+		os.Exit(1)
+	}
 
 	ctx := context.Background()
 	awsCfg, err := config.LoadDefaultConfig(ctx)
@@ -82,7 +87,7 @@ func init() {
 		return raindropclient.NewClient(token)
 	})
 
-	authValidator, err := restauth.NewCognitoValidator(ctx, awsCfg.Region, userPoolID, clientID)
+	authValidator, err := restauth.NewCognitoValidator(ctx, awsCfg.Region, userPoolID, clientID, agentClientID)
 	if err != nil {
 		slog.Error("cognito validator setup failed", "err", err)
 		os.Exit(1)

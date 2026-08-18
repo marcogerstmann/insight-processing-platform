@@ -25,11 +25,16 @@ func NewRouter(insightHandler *insight.Handler, readwiseHandler *restreadwise.Ha
 	v1 := r.Group("/v1")
 	v1.Use(authValidator.Middleware())
 	{
-		v1.GET("/insights", insightHandler.ListByTenantID)
-		v1.POST("/insights", insightHandler.Create)
-		v1.GET("/tags", insightHandler.ListTags)
-		v1.POST("/readwise/import", readwiseHandler.Import)
-		v1.POST("/raindrop/import", raindropHandler.Import)
+		// auth.RequireUser() per route, not on the group: a future
+		// agent-only route (REL 4, IPP-100) shares this /v1 group and needs
+		// auth.RequireScope(...) instead — group-level RequireUser would
+		// 403 the AI service's own machine token before RequireScope ever
+		// ran.
+		v1.GET("/insights", auth.RequireUser(), insightHandler.ListByTenantID)
+		v1.POST("/insights", auth.RequireUser(), insightHandler.Create)
+		v1.GET("/tags", auth.RequireUser(), insightHandler.ListTags)
+		v1.POST("/readwise/import", auth.RequireUser(), readwiseHandler.Import)
+		v1.POST("/raindrop/import", auth.RequireUser(), raindropHandler.Import)
 	}
 
 	return r

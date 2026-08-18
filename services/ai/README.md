@@ -126,6 +126,20 @@ Logs Insights query (IPP-113). Not yet wired to the `InsightEnriched` subscripti
 `Relationship` through the Go API, and is the natural place to assemble REL 2 + REL 3 + persistence into one
 triggered flow.
 
+## Machine-to-machine auth (IPP-94)
+
+`adapters/outbound/cognito.py`'s `CognitoServiceTokenClient` is AI 3, the Python half of
+[ADR-019](../../docs/adr/019-machine-to-machine-auth-for-agent-writes.md): this service authenticates against
+the Go REST API as itself, via a Cognito app client scoped to Cognito's OAuth2 `client_credentials` grant
+(`terraform/envs/dev/rest-api.tf`'s `aws_cognito_user_pool_client.agent`), not as any user. `token()` fetches
+and caches the access token until shortly before it expires, refreshing on demand rather than once per
+request. The client secret follows the same `ssm:`-prefixed convention as every other secret here
+(`application/secrets.py`), populated by Terraform because — unlike the OpenAI key — Cognito generates it as
+part of a Terraform-managed resource, so it's already in state regardless.
+
+Not wired to a caller yet: REL 4 (IPP-100) is what actually posts a discovered relationship through the Go
+API, and is the first thing that constructs this client for real.
+
 ## Dev
 
 ```bash

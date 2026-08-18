@@ -6,6 +6,7 @@ import (
 
 var (
 	ErrUnauthorized        = errors.New("unauthorized")
+	ErrForbidden           = errors.New("forbidden")
 	ErrServerMisconfigured = errors.New("server_misconfigured")
 	ErrInvalidPayload      = errors.New("invalid_payload")
 )

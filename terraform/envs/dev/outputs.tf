@@ -53,6 +53,16 @@ output "cognito_user_pool_id" {
   value       = aws_cognito_user_pool.rest_api.id
 }
 
+output "cognito_agent_client_id" {
+  description = "Cognito app client ID for the AI service's machine (client_credentials) auth (IPP-94)"
+  value       = aws_cognito_user_pool_client.agent.id
+}
+
+output "cognito_agent_token_endpoint" {
+  description = "OAuth2 token endpoint for the client_credentials grant (IPP-94). Client secret is in SSM at /ipp/dev/agent/client_secret, not here."
+  value       = "https://${aws_cognito_user_pool_domain.rest_api.domain}.auth.${data.aws_region.current.id}.amazoncognito.com/oauth2/token"
+}
+
 output "web_url" {
   description = "Public URL of the deployed web app"
   value       = "https://${var.domain_name}"
