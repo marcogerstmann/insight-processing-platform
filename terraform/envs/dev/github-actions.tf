@@ -342,7 +342,10 @@ data "aws_iam_policy_document" "github_actions_permissions" {
   }
 
   # ------------------------------------------------------------------
-  # Cognito — Terraform manages the user pool and app client for REST API auth
+  # Cognito — Terraform manages the user pool and app clients for REST API
+  # auth. Resource server + user pool domain actions were added for IPP-94's
+  # machine-to-machine client_credentials client — the first thing this
+  # policy managed beyond the human-facing user pool + client.
   # ------------------------------------------------------------------
   statement {
     sid    = "CognitoManage"
@@ -362,9 +365,39 @@ data "aws_iam_policy_document" "github_actions_permissions" {
       "cognito-idp:ListTagsForResource",
       "cognito-idp:TagResource",
       "cognito-idp:UntagResource",
+      "cognito-idp:CreateResourceServer",
+      "cognito-idp:DeleteResourceServer",
+      "cognito-idp:DescribeResourceServer",
+      "cognito-idp:UpdateResourceServer",
+      "cognito-idp:CreateUserPoolDomain",
+      "cognito-idp:DeleteUserPoolDomain",
+      "cognito-idp:DescribeUserPoolDomain",
+      "cognito-idp:UpdateUserPoolDomain",
     ]
     resources = [
       "arn:aws:cognito-idp:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:userpool/*",
+    ]
+  }
+
+  # ------------------------------------------------------------------
+  # SSM — IPP-94's agent client secret is the first SSM parameter Terraform
+  # manages end to end (every other secret in this system is created out of
+  # band; see ADR-019). Scoped to that one parameter path, not the wildcard
+  # read access the Lambda execution role policies (ai.tf, rest-api.tf) get.
+  # ------------------------------------------------------------------
+  statement {
+    sid    = "AgentSecretSsmManage"
+    effect = "Allow"
+    actions = [
+      "ssm:PutParameter",
+      "ssm:GetParameter",
+      "ssm:DeleteParameter",
+      "ssm:AddTagsToResource",
+      "ssm:RemoveTagsFromResource",
+      "ssm:ListTagsForResource",
+    ]
+    resources = [
+      "arn:aws:ssm:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:parameter/${var.project}/${var.env}/agent/client_secret",
     ]
   }
 
