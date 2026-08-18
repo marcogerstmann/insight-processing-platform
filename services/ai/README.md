@@ -106,6 +106,26 @@ without a test needing DynamoDB. The brute-force scan is the same deliberate "no
 `domain/embedding.py`'s `cosine_similarity`, just vectorized: `numpy` computes one batched dot product against
 every candidate instead of a Python loop, which is the only reason this service takes a `numpy` dependency.
 
+## Relation labeling (IPP-99)
+
+`application/relationship.py`'s `label_relationships` is REL 3: given a query `Insight` and the shortlist REL
+2's `select_candidates` produced, ask an LLM what each candidate's relationship to the query actually is —
+`adapters/outbound/openai.py`'s `OpenAiRelationLabeler`, one `/v1/chat/completions` call per pair, `relation_type`
+constrained to a fixed enum (`supports`, `contradicts`, `extends`, `example_of`, `same_topic`) by a `strict`
+JSON schema — the same substitution `internal/adapters/outbound/openai.Client` made for the Anthropic adapter's
+forced tool choice (IPP-135), now applied to a second capability. A `relation_type` outside the enum is
+rejected via `RelationType(...)` raising, never coerced.
+
+Unlike embedding (IPP-97), a labeling failure is soft: there is no already-durable write it protects, so a
+failing or below-`RELATIONSHIP_CONFIDENCE_THRESHOLD` pair is logged and skipped, and "no relationships found"
+is a normal outcome rather than a DLQ-worthy one. `MAX_PAIRS_PER_RUN` bounds LLM calls per new insight,
+separate from REL 2's `CANDIDATE_TOP_K`: candidate selection is free arithmetic and can afford to shortlist
+generously, LLM calls can't. Model, token usage and call duration are logged with the same field names
+(`model`, `input_tokens`, `output_tokens`, `duration_ms`) as the Go adapter's, so both services show up in one
+Logs Insights query (IPP-113). Not yet wired to the `InsightEnriched` subscription — REL 4 is what persists a
+`Relationship` through the Go API, and is the natural place to assemble REL 2 + REL 3 + persistence into one
+triggered flow.
+
 ## Dev
 
 ```bash

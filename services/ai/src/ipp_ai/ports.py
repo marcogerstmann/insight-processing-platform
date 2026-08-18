@@ -15,6 +15,7 @@ from typing import Protocol
 
 from ipp_ai.domain.embedding import Embedding
 from ipp_ai.domain.insight import Insight
+from ipp_ai.domain.relationship import RelationJudgement
 
 
 class SecretProvider(Protocol):
@@ -61,6 +62,19 @@ class EmbeddingWriter(Protocol):
     """
 
     def put(self, embedding: Embedding) -> None: ...
+
+
+class RelationLabeler(Protocol):
+    """Labels a candidate pair via one bounded LLM call — the read side's
+    counterpart to internal/adapters/outbound/openai.Client.Enrich's shape
+    (one call in, one structured result out), returning a judgement about
+    two insights instead of tags for one. Always returns a judgement or
+    raises; the confidence threshold that turns a judgement into a stored
+    Relationship is a policy decision for the caller
+    (application/relationship.py), not this port.
+    """
+
+    def label(self, from_text: str, to_text: str) -> RelationJudgement: ...
 
 
 class DlqPublisher(Protocol):
