@@ -96,6 +96,16 @@ spaces. `PutItem` with no condition, so re-processing the same event overwrites 
 deterministic-key idempotency as everywhere else in this codebase
 ([ADR-008](../../docs/adr/008-idempotency-via-deterministic-key.md)).
 
+## Candidate selection (IPP-98)
+
+`domain/candidate.py`'s `select_candidates` is REL 2: given a query embedding and a tenant's stored
+embeddings, return the top-`CANDIDATE_TOP_K` by cosine similarity above `CANDIDATE_SIMILARITY_THRESHOLD`,
+excluding the query insight itself and any `already_linked` ids the caller passes in. Pure and I/O-free by
+design — loading the tenant's vectors is an adapter's job, not this function's — so REL 3's agent can call it
+without a test needing DynamoDB. The brute-force scan is the same deliberate "no vector database" call as
+`domain/embedding.py`'s `cosine_similarity`, just vectorized: `numpy` computes one batched dot product against
+every candidate instead of a Python loop, which is the only reason this service takes a `numpy` dependency.
+
 ## Dev
 
 ```bash
