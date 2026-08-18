@@ -183,8 +183,19 @@ resource "aws_cognito_user_pool_client" "rest_api" {
 # custom scope), a domain (Cognito's /oauth2/token endpoint is only served
 # under the user pool's domain, unlike the AdminInitiateAuth-based flow the
 # human client above uses, which needs no domain), and a second app client.
+#
+# All three explicitly depend on time_sleep.cognito_iam_propagation, the
+# same guard aws_cognito_user_pool.rest_api uses above: referencing
+# aws_cognito_user_pool.rest_api.id alone doesn't force that ordering,
+# because that pool already exists from an earlier apply and has no
+# changes of its own to wait on here. The first apply of these resources
+# hit exactly this race — cognito-idp:CreateResourceServer /
+# CreateUserPoolDomain denied ~10s after the IAM policy granting them
+# finished updating, IAM's own propagation lag.
 
 resource "aws_cognito_resource_server" "agent" {
+  depends_on = [time_sleep.cognito_iam_propagation]
+
   identifier   = "ipp"
   name         = "${var.project}-${var.env}-agent-api"
   user_pool_id = aws_cognito_user_pool.rest_api.id
@@ -198,6 +209,8 @@ resource "aws_cognito_resource_server" "agent" {
 # Prefix must be globally unique across all AWS accounts in the region, not
 # just this account — if this collides on apply, rename it.
 resource "aws_cognito_user_pool_domain" "rest_api" {
+  depends_on = [time_sleep.cognito_iam_propagation]
+
   domain       = "${var.project}-${var.env}-agent-auth"
   user_pool_id = aws_cognito_user_pool.rest_api.id
 }
