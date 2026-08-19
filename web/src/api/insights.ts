@@ -11,6 +11,7 @@ export interface Insight {
   id: string;
   source: string;
   text: string;
+  notes?: string;
   enrichment?: Enrichment;
 }
 

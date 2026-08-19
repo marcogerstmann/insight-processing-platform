@@ -2,14 +2,14 @@ import { apiRequest } from "./client.ts";
 
 // Mirrors TagResponseDTO in
 // internal/adapters/inbound/http/rest/insight/dto.go. `score` ranks the tag
-// by recency/freshness of usage, not just how many insights carry it — see
-// TagRelevanceScore in internal/domain/tag_relevance.go. `score_components`
-// only has count/recency/freshness today; relationship density (REL 5)
-// isn't computed yet.
+// by recency/freshness of usage and relationship density, not just how many
+// insights carry it — see TagRelevanceScoreWithDensity in
+// internal/domain/tag_relevance.go.
 export interface TagScoreComponents {
   count: number;
   recency: number;
   freshness: number;
+  density: number;
 }
 
 export interface Tag {

@@ -8,6 +8,8 @@
   --color-primary-hover: #372ea8;
   --color-primary-text: #ffffff;
   --color-error: #dc2626;
+  --color-success: #16a34a;
+  --color-accent: #c2410c;
   --color-highlight: #fef3c7;
   --radius: 10px;
   --shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.08);
@@ -29,6 +31,8 @@
     --color-primary-hover: #9184f3;
     --color-primary-text: #14161a;
     --color-error: #f87171;
+    --color-success: #4ade80;
+    --color-accent: #fb923c;
     --color-highlight: #4a3f1a;
   }
 }
@@ -303,6 +307,121 @@ body {
 .claims-table tr.highlight th,
 .claims-table tr.highlight td {
   background: var(--color-highlight);
+}
+
+.insight-detail {
+  margin: 1rem 0 1.5rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.insight-detail-source {
+  margin: 0 0 0.4rem;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.insight-detail-text {
+  margin: 0 0 0.6rem;
+  font-size: 1.05rem;
+}
+
+.insight-detail-notes {
+  margin: 0 0 0.6rem;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.insight-detail-tags {
+  margin: 0;
+  color: var(--color-primary);
+  font-size: 0.85rem;
+}
+
+.related-insights-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.related-insight-item {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0.8rem 0.9rem;
+}
+
+.related-insight-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.4rem;
+}
+
+.related-insight-confidence {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+}
+
+.related-insight-link {
+  display: block;
+  border: none;
+  background: none;
+  color: var(--color-text);
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 0.4rem;
+  text-align: left;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.related-insight-link:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.related-insight-rationale {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+/* Relation type badges (IPP-112): each type gets its own color so
+   "contradicts" never reads like "same_topic" at a glance. */
+.relation-badge {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--color-primary-text);
+  background: var(--color-text-muted);
+}
+
+.relation-badge--supports {
+  background: var(--color-success);
+}
+
+.relation-badge--contradicts {
+  background: var(--color-error);
+}
+
+.relation-badge--extends {
+  background: var(--color-primary);
+}
+
+.relation-badge--example_of {
+  background: var(--color-accent);
+}
+
+.relation-badge--same_topic {
+  background: var(--color-text-muted);
 }
 
 @media (max-width: 640px) {

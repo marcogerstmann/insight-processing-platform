@@ -78,6 +78,8 @@ export function KnowledgeSection() {
           <dd>{selected.score_components.recency.toFixed(3)}</dd>
           <dt>Freshness component</dt>
           <dd>{selected.score_components.freshness.toFixed(3)}</dd>
+          <dt>Density component</dt>
+          <dd>{selected.score_components.density.toFixed(3)}</dd>
         </dl>
         <InsightsSection tag={selected.tag} />
       </section>
@@ -108,7 +110,7 @@ export function KnowledgeSection() {
               type="button"
               className="tag-cloud-item"
               style={{ fontSize: fontSizeFor(tag.score, minScore, maxScore) }}
-              title={`score ${tag.score.toFixed(2)} — count ${tag.score_components.count.toFixed(2)}, recency ${tag.score_components.recency.toFixed(2)}, freshness ${tag.score_components.freshness.toFixed(2)}`}
+              title={`score ${tag.score.toFixed(2)} — count ${tag.score_components.count.toFixed(2)}, recency ${tag.score_components.recency.toFixed(2)}, freshness ${tag.score_components.freshness.toFixed(2)}, density ${tag.score_components.density.toFixed(2)}`}
               onClick={() => setSelected(tag)}
             >
               {tag.tag}

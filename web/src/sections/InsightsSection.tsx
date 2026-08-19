@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthContext.tsx";
 import { listInsights, type Insight } from "../api/insights.ts";
+import type { RelatedInsight } from "../api/relationships.ts";
+import { InsightDetailSection } from "./InsightDetailSection.tsx";
 
 interface InsightsSectionProps {
   // Optional tag filter (IPP-109 drill-down). Undefined shows every insight,
@@ -10,7 +12,9 @@ interface InsightsSectionProps {
 
 // Insights list. On each mount (i.e. every time the section is opened, or the
 // tag filter changes) it calls GET /v1/insights and renders the result as a
-// plain table.
+// plain table. Clicking an insight's text opens its detail view (WEB
+// 5/IPP-112), which can itself navigate to a related insight — see
+// viewStack below.
 // Only ever mounted while signed in (App.tsx gates this), so `token` here is
 // always set.
 export function InsightsSection({ tag }: InsightsSectionProps = {}) {
@@ -18,6 +22,10 @@ export function InsightsSection({ tag }: InsightsSectionProps = {}) {
   const [insights, setInsights] = useState<Insight[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Detail-view navigation stack (WEB 5/IPP-112): pushing lets a related
+  // insight open its own detail in turn ("graph walking"), popping is Back.
+  // Empty stack = showing the list below.
+  const [viewStack, setViewStack] = useState<Insight[]>([]);
 
   useEffect(() => {
     if (!token) return;
@@ -28,6 +36,7 @@ export function InsightsSection({ tag }: InsightsSectionProps = {}) {
     setLoading(true);
     setError(null);
     setInsights(null);
+    setViewStack([]);
 
     listInsights(token, tag)
       .then((items) => {
@@ -48,6 +57,27 @@ export function InsightsSection({ tag }: InsightsSectionProps = {}) {
   }, [token, tag]);
 
   if (!token) return null;
+
+  function openDetail(insight: Insight) {
+    setViewStack((s) => [...s, insight]);
+  }
+
+  // The related-insight stub only carries id/text (denormalized server-side,
+  // see relationships.ts) — if the full record is already loaded here (the
+  // common case), prefer it so tags/notes still show up in its detail view.
+  function navigateToRelated(related: RelatedInsight) {
+    const known = insights?.find((i) => i.id === related.insight_id);
+    openDetail(known ?? { id: related.insight_id, source: "", text: related.text });
+  }
+
+  function goBack() {
+    setViewStack((s) => s.slice(0, -1));
+  }
+
+  if (viewStack.length > 0) {
+    const current = viewStack[viewStack.length - 1];
+    return <InsightDetailSection insight={current} onNavigate={navigateToRelated} onBack={goBack} />;
+  }
 
   return (
     <section>
@@ -77,7 +107,11 @@ export function InsightsSection({ tag }: InsightsSectionProps = {}) {
               {insights.map((insight) => (
                 <tr key={insight.id}>
                   <td>{insight.source}</td>
-                  <td>{insight.text}</td>
+                  <td>
+                    <button type="button" className="tag-cloud-item" onClick={() => openDetail(insight)}>
+                      {insight.text}
+                    </button>
+                  </td>
                   <td>{insight.enrichment?.tags?.join(", ") ?? ""}</td>
                 </tr>
               ))}
