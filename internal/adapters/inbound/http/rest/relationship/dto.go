@@ -17,3 +17,16 @@ type ResponseDTO struct {
 	Rationale     string    `json:"rationale"`
 	DiscoveredAt  time.Time `json:"discovered_at"`
 }
+
+type RelatedInsightDTO struct {
+	InsightID  string  `json:"insight_id"`
+	Text       string  `json:"text"`
+	Type       string  `json:"type"`
+	Confidence float64 `json:"confidence"`
+	Rationale  string  `json:"rationale"`
+}
+
+type ListRelationshipsResponseDTO struct {
+	InsightID string              `json:"insight_id"`
+	Items     []RelatedInsightDTO `json:"items"`
+}

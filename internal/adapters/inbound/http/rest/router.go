@@ -40,6 +40,10 @@ func NewRouter(insightHandler *insight.Handler, readwiseHandler *restreadwise.Ha
 		// URL, not a JWT claim — the AI service's machine token has no
 		// tenant of its own (see auth.CognitoValidator.Middleware).
 		v1.POST("/tenants/:tenantID/insights/:insightID/relationships", auth.RequireScope(auth.ScopeAgentWrite), relationshipHandler.Create)
+		// User route (REL 6, IPP-102): same URL shape as the write above,
+		// but tenant scoping comes from the JWT like every other user
+		// route — see ListByInsightID's doc comment.
+		v1.GET("/tenants/:tenantID/insights/:insightID/relationships", auth.RequireUser(), relationshipHandler.ListByInsightID)
 	}
 
 	return r

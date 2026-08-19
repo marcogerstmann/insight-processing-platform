@@ -45,6 +45,17 @@ type Relationship struct {
 	DiscoveredAt  time.Time
 }
 
+// RelatedInsight is one edge from an insight's perspective (REL 6/IPP-102):
+// the neighboring insight plus why it's connected. Text is denormalized
+// onto the edge at write time (see the dynamodb adapter), not fetched live.
+type RelatedInsight struct {
+	InsightID  string
+	Text       string
+	Type       RelationType
+	Confidence float64
+	Rationale  string
+}
+
 // Validate checks the fields that don't require a database round trip:
 // self-links, the relation type enum, and the confidence range. Whether
 // FromInsightID/ToInsightID actually exist in the tenant is

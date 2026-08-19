@@ -16,4 +16,9 @@ type RelationshipRepository interface {
 	// (FromInsightID, ToInsightID) so re-posting the same edge updates it
 	// rather than duplicating.
 	Put(ctx context.Context, rel domain.Relationship) error
+
+	// ListByInsightID returns insightID's edges, sorted by confidence
+	// descending, regardless of which side they were originally
+	// discovered from.
+	ListByInsightID(ctx context.Context, tenantID, insightID string) ([]domain.RelatedInsight, error)
 }

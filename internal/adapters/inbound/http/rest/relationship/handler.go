@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/auth"
 	"github.com/marcogerstmann/insight-processing-platform/internal/ports"
 )
 
@@ -49,4 +50,22 @@ func (h *Handler) Create(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, mapRelationshipToDTO(rel))
+}
+
+// ListByInsightID is a user route (see router.go): the tenant comes from
+// the JWT (auth.TenantIDKey), same as every other user route — the
+// :tenantID path segment exists only to mirror Create's URL shape and is
+// never trusted for scoping.
+func (h *Handler) ListByInsightID(c *gin.Context) {
+	tenantID := c.GetString(auth.TenantIDKey)
+	insightID := c.Param("insightID")
+
+	related, err := h.repo.ListByInsightID(c.Request.Context(), tenantID, insightID)
+	if err != nil {
+		slog.ErrorContext(c.Request.Context(), "failed to list relationships", "tenant_id", tenantID, "insight_id", insightID, "err", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal_server_error"})
+		return
+	}
+
+	c.JSON(http.StatusOK, mapRelatedInsightsToDTO(insightID, related))
 }

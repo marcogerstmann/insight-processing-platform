@@ -3,6 +3,7 @@ package dynamodb
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -20,21 +21,33 @@ var _ ports.RelationshipRepository = (*InsightAdapter)(nil)
 // relSK(from, to) and once under relSK(to, from) — so "related insights"
 // for either insight ID is a single begins_with(sk, "REL#<id>#") query.
 // Both copies keep the edge's original direction in
-// FromInsightID/ToInsightID; only the sort key differs.
+// FromInsightID/ToInsightID; only the sort key and RelatedInsightText
+// differ (see Put).
+//
+// TRADE-OFF (IPP-102): RelatedInsightText duplicates the *other* insight's
+// text onto the edge at write time, so GET .../relationships (REL 6) never
+// needs an N+1 fetch to render a summary per edge. This goes stale if the
+// insight's text ever changes after the edge is written — acceptable here
+// since insight text is immutable post-ingestion in this codebase.
 type dynamoRelationshipItem struct {
-	PK            string    `dynamodbav:"pk"`
-	SK            string    `dynamodbav:"sk"`
-	TenantID      string    `dynamodbav:"tenant_id"`
-	FromInsightID string    `dynamodbav:"from_insight_id"`
-	ToInsightID   string    `dynamodbav:"to_insight_id"`
-	Type          string    `dynamodbav:"type"`
-	Confidence    float64   `dynamodbav:"confidence"`
-	Rationale     string    `dynamodbav:"rationale"`
-	DiscoveredAt  time.Time `dynamodbav:"discovered_at"`
+	PK                 string    `dynamodbav:"pk"`
+	SK                 string    `dynamodbav:"sk"`
+	TenantID           string    `dynamodbav:"tenant_id"`
+	FromInsightID      string    `dynamodbav:"from_insight_id"`
+	ToInsightID        string    `dynamodbav:"to_insight_id"`
+	RelatedInsightText string    `dynamodbav:"related_insight_text"`
+	Type               string    `dynamodbav:"type"`
+	Confidence         float64   `dynamodbav:"confidence"`
+	Rationale          string    `dynamodbav:"rationale"`
+	DiscoveredAt       time.Time `dynamodbav:"discovered_at"`
 }
 
 func relSK(fromInsightID, toInsightID string) string {
 	return "REL#" + fromInsightID + "#" + toInsightID
+}
+
+func relSKPrefix(insightID string) string {
+	return "REL#" + insightID + "#"
 }
 
 // Put persists rel as two adjacency items sharing the tenant's partition,
@@ -46,15 +59,15 @@ func relSK(fromInsightID, toInsightID string) string {
 // them can leave one direction indexed and not the other. Upgrade to
 // TransactWriteItems if that inconsistency ever surfaces in practice.
 func (r *InsightAdapter) Put(ctx context.Context, rel domain.Relationship) error {
-	fromExists, err := r.insightExists(ctx, rel.TenantID, rel.FromInsightID)
+	fromInsight, err := r.getInsight(ctx, rel.TenantID, rel.FromInsightID)
 	if err != nil {
-		return fmt.Errorf("check from insight exists: %w", err)
+		return fmt.Errorf("get from insight: %w", err)
 	}
-	toExists, err := r.insightExists(ctx, rel.TenantID, rel.ToInsightID)
+	toInsight, err := r.getInsight(ctx, rel.TenantID, rel.ToInsightID)
 	if err != nil {
-		return fmt.Errorf("check to insight exists: %w", err)
+		return fmt.Errorf("get to insight: %w", err)
 	}
-	if !fromExists || !toExists {
+	if fromInsight == nil || toInsight == nil {
 		return ports.ErrInsightNotFound
 	}
 
@@ -69,11 +82,16 @@ func (r *InsightAdapter) Put(ctx context.Context, rel domain.Relationship) error
 		DiscoveredAt:  rel.DiscoveredAt,
 	}
 
-	for _, edgeSK := range [2]string{
-		relSK(rel.FromInsightID, rel.ToInsightID),
-		relSK(rel.ToInsightID, rel.FromInsightID),
-	} {
-		item.SK = edgeSK
+	edges := [2]struct {
+		sk          string
+		relatedText string
+	}{
+		{relSK(rel.FromInsightID, rel.ToInsightID), toInsight.Text},
+		{relSK(rel.ToInsightID, rel.FromInsightID), fromInsight.Text},
+	}
+	for _, edge := range edges {
+		item.SK = edge.sk
+		item.RelatedInsightText = edge.relatedText
 		av, err := attributevalue.MarshalMap(item)
 		if err != nil {
 			return err
@@ -89,7 +107,57 @@ func (r *InsightAdapter) Put(ctx context.Context, rel domain.Relationship) error
 	return nil
 }
 
-func (r *InsightAdapter) insightExists(ctx context.Context, tenantID, insightID string) (bool, error) {
+// ListByInsightID returns insightID's edges — from either direction it was
+// originally discovered in — sorted by confidence descending. A single
+// begins_with(sk, "REL#<insightID>#") query: no per-edge fetch of the
+// related insight, since its text was denormalized onto the edge at write
+// time (see dynamoRelationshipItem's doc comment).
+func (r *InsightAdapter) ListByInsightID(ctx context.Context, tenantID, insightID string) ([]domain.RelatedInsight, error) {
+	out, err := r.client.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(r.tableName),
+		KeyConditionExpression: aws.String("#pk = :pk AND begins_with(#sk, :skPrefix)"),
+		ExpressionAttributeNames: map[string]string{
+			"#pk": "pk",
+			"#sk": "sk",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":pk":       &types.AttributeValueMemberS{Value: pk(tenantID)},
+			":skPrefix": &types.AttributeValueMemberS{Value: relSKPrefix(insightID)},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	related := make([]domain.RelatedInsight, 0, len(out.Items))
+	for _, dynItem := range out.Items {
+		var item dynamoRelationshipItem
+		if err := attributevalue.UnmarshalMap(dynItem, &item); err != nil {
+			return nil, err
+		}
+
+		relatedID := item.ToInsightID
+		if item.FromInsightID != insightID {
+			relatedID = item.FromInsightID
+		}
+
+		related = append(related, domain.RelatedInsight{
+			InsightID:  relatedID,
+			Text:       item.RelatedInsightText,
+			Type:       domain.RelationType(item.Type),
+			Confidence: item.Confidence,
+			Rationale:  item.Rationale,
+		})
+	}
+
+	sort.SliceStable(related, func(i, j int) bool {
+		return related[i].Confidence > related[j].Confidence
+	})
+
+	return related, nil
+}
+
+func (r *InsightAdapter) getInsight(ctx context.Context, tenantID, insightID string) (*domain.Insight, error) {
 	out, err := r.client.GetItem(ctx, &dynamodb.GetItemInput{
 		TableName: aws.String(r.tableName),
 		Key: map[string]types.AttributeValue{
@@ -98,7 +166,14 @@ func (r *InsightAdapter) insightExists(ctx context.Context, tenantID, insightID 
 		},
 	})
 	if err != nil {
-		return false, err
+		return nil, err
 	}
-	return out.Item != nil, nil
+	if out.Item == nil {
+		return nil, nil
+	}
+	insight, err := unmarshalInsight(out.Item)
+	if err != nil {
+		return nil, err
+	}
+	return &insight, nil
 }

@@ -10,20 +10,30 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/auth"
 	"github.com/marcogerstmann/insight-processing-platform/internal/domain"
 	"github.com/marcogerstmann/insight-processing-platform/internal/ports"
 )
 
 type fakeRepo struct {
-	putCalled bool
-	gotRel    domain.Relationship
-	err       error
+	putCalled     bool
+	gotRel        domain.Relationship
+	err           error
+	listRelated   []domain.RelatedInsight
+	listTenantID  string
+	listInsightID string
 }
 
 func (f *fakeRepo) Put(_ context.Context, rel domain.Relationship) error {
 	f.putCalled = true
 	f.gotRel = rel
 	return f.err
+}
+
+func (f *fakeRepo) ListByInsightID(_ context.Context, tenantID, insightID string) ([]domain.RelatedInsight, error) {
+	f.listTenantID = tenantID
+	f.listInsightID = insightID
+	return f.listRelated, f.err
 }
 
 func doCreateRequest(h *Handler, tenantID, insightID string, body CreateRelationshipRequestDTO) (*httptest.ResponseRecorder, map[string]any) {
@@ -108,13 +118,72 @@ func TestHandler_Create_UnknownInsight_MapsToBadRequest(t *testing.T) {
 	repo := &fakeRepo{err: ports.ErrInsightNotFound}
 	h := NewHandler(repo)
 
-	rec, _ := doCreateRequest(h, "t-1", "i-1", CreateRelationshipRequestDTO{
-		ToInsightID: "i-missing",
+	rec, _ := doCreateRequest(h, "t-1", "i-missing", CreateRelationshipRequestDTO{
+		ToInsightID: "i-2",
 		Type:        "supports",
 		Confidence:  0.9,
 	})
 
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+}
+
+func doListRequest(h *Handler, jwtTenantID, urlTenantID, insightID string) (*httptest.ResponseRecorder, ListRelationshipsResponseDTO) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+
+	c.Request = httptest.NewRequest(http.MethodGet, "/v1/tenants/"+urlTenantID+"/insights/"+insightID+"/relationships", nil)
+	c.Params = gin.Params{{Key: "tenantID", Value: urlTenantID}, {Key: "insightID", Value: insightID}}
+	c.Set(auth.TenantIDKey, jwtTenantID)
+
+	h.ListByInsightID(c)
+
+	var body ListRelationshipsResponseDTO
+	_ = json.Unmarshal(rec.Body.Bytes(), &body)
+	return rec, body
+}
+
+func TestHandler_ListByInsightID_HappyPath_ReturnsMappedItems(t *testing.T) {
+	repo := &fakeRepo{listRelated: []domain.RelatedInsight{
+		{InsightID: "i-2", Text: "hello", Type: domain.RelationSupports, Confidence: 0.9, Rationale: "because reasons"},
+	}}
+	h := NewHandler(repo)
+
+	rec, body := doListRequest(h, "t-1", "t-1", "i-1")
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	if len(body.Items) != 1 || body.Items[0].InsightID != "i-2" || body.Items[0].Rationale != "because reasons" {
+		t.Fatalf("body.Items = %+v, want single mapped related insight", body.Items)
+	}
+}
+
+func TestHandler_ListByInsightID_NoRelationships_Returns200EmptyList(t *testing.T) {
+	repo := &fakeRepo{}
+	h := NewHandler(repo)
+
+	rec, body := doListRequest(h, "t-1", "t-1", "i-1")
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	if len(body.Items) != 0 {
+		t.Fatalf("body.Items = %v, want empty", body.Items)
+	}
+}
+
+func TestHandler_ListByInsightID_UsesJWTTenant_NeverTheURLPathParam(t *testing.T) {
+	repo := &fakeRepo{}
+	h := NewHandler(repo)
+
+	// URL says "t-attacker", but the JWT (auth.TenantIDKey) says "t-1" —
+	// the query must scope to the JWT tenant, never the untrusted path.
+	doListRequest(h, "t-1", "t-attacker", "i-1")
+
+	if repo.listTenantID != "t-1" {
+		t.Fatalf("repo queried tenant %q, want the JWT tenant t-1 (not the URL's t-attacker)", repo.listTenantID)
 	}
 }

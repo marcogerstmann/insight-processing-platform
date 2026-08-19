@@ -28,3 +28,17 @@ func mapRelationshipToDTO(r domain.Relationship) ResponseDTO {
 		DiscoveredAt:  r.DiscoveredAt,
 	}
 }
+
+func mapRelatedInsightsToDTO(insightID string, related []domain.RelatedInsight) ListRelationshipsResponseDTO {
+	items := make([]RelatedInsightDTO, len(related))
+	for idx, r := range related {
+		items[idx] = RelatedInsightDTO{
+			InsightID:  r.InsightID,
+			Text:       r.Text,
+			Type:       string(r.Type),
+			Confidence: r.Confidence,
+			Rationale:  r.Rationale,
+		}
+	}
+	return ListRelationshipsResponseDTO{InsightID: insightID, Items: items}
+}
