@@ -424,3 +424,59 @@ func TestInsightAdapter_ListTags_EmptyTenant_ReturnsEmptyNotNil(t *testing.T) {
 		t.Fatalf("ListTags(empty tenant) = %v, want empty", tags)
 	}
 }
+
+// TestInsightAdapter_ListTags_RelationshipsRaiseScore_VisibleInDensityComponent
+// is REL 5/IPP-101's observable-effect acceptance criterion: adding a
+// relationship between a tag's insights must raise that tag's score, and
+// the reason must be visible in ScoreComponents.Density specifically, not
+// just the aggregate score moving for some other reason.
+func TestInsightAdapter_ListTags_RelationshipsRaiseScore_VisibleInDensityComponent(t *testing.T) {
+	ctx := context.Background()
+	f := newFakeDynamo()
+	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	a := newTestAdapter(f, now)
+
+	i1 := domain.Insight{ID: "i-1", TenantID: "t-1", Source: "readwise", Text: "hello"}
+	if _, err := a.CreateIfAbsent(ctx, i1); err != nil {
+		t.Fatalf("CreateIfAbsent(i-1): %v", err)
+	}
+	i1.Enrichment = &domain.Enrichment{Tags: []string{"delegation"}}
+	if err := a.Update(ctx, i1); err != nil {
+		t.Fatalf("Update(i-1): %v", err)
+	}
+
+	i2 := domain.Insight{ID: "i-2", TenantID: "t-1", Source: "readwise", Text: "world"}
+	if _, err := a.CreateIfAbsent(ctx, i2); err != nil {
+		t.Fatalf("CreateIfAbsent(i-2): %v", err)
+	}
+	i2.Enrichment = &domain.Enrichment{Tags: []string{"delegation"}}
+	if err := a.Update(ctx, i2); err != nil {
+		t.Fatalf("Update(i-2): %v", err)
+	}
+
+	before, err := a.ListTags(ctx, "t-1")
+	if err != nil {
+		t.Fatalf("ListTags (before): %v", err)
+	}
+	if len(before) != 1 || before[0].ScoreComponents.Density != 0 {
+		t.Fatalf("before = %+v, want a single tag with Density=0 (no relationships yet)", before)
+	}
+
+	if err := a.Put(ctx, domain.Relationship{TenantID: "t-1", FromInsightID: "i-1", ToInsightID: "i-2", Type: domain.RelationSupports, Confidence: 0.9, Rationale: "linked"}); err != nil {
+		t.Fatalf("Put: %v", err)
+	}
+
+	after, err := a.ListTags(ctx, "t-1")
+	if err != nil {
+		t.Fatalf("ListTags (after): %v", err)
+	}
+	if len(after) != 1 {
+		t.Fatalf("after = %+v, want single tag", after)
+	}
+	if after[0].ScoreComponents.Density <= before[0].ScoreComponents.Density {
+		t.Fatalf("after Density = %v, want > before Density = %v", after[0].ScoreComponents.Density, before[0].ScoreComponents.Density)
+	}
+	if after[0].Score <= before[0].Score {
+		t.Fatalf("after Score = %v, want > before Score = %v", after[0].Score, before[0].Score)
+	}
+}

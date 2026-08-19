@@ -32,6 +32,7 @@ type TagScoreComponentsDTO struct {
 	Count     float64 `json:"count"`
 	Recency   float64 `json:"recency"`
 	Freshness float64 `json:"freshness"`
+	Density   float64 `json:"density"`
 }
 
 type TagResponseDTO struct {

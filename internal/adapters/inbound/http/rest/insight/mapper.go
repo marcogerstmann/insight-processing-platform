@@ -48,6 +48,7 @@ func mapTagsToDTO(tenantID string, tags []domain.TagSummary) ListTagsResponseDTO
 				Count:     t.ScoreComponents.Count,
 				Recency:   t.ScoreComponents.Recency,
 				Freshness: t.ScoreComponents.Freshness,
+				Density:   t.ScoreComponents.Density,
 			},
 		}
 	}

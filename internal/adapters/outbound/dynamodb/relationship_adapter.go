@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -44,6 +45,20 @@ type dynamoRelationshipItem struct {
 
 func relSK(fromInsightID, toInsightID string) string {
 	return "REL#" + fromInsightID + "#" + toInsightID
+}
+
+// parseRelOwnerFromSK extracts the owning insight ID from a relationship
+// item's sort key ("REL#<ownerID>#<otherID>"): whichever insight this
+// particular copy of the edge is filed under (see relSKPrefix and Put).
+// Used by relationshipDegreeByInsight to count edges per insight from a
+// single tenant-wide query.
+func parseRelOwnerFromSK(sk string) (string, bool) {
+	rest, ok := strings.CutPrefix(sk, "REL#")
+	if !ok {
+		return "", false
+	}
+	owner, _, ok := strings.Cut(rest, "#")
+	return owner, ok
 }
 
 func relSKPrefix(insightID string) string {

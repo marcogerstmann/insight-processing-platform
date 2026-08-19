@@ -274,8 +274,9 @@ func (r *InsightAdapter) ListByTag(ctx context.Context, tenantID, tag string) ([
 }
 
 // ListTags returns every tag in the tenant's partition aggregated with its
-// insight count, most recent tagging time, and relevance score, sorted by
-// score descending.
+// insight count, most recent tagging time, and relevance score (including
+// the relationship-density component, REL 5/IPP-101), sorted by score
+// descending.
 //
 // Aggregates in Go over one query of the TAG# prefix, per the
 // story's implementation notes. Fine at personal scale (a few hundred
@@ -299,9 +300,10 @@ func (r *InsightAdapter) ListTags(ctx context.Context, tenantID string) ([]domai
 	}
 
 	type aggregate struct {
-		count    int
-		lastAt   time.Time
-		taggedAt []time.Time
+		count      int
+		lastAt     time.Time
+		taggedAt   []time.Time
+		insightIDs []string
 	}
 	aggregates := make(map[string]*aggregate)
 	var tagOrder []string
@@ -324,8 +326,17 @@ func (r *InsightAdapter) ListTags(ctx context.Context, tenantID string) ([]domai
 		}
 		a.count++
 		a.taggedAt = append(a.taggedAt, dynItem.HighlightedAt)
+		a.insightIDs = append(a.insightIDs, dynItem.InsightID)
 		if dynItem.HighlightedAt.After(a.lastAt) {
 			a.lastAt = dynItem.HighlightedAt
+		}
+	}
+
+	var degree map[string]int
+	if len(tagOrder) > 0 {
+		degree, err = r.relationshipDegreeByInsight(ctx, tenantID)
+		if err != nil {
+			return nil, fmt.Errorf("relationship degree by insight: %w", err)
 		}
 	}
 
@@ -333,7 +344,14 @@ func (r *InsightAdapter) ListTags(ctx context.Context, tenantID string) ([]domai
 	summaries := make([]domain.TagSummary, 0, len(tagOrder))
 	for _, tag := range tagOrder {
 		a := aggregates[tag]
-		score, components := domain.TagRelevanceScore(a.taggedAt, now)
+
+		var totalDegree int
+		for _, insightID := range a.insightIDs {
+			totalDegree += degree[insightID]
+		}
+		avgDegree := float64(totalDegree) / float64(a.count)
+
+		score, components := domain.TagRelevanceScoreWithDensity(a.taggedAt, now, avgDegree)
 		summaries = append(summaries, domain.TagSummary{
 			Tag:             tag,
 			InsightCount:    a.count,
@@ -348,6 +366,43 @@ func (r *InsightAdapter) ListTags(ctx context.Context, tenantID string) ([]domai
 	})
 
 	return summaries, nil
+}
+
+// relationshipDegreeByInsight counts each insight's relationship edges (both
+// directions) with a single query over the tenant's REL# prefix: every edge
+// is stored once under each endpoint's own "REL#<insightID>#" sort key (see
+// RelationshipRepository.Put), so grouping by that prefix's owner segment
+// gives the degree directly — no per-insight fetch.
+func (r *InsightAdapter) relationshipDegreeByInsight(ctx context.Context, tenantID string) (map[string]int, error) {
+	out, err := r.client.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(r.tableName),
+		KeyConditionExpression: aws.String("#pk = :pk AND begins_with(#sk, :skPrefix)"),
+		ExpressionAttributeNames: map[string]string{
+			"#pk": "pk",
+			"#sk": "sk",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":pk":       &types.AttributeValueMemberS{Value: pk(tenantID)},
+			":skPrefix": &types.AttributeValueMemberS{Value: "REL#"},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	degree := make(map[string]int, len(out.Items))
+	for _, item := range out.Items {
+		var dynItem dynamoRelationshipItem
+		if err := attributevalue.UnmarshalMap(item, &dynItem); err != nil {
+			return nil, err
+		}
+		owner, ok := parseRelOwnerFromSK(dynItem.SK)
+		if !ok {
+			continue
+		}
+		degree[owner]++
+	}
+	return degree, nil
 }
 
 // parseTagFromSK extracts the tag from a membership item's sort key

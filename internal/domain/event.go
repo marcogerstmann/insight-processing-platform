@@ -85,3 +85,22 @@ func NewInsightEnrichedEvent(insight Insight, occurredAt time.Time) DomainEvent 
 		Tags:      tags,
 	})
 }
+
+// KnowledgeUpdatedPayload is the KnowledgeUpdated event's payload (REL
+// 5/IPP-101): the pair of insights a newly persisted relationship connects.
+type KnowledgeUpdatedPayload struct {
+	FromInsightID string `json:"from_insight_id"`
+	ToInsightID   string `json:"to_insight_id"`
+}
+
+// NewKnowledgeUpdatedEvent builds the envelope published right after a
+// relationship edge is durably written (RelationshipRepository.Put). The
+// subject ID is the edge itself, not either insight alone, so re-posting
+// the same edge (Put is idempotent) redelivers the same deterministic
+// event ID rather than a fresh one each time.
+func NewKnowledgeUpdatedEvent(rel Relationship, occurredAt time.Time) DomainEvent {
+	return NewDomainEvent(KnowledgeUpdated, rel.TenantID, rel.FromInsightID+"|"+rel.ToInsightID, occurredAt, KnowledgeUpdatedPayload{
+		FromInsightID: rel.FromInsightID,
+		ToInsightID:   rel.ToInsightID,
+	})
+}

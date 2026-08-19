@@ -8,15 +8,16 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/auth"
+	apprelationship "github.com/marcogerstmann/insight-processing-platform/internal/application/relationship"
 	"github.com/marcogerstmann/insight-processing-platform/internal/ports"
 )
 
 type Handler struct {
-	repo ports.RelationshipRepository
+	svc apprelationship.Service
 }
 
-func NewHandler(repo ports.RelationshipRepository) *Handler {
-	return &Handler{repo: repo}
+func NewHandler(svc apprelationship.Service) *Handler {
+	return &Handler{svc: svc}
 }
 
 // Create is an agent-only route (see router.go's RequireScope wiring): the
@@ -38,7 +39,7 @@ func (h *Handler) Create(c *gin.Context) {
 		return
 	}
 
-	if err := h.repo.Put(c.Request.Context(), rel); err != nil {
+	if err := h.svc.Put(c.Request.Context(), rel); err != nil {
 		if errors.Is(err, ports.ErrInsightNotFound) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "unknown insight"})
 			return
@@ -60,7 +61,7 @@ func (h *Handler) ListByInsightID(c *gin.Context) {
 	tenantID := c.GetString(auth.TenantIDKey)
 	insightID := c.Param("insightID")
 
-	related, err := h.repo.ListByInsightID(c.Request.Context(), tenantID, insightID)
+	related, err := h.svc.ListByInsightID(c.Request.Context(), tenantID, insightID)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "failed to list relationships", "tenant_id", tenantID, "insight_id", insightID, "err", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal_server_error"})

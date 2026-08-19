@@ -23,6 +23,7 @@ import (
 	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/ssm"
 	"github.com/marcogerstmann/insight-processing-platform/internal/application/ingest"
 	"github.com/marcogerstmann/insight-processing-platform/internal/application/insight"
+	apprelationship "github.com/marcogerstmann/insight-processing-platform/internal/application/relationship"
 	"github.com/marcogerstmann/insight-processing-platform/internal/ports"
 )
 
@@ -80,7 +81,8 @@ func main() {
 	}
 
 	insightHandler := restinsight.NewHandler(insightSvc)
-	relationshipHandler := restrelationship.NewHandler(insightAdapter)
+	relationshipSvc := apprelationship.NewService(insightAdapter, memory.NewDomainEventNoopAdapter())
+	relationshipHandler := restrelationship.NewHandler(relationshipSvc)
 	// Allow the web app's Vite dev server to call this local API from the
 	// browser. In AWS this is API Gateway's job; locally the Go server must do it.
 	router := rest.NewRouter(insightHandler, readwiseHandler, raindropHandler, relationshipHandler, authValidator, []string{"http://localhost:5173"})

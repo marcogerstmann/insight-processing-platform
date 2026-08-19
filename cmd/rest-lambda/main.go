@@ -24,6 +24,7 @@ import (
 	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/ssm"
 	"github.com/marcogerstmann/insight-processing-platform/internal/application/ingest"
 	"github.com/marcogerstmann/insight-processing-platform/internal/application/insight"
+	apprelationship "github.com/marcogerstmann/insight-processing-platform/internal/application/relationship"
 	"github.com/marcogerstmann/insight-processing-platform/internal/logging"
 	"github.com/marcogerstmann/insight-processing-platform/internal/ports"
 )
@@ -71,7 +72,8 @@ func init() {
 	}
 	insightSvc := insight.NewService(insightAdapter, nil, domainEvents)
 	insightHandler := restinsight.NewHandler(insightSvc)
-	relationshipHandler := restrelationship.NewHandler(insightAdapter)
+	relationshipSvc := apprelationship.NewService(insightAdapter, domainEvents)
+	relationshipHandler := restrelationship.NewHandler(relationshipSvc)
 
 	publisher, err := sqs.NewSQSEventPublisher(ctx)
 	if err != nil {
