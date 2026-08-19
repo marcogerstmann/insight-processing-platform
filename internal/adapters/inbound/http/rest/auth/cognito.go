@@ -43,6 +43,11 @@ const PrincipalTypeKey = "principalType"
 // "scope" claim.
 const ScopeKey = "scope"
 
+// ScopeAgentWrite is the OAuth scope granted to the AI service's machine
+// client (aws_cognito_user_pool_client.agent, IPP-94), used to gate
+// agent-only routes like REL 4/IPP-100's relationship write endpoint.
+const ScopeAgentWrite = "ipp/agent.write"
+
 // tenantIDClaim is a custom Cognito user pool attribute. It's only present on
 // ID tokens (custom attributes aren't included in access tokens), so callers
 // must authenticate with an ID token, matching the audience check below.
