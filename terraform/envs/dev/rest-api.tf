@@ -30,8 +30,11 @@ resource "aws_iam_role_policy" "rest_dynamodb" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect   = "Allow"
-        Action   = ["dynamodb:Query", "dynamodb:PutItem", "dynamodb:GetItem"]
+        Effect = "Allow"
+        # UpdateItem is SetReady/SetFailed's conditional write (PLAN 4,
+        # IPP-106's PUT .../weekly-plans/:id/result) — easy to forget since
+        # every other REST route only reads or PutItems.
+        Action   = ["dynamodb:Query", "dynamodb:PutItem", "dynamodb:GetItem", "dynamodb:UpdateItem"]
         Resource = module.dynamodb_insights.table_arn
       },
       {
@@ -346,6 +349,50 @@ resource "aws_apigatewayv2_route" "post_relationships" {
 resource "aws_apigatewayv2_route" "get_relationships" {
   api_id    = aws_apigatewayv2_api.rest.id
   route_key = "GET /v1/tenants/{tenantID}/insights/{insightID}/relationships"
+
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito_jwt.id
+
+  target = "integrations/${aws_apigatewayv2_integration.rest_lambda.id}"
+}
+
+resource "aws_apigatewayv2_route" "post_weekly_plans" {
+  api_id    = aws_apigatewayv2_api.rest.id
+  route_key = "POST /v1/tenants/{tenantID}/weekly-plans"
+
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito_jwt.id
+
+  target = "integrations/${aws_apigatewayv2_integration.rest_lambda.id}"
+}
+
+resource "aws_apigatewayv2_route" "get_weekly_plans" {
+  api_id    = aws_apigatewayv2_api.rest.id
+  route_key = "GET /v1/tenants/{tenantID}/weekly-plans"
+
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito_jwt.id
+
+  target = "integrations/${aws_apigatewayv2_integration.rest_lambda.id}"
+}
+
+resource "aws_apigatewayv2_route" "get_weekly_plan" {
+  api_id    = aws_apigatewayv2_api.rest.id
+  route_key = "GET /v1/tenants/{tenantID}/weekly-plans/{planID}"
+
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito_jwt.id
+
+  target = "integrations/${aws_apigatewayv2_integration.rest_lambda.id}"
+}
+
+# Agent-only (PLAN 4, IPP-106): same JWT authorizer as every other route —
+# it accepts both app clients (see cognito_jwt's audience comment above),
+# and Gin's auth.RequireScope(ScopeAgentWrite) is what actually rejects a
+# human's token here, same as post_relationships.
+resource "aws_apigatewayv2_route" "put_weekly_plan_result" {
+  api_id    = aws_apigatewayv2_api.rest.id
+  route_key = "PUT /v1/tenants/{tenantID}/weekly-plans/{planID}/result"
 
   authorization_type = "JWT"
   authorizer_id      = aws_apigatewayv2_authorizer.cognito_jwt.id
