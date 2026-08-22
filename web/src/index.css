@@ -393,11 +393,30 @@ body {
 }
 
 /* .related-insight-item doubles as a generic card for the weekly plan's
-   action list (IPP-110) — same border/padding/gap, just a plain heading
+   action list (IPP-110/111) — same border/padding/gap, just a plain heading
    instead of the clickable link the relationship graph needs. */
 .related-insight-item h4 {
   margin: 0 0 0.4rem;
   font-size: 0.95rem;
+}
+
+/* IPP-111: "why" is the most interesting output the system produces, so it
+   gets full-size body text, not the muted small print citations get. */
+.plan-action-why {
+  margin: 0 0 0.5rem;
+  color: var(--color-text);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.plan-action-citations {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+}
+
+.plan-action-citations .tag-cloud-item {
+  font-size: inherit;
 }
 
 /* Relation type badges (IPP-112): each type gets its own color so
