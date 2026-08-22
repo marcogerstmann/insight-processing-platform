@@ -22,6 +22,7 @@ import boto3
 from boto3.dynamodb.conditions import Key
 
 from ipp_ai.domain.insight import Enrichment, Insight
+from ipp_ai.domain.relationship import RelatedInsight, RelationType
 from ipp_ai.errors import PermanentError
 
 _TAG_INDEX_NAME = "gsi1"  # must match terraform/modules/dynamodb/main.tf
@@ -37,6 +38,10 @@ def _sk(insight_id: str) -> str:
 
 def _tag_sk_prefix(tag: str) -> str:
     return f"TAG#{tag}#INSIGHT#"
+
+
+def _rel_sk_prefix(insight_id: str) -> str:
+    return f"REL#{insight_id}#"
 
 
 class DynamoDbInsightReader:
@@ -69,6 +74,38 @@ class DynamoDbInsightReader:
                 insights.append(insight)
             # else: orphaned membership (insight deleted after tagging); skip.
         return insights
+
+    def list_by_insight(self, tenant_id: str, insight_id: str) -> list[RelatedInsight]:
+        """Satisfies ports.RelationshipReader. Mirrors
+        internal/adapters/outbound/dynamodb.InsightAdapter.ListByInsightID:
+        one query on the `REL#<insight_id>#` prefix — both directions of
+        every edge are filed under it, and the neighbor's text is
+        denormalized onto the item, so no N+1 fetch is needed here either.
+        """
+        response = self._table.query(
+            KeyConditionExpression=Key("pk").eq(_pk(tenant_id))
+            & Key("sk").begins_with(_rel_sk_prefix(insight_id)),
+        )
+        related = [_unmarshal_related_insight(insight_id, item) for item in response["Items"]]
+        related.sort(key=lambda r: r.confidence, reverse=True)
+        return related
+
+
+def _unmarshal_related_insight(insight_id: str, item: dict[str, Any]) -> RelatedInsight:
+    try:
+        is_forward_copy = item["from_insight_id"] == insight_id
+        other_id = item["to_insight_id"] if is_forward_copy else item["from_insight_id"]
+        return RelatedInsight(
+            insight_id=other_id,
+            text=item["related_insight_text"],
+            relation_type=RelationType(item["type"]),
+            confidence=float(item["confidence"]),
+            rationale=item["rationale"],
+        )
+    except (KeyError, ValueError, TypeError) as exc:
+        raise PermanentError(
+            f"malformed relationship item: pk={item.get('pk')!r} sk={item.get('sk')!r}"
+        ) from exc
 
 
 def _unmarshal_insight(item: dict[str, Any]) -> Insight:

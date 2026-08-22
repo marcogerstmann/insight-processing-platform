@@ -15,7 +15,7 @@ from typing import Protocol
 
 from ipp_ai.domain.embedding import Embedding
 from ipp_ai.domain.insight import Insight
-from ipp_ai.domain.relationship import RelationJudgement, Relationship
+from ipp_ai.domain.relationship import RelatedInsight, RelationJudgement, Relationship
 
 
 class SecretProvider(Protocol):
@@ -37,6 +37,17 @@ class InsightReader(Protocol):
     def get_by_id(self, tenant_id: str, insight_id: str) -> Insight | None: ...
     def list_by_tenant(self, tenant_id: str) -> list[Insight]: ...
     def list_by_tag(self, tenant_id: str, tag: str) -> list[Insight]: ...
+
+
+class RelationshipReader(Protocol):
+    """Read-only access to an insight's relationship edges (REL 6/IPP-102),
+    the same query GET /v1/tenants/:tenantID/insights/:insightID/relationships
+    runs — but read directly from the shared table rather than through the Go
+    API, same as InsightReader (services/ai/README.md's boundary rule is
+    about writes, not reads).
+    """
+
+    def list_by_insight(self, tenant_id: str, insight_id: str) -> list[RelatedInsight]: ...
 
 
 class EmbeddingClient(Protocol):

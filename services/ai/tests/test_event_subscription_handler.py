@@ -8,7 +8,7 @@ import pytest
 from ipp_ai.adapters.inbound.event_subscription import Handler
 from ipp_ai.domain.embedding import Embedding
 from ipp_ai.domain.insight import Insight
-from ipp_ai.domain.relationship import RelationJudgement, Relationship, RelationType
+from ipp_ai.domain.relationship import RelatedInsight, RelationJudgement, Relationship, RelationType
 
 
 @dataclass
@@ -25,9 +25,21 @@ class SpyDlq:
 @dataclass
 class FakeReader:
     insights: dict[tuple[str, str], Insight] = field(default_factory=dict)
+    by_tag: dict[tuple[str, str], list[Insight]] = field(default_factory=dict)
 
     def get_by_id(self, tenant_id: str, insight_id: str) -> Insight | None:
         return self.insights.get((tenant_id, insight_id))
+
+    def list_by_tag(self, tenant_id: str, tag: str) -> list[Insight]:
+        return self.by_tag.get((tenant_id, tag), [])
+
+
+@dataclass
+class FakeRelationshipReader:
+    edges: dict[tuple[str, str], list[RelatedInsight]] = field(default_factory=dict)
+
+    def list_by_insight(self, tenant_id: str, insight_id: str) -> list[RelatedInsight]:
+        return self.edges.get((tenant_id, insight_id), [])
 
 
 @dataclass
@@ -82,13 +94,17 @@ class SpyRelationshipWriter:
 def _insight(insight_id: str = "i1", tenant_id: str = "t1") -> Insight:
     from datetime import datetime
 
+    # tz-aware, matching real Insight values: DynamoDbInsightReader parses
+    # highlighted_at via datetime.fromisoformat on Go's "Z"-suffixed RFC3339,
+    # which yields an aware datetime — plan_context.select_context (IPP-104)
+    # subtracts this from an aware `now`, so a naive stand-in here would fail.
     return Insight(
         id=insight_id,
         tenant_id=tenant_id,
         source="readwise",
         text="hello world",
         notes="",
-        highlighted_at=datetime.fromisoformat("2026-01-01T00:00:00"),
+        highlighted_at=datetime.fromisoformat("2026-01-01T00:00:00+00:00"),
     )
 
 
@@ -117,6 +133,31 @@ def _envelope(
     )
 
 
+def _weekly_plan_requested_envelope(
+    *, tenant_id: str = "t1", plan_id: str = "p1", tag: str = "golang"
+) -> str:
+    return json.dumps(
+        {
+            "version": "0",
+            "id": "evt-2",
+            "detail-type": "WeeklyPlanRequested",
+            "source": "ipp.core",
+            "account": "123456789012",
+            "time": "2026-08-16T00:00:00Z",
+            "region": "eu-central-1",
+            "resources": [],
+            "detail": {
+                "event_id": "def456",
+                "event_type": "WeeklyPlanRequested",
+                "version": 1,
+                "tenant_id": tenant_id,
+                "occurred_at": "2026-08-16T00:00:00Z",
+                "payload": {"plan_id": plan_id, "tag": tag, "focus_sentence": "ship things"},
+            },
+        }
+    )
+
+
 def _sqs_event(*bodies: str) -> dict:
     return {"Records": [{"messageId": f"m-{i}", "body": b} for i, b in enumerate(bodies)]}
 
@@ -130,6 +171,7 @@ def _handler(
     embedding_reader: FakeEmbeddingReader | None = None,
     labeler: FakeLabeler | None = None,
     relationship_writer: SpyRelationshipWriter | None = None,
+    relationship_reader: FakeRelationshipReader | None = None,
 ) -> tuple[
     Handler,
     SpyDlq,
@@ -139,6 +181,7 @@ def _handler(
     FakeEmbeddingReader,
     FakeLabeler,
     SpyRelationshipWriter,
+    FakeRelationshipReader,
 ]:
     dlq = dlq or SpyDlq()
     reader = reader or FakeReader()
@@ -147,8 +190,28 @@ def _handler(
     embedding_reader = embedding_reader or FakeEmbeddingReader()
     labeler = labeler or FakeLabeler()
     relationship_writer = relationship_writer or SpyRelationshipWriter()
-    handler = Handler(dlq, reader, embedder, writer, embedding_reader, labeler, relationship_writer)
-    return handler, dlq, reader, embedder, writer, embedding_reader, labeler, relationship_writer
+    relationship_reader = relationship_reader or FakeRelationshipReader()
+    handler = Handler(
+        dlq,
+        reader,
+        embedder,
+        writer,
+        embedding_reader,
+        labeler,
+        relationship_writer,
+        relationship_reader,
+    )
+    return (
+        handler,
+        dlq,
+        reader,
+        embedder,
+        writer,
+        embedding_reader,
+        labeler,
+        relationship_writer,
+        relationship_reader,
+    )
 
 
 def test_handle_valid_record_logs_embeds_and_skips_dlq(caplog: pytest.LogCaptureFixture) -> None:
@@ -309,3 +372,51 @@ def test_handle_embedder_failure_propagates_for_redelivery() -> None:
         handler.handle(_sqs_event(_envelope()))
 
     assert dlq.sent == []  # transient — left to propagate, not DLQ'd here
+
+
+def test_handle_weekly_plan_requested_gathers_context_not_the_embed_pipeline(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """PLAN 2 (IPP-104): a WeeklyPlanRequested record must route to
+    gather_context, never touch the embedder/labeler/relationship_writer —
+    those belong to the InsightEnriched pipeline only.
+    """
+    insights = [_insight(f"i{n}") for n in range(3)]
+    reader = FakeReader(insights={}, by_tag={("t1", "golang"): insights})
+    embedder = FakeEmbedder(error=AssertionError("embedder must not be called"))
+    labeler = FakeLabeler(judgement=AssertionError("labeler must not be called"))
+    relationship_writer = SpyRelationshipWriter()
+    handler, dlq, *_ = _handler(
+        reader=reader,
+        embedder=embedder,
+        labeler=labeler,
+        relationship_writer=relationship_writer,
+    )
+
+    with caplog.at_level("INFO"):
+        handler.handle(_sqs_event(_weekly_plan_requested_envelope(tag="golang")))
+
+    assert dlq.sent == []
+    assert relationship_writer.puts == []
+    record = next(r for r in caplog.records if r.getMessage() == "selected weekly plan context")
+    assert record.tenant_id == "t1"
+    assert record.tag == "golang"
+    assert sorted(record.insight_ids) == ["i0", "i1", "i2"]
+
+
+def test_handle_weekly_plan_requested_too_few_insights_logs_insufficient_material(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    reader = FakeReader(insights={}, by_tag={("t1", "golang"): [_insight("i0")]})
+    handler, dlq, *_ = _handler(reader=reader)
+
+    with caplog.at_level("INFO"):
+        handler.handle(_sqs_event(_weekly_plan_requested_envelope(tag="golang")))
+
+    assert dlq.sent == []
+    record = next(
+        r for r in caplog.records if r.getMessage() == "not enough material to plan a week"
+    )
+    assert record.tenant_id == "t1"
+    assert record.tag == "golang"
+    assert record.insight_count == 1

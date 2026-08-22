@@ -13,6 +13,13 @@ same event, same record, same DLQ-or-propagate branch. Those three tickets
 shipped as pure, independently-tested functions; this handler is what
 actually calls them in production.
 
+PLAN 2 (IPP-104) adds a second event type on its own subscription queue
+(`terraform/envs/dev/ai.tf`'s `action_agent_subscription`, wired to this same
+Lambda by a second event source mapping): `WeeklyPlanRequested` branches to
+`application/context_gathering.py`'s `gather_context` instead of the
+embed+relate pipeline above — a different event type, a different job, same
+handler and same DLQ-or-propagate branch either way.
+
 `Handler` wires nothing itself (only depends on the ports its constructor
 takes, so it's testable without AWS); `lambda_handler` is the composition
 root that constructs the real adapters and is what the Dockerfile's CMD
@@ -25,7 +32,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from ipp_ai.adapters.outbound.cognito import CognitoServiceTokenClient
@@ -35,6 +42,7 @@ from ipp_ai.adapters.outbound.openai import OpenAiEmbeddingClient, OpenAiRelatio
 from ipp_ai.adapters.outbound.relationship_api import GoApiRelationshipWriter
 from ipp_ai.adapters.outbound.sqs import SqsDlqPublisher
 from ipp_ai.adapters.outbound.ssm import SsmSecretProvider
+from ipp_ai.application.context_gathering import gather_context
 from ipp_ai.application.embedding import embed_insight
 from ipp_ai.application.relationship import discover_relationships
 from ipp_ai.application.secrets import resolve_secret
@@ -48,6 +56,7 @@ from ipp_ai.ports import (
     EmbeddingWriter,
     InsightReader,
     RelationLabeler,
+    RelationshipReader,
     RelationshipWriter,
 )
 
@@ -74,6 +83,7 @@ class Handler:
         embedding_reader: EmbeddingReader,
         labeler: RelationLabeler,
         relationship_writer: RelationshipWriter,
+        relationship_reader: RelationshipReader,
     ) -> None:
         self._dlq = dlq
         self._reader = reader
@@ -82,6 +92,7 @@ class Handler:
         self._embedding_reader = embedding_reader
         self._labeler = labeler
         self._relationship_writer = relationship_writer
+        self._relationship_reader = relationship_reader
 
     def handle(self, event: dict[str, Any]) -> None:
         for record in event["Records"]:
@@ -89,6 +100,17 @@ class Handler:
             try:
                 domain_event = _parse_envelope(body)
                 _log_event(domain_event)
+
+                if domain_event.event_type == "WeeklyPlanRequested":
+                    gather_context(
+                        domain_event.tenant_id,
+                        domain_event.payload.get("tag"),
+                        insight_reader=self._reader,
+                        relationship_reader=self._relationship_reader,
+                        now=datetime.now(UTC),
+                    )
+                    continue
+
                 embedding = embed_insight(
                     domain_event.tenant_id,
                     domain_event.payload.get("insight_id"),
@@ -164,5 +186,9 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> None:
     )
     relationship_writer = GoApiRelationshipWriter(os.environ["REST_API_BASE_URL"], token_client)
 
-    handler = Handler(dlq, reader, embedder, embeddings, embeddings, labeler, relationship_writer)
+    # Same DynamoDbInsightReader instance also satisfies RelationshipReader
+    # (REL 6) — one class, one table, same read-only boundary as InsightReader.
+    handler = Handler(
+        dlq, reader, embedder, embeddings, embeddings, labeler, relationship_writer, reader
+    )
     handler.handle(event)

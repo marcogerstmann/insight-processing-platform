@@ -108,6 +108,25 @@ module "ai_subscription" {
   }
 }
 
+# PLAN 2 (IPP-104): its own queue+DLQ, isolated from ai_subscription above —
+# a WeeklyPlanRequested failure must never share retry/DLQ state with an
+# InsightEnriched one, EVT 4's whole point. Wired to the *same* ai_lambda via
+# a second event source mapping below rather than a second container image:
+# one Python package, two event types, same Handler.handle branching on
+# event_type (see event_subscription.py).
+module "action_agent_subscription" {
+  source = "../../modules/event-subscription"
+
+  bus_name        = module.domain_events_bus.bus_name
+  subscriber_name = "${var.project}-${var.env}-action-agent"
+  detail_types    = ["WeeklyPlanRequested"]
+
+  tags = {
+    Project = var.project
+    Env     = var.env
+  }
+}
+
 module "ai_lambda_role" {
   source                     = "../../modules/iam"
   name                       = "${var.project}-${var.env}-ai-lambda-role"
@@ -150,12 +169,18 @@ resource "aws_iam_role_policy" "ai_sqs_consume" {
           "sqs:GetQueueAttributes",
           "sqs:ChangeMessageVisibility"
         ]
-        Resource = module.ai_subscription.queue_arn
+        Resource = [
+          module.ai_subscription.queue_arn,
+          module.action_agent_subscription.queue_arn
+        ]
       },
       {
-        Effect   = "Allow"
-        Action   = ["sqs:SendMessage"]
-        Resource = module.ai_subscription.dlq_arn
+        Effect = "Allow"
+        Action = ["sqs:SendMessage"]
+        Resource = [
+          module.ai_subscription.dlq_arn,
+          module.action_agent_subscription.dlq_arn
+        ]
       }
     ]
   })
@@ -298,6 +323,18 @@ resource "aws_lambda_event_source_mapping" "ai_from_subscription_queue" {
   # Must stay 1 — see the batch_size comment in
   # services/ai/src/ipp_ai/adapters/inbound/event_subscription.py (same
   # constraint as the Go worker, ADR-009).
+  batch_size = 1
+  enabled    = true
+}
+
+# PLAN 2 (IPP-104): a second trigger on the same Lambda function, from
+# action_agent_subscription's own queue — Lambda supports multiple event
+# source mappings targeting one function, so this is the whole cost of
+# adding a second event type versus a second deployment.
+resource "aws_lambda_event_source_mapping" "ai_from_action_agent_subscription_queue" {
+  event_source_arn = module.action_agent_subscription.queue_arn
+  function_name    = module.ai_lambda.function_arn
+
   batch_size = 1
   enabled    = true
 }

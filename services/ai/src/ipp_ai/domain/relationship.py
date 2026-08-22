@@ -49,3 +49,19 @@ class Relationship:
     relation_type: RelationType
     confidence: float
     rationale: str
+
+
+@dataclass(frozen=True)
+class RelatedInsight:
+    """One edge from an insight's perspective — the read side's counterpart
+    to internal/domain.RelatedInsight (REL 6/IPP-102). `insight_id` is
+    whichever insight is on the *other* end from the one you queried; `text`
+    is denormalized onto the edge at write time (see the Go adapter), so
+    reading it never needs a second fetch.
+    """
+
+    insight_id: str
+    text: str
+    relation_type: RelationType
+    confidence: float
+    rationale: str
