@@ -6,7 +6,13 @@ import urllib.request
 
 import pytest
 
-from ipp_ai.adapters.outbound.openai import OpenAiEmbeddingClient, OpenAiRelationLabeler
+from ipp_ai.adapters.outbound.openai import (
+    OpenAiActionGenerator,
+    OpenAiEmbeddingClient,
+    OpenAiRelationLabeler,
+)
+from ipp_ai.domain.insight import Insight
+from ipp_ai.domain.plan_context import ContextEdge
 from ipp_ai.domain.relationship import RelationType
 
 
@@ -191,4 +197,100 @@ def test_label_retries_on_5xx_then_succeeds(monkeypatch: pytest.MonkeyPatch) -> 
 
     labeler = OpenAiRelationLabeler(api_key="k")
     labeler.label("a", "b")
+    assert attempts["n"] == 2
+
+
+def _insight(insight_id: str, text: str = "highlight text") -> Insight:
+    from datetime import datetime
+
+    return Insight(
+        id=insight_id,
+        tenant_id="t1",
+        source="readwise",
+        text=text,
+        notes="",
+        highlighted_at=datetime.fromisoformat("2026-01-01T00:00:00"),
+    )
+
+
+def _actions_payload(actions: list[dict], *, model: str = "gpt-5.6-luna") -> dict:
+    content = json.dumps({"actions": actions})
+    return {
+        "model": model,
+        "choices": [{"message": {"content": content}}],
+        "usage": {"prompt_tokens": 100, "completion_tokens": 50},
+    }
+
+
+def test_generate_sends_the_focus_edges_and_a_forced_json_schema(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen: dict = {}
+
+    def fake_urlopen(request: urllib.request.Request, timeout: float) -> _FakeResponse:
+        seen["request"] = request
+        return _FakeResponse(
+            _actions_payload(
+                [{"title": "Ship it", "why": "why", "supporting_insight_ids": ["i1"]}]
+            )
+        )
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+
+    edge = ContextEdge(
+        from_insight_id="i1",
+        to_insight_id="i2",
+        relation_type="contradicts",
+        confidence=0.8,
+        rationale="one says X, the other says not-X",
+    )
+    generator = OpenAiActionGenerator(api_key="secret-key")
+    actions = generator.generate("ship the draft", [_insight("i1"), _insight("i2")], (edge,))
+
+    assert len(actions) == 1
+    assert actions[0].title == "Ship it"
+    assert actions[0].supporting_insight_ids == ("i1",)
+
+    body = json.loads(seen["request"].data)
+    content = body["messages"][1]["content"]
+    assert "ship the draft" in content
+    assert "i1" in content and "i2" in content
+    assert "contradicts" in content
+    schema = body["response_format"]["json_schema"]
+    assert schema["strict"] is True
+    assert schema["schema"]["properties"]["actions"]["minItems"] == 3
+    assert schema["schema"]["properties"]["actions"]["maxItems"] == 5
+
+
+def test_generate_raises_when_an_item_is_missing_a_required_field(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Belt-and-suspenders, same spirit as the relation labeler's enum
+    check: `strict` should already guarantee this shape, but a malformed
+    tool response must fail loudly rather than silently drop a field.
+    """
+
+    def fake_urlopen(request: urllib.request.Request, timeout: float) -> _FakeResponse:
+        return _FakeResponse(_actions_payload([{"title": "Ship it", "why": "why"}]))
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+
+    generator = OpenAiActionGenerator(api_key="k")
+    with pytest.raises(KeyError):
+        generator.generate("focus", [_insight("i1")], ())
+
+
+def test_generate_retries_on_5xx_then_succeeds(monkeypatch: pytest.MonkeyPatch) -> None:
+    attempts = {"n": 0}
+
+    def fake_urlopen(request: urllib.request.Request, timeout: float) -> _FakeResponse:
+        attempts["n"] += 1
+        if attempts["n"] < 2:
+            raise urllib.error.HTTPError("url", 503, "unavailable", None, None)
+        return _FakeResponse(_actions_payload([]))
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+
+    generator = OpenAiActionGenerator(api_key="k")
+    generator.generate("focus", [_insight("i1")], ())
     assert attempts["n"] == 2

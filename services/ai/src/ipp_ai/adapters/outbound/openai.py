@@ -1,11 +1,11 @@
-"""OpenAI-backed EmbeddingClient and RelationLabeler.
+"""OpenAI-backed EmbeddingClient, RelationLabeler, and ActionGenerator.
 
 Replaces the Voyage adapter (IPP-135). Voyage existed only because
 Anthropic served no embeddings; now that one provider covers enrichment
 and embeddings both, this service and the Go worker share a single key —
 see docs/adr/018-one-provider-for-model-capabilities.md.
 
-Satisfies ipp_ai.ports.EmbeddingClient / RelationLabeler structurally;
+Satisfies ipp_ai.ports.EmbeddingClient / RelationLabeler / ActionGenerator structurally;
 this module does not import ipp_ai.ports (see ADR-017). Still plain
 `urllib.request` rather than the `openai` SDK: one POST, one response,
 and the SDK would be a dependency carried into the Lambda image for a
@@ -27,6 +27,9 @@ import time
 import urllib.error
 import urllib.request
 
+from ipp_ai.domain.action import Action
+from ipp_ai.domain.insight import Insight
+from ipp_ai.domain.plan_context import ContextEdge
 from ipp_ai.domain.relationship import RelationJudgement, RelationType
 
 logger = logging.getLogger(__name__)
@@ -97,6 +100,76 @@ _RELATION_SCHEMA = {
         },
     },
     "required": ["relation_type", "confidence", "rationale"],
+    "additionalProperties": False,
+}
+
+
+# Same cheap-model judgement as _RELATION_MODEL: drafting a handful of
+# actions from an already-bounded context (PLAN 2 caps that at
+# CONTEXT_TOKEN_BUDGET) is a constrained extraction task, not a job that
+# needs a frontier model.
+_ACTION_MODEL = "gpt-5.6-luna"
+_ACTION_MAX_TOKENS = 800
+_ACTION_TIMEOUT_SECONDS = 20
+_ACTION_SCHEMA_NAME = "draft_weekly_actions"
+
+_ACTION_SYSTEM_PROMPT = (
+    "You are a weekly planning assistant. Given someone's stated focus for "
+    "the week and a set of highlights from their reading (with any known "
+    "relationships between them), propose 3-5 actions they can actually "
+    "execute this week. Every action must be concrete and executable-this-"
+    "week: a specific step, not vague advice. Reject anything that reads "
+    "like 'reflect on X', 'think about Y', or 'read more about Z' — those "
+    "are not actions. Center every action on the stated focus; do not "
+    "drift into unrelated advice the highlights merely touch on. Cite the "
+    "ids of only the highlights you were given that actually support each "
+    "action — never invent an id. Be direct and concise. No preamble, no "
+    "filler."
+)
+
+# One object per drafted action, mirroring _RELATION_SCHEMA's discipline:
+# `strict` + `additionalProperties: False` + every property in `required`
+# constrains the model to exactly this shape at generation time — the same
+# substitution for a forced tool call the Go enrichment adapter documents
+# (openai.go). supporting_insight_ids is deliberately still unvalidated
+# here: the schema can force the *shape* of a citation, not whether the id
+# is real, so application/action_generation.py checks that afterward.
+_ACTION_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "actions": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 5,
+            "items": {
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "description": "A single concrete, executable-this-week action.",
+                    },
+                    "why": {
+                        "type": "string",
+                        "description": (
+                            "One or two plain-language sentences tying this action to the "
+                            "user's stated focus and the highlights it cites."
+                        ),
+                    },
+                    "supporting_insight_ids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "minItems": 1,
+                        "description": (
+                            "ids, from the highlights supplied, that justify this action."
+                        ),
+                    },
+                },
+                "required": ["title", "why", "supporting_insight_ids"],
+                "additionalProperties": False,
+            },
+        }
+    },
+    "required": ["actions"],
     "additionalProperties": False,
 }
 
@@ -197,6 +270,95 @@ class OpenAiRelationLabeler:
             confidence=float(content["confidence"]),
             rationale=content["rationale"],
         )
+
+
+class OpenAiActionGenerator:
+    """Drafts weekly actions via OpenAI's `/v1/chat/completions` endpoint,
+    one call per plan. Returns drafts as-is — `Action.supporting_insight_ids`
+    is exactly what the model claimed; PLAN 3's citation validation
+    (application/action_generation.py) is what turns "claimed" into
+    "verified", deliberately kept out of this adapter.
+    """
+
+    def __init__(self, api_key: str) -> None:
+        self._api_key = api_key
+
+    def generate(
+        self, focus_sentence: str, insights: list[Insight], edges: tuple[ContextEdge, ...]
+    ) -> list[Action]:
+        body = json.dumps(
+            {
+                "model": _ACTION_MODEL,
+                "max_completion_tokens": _ACTION_MAX_TOKENS,
+                "messages": [
+                    {"role": "system", "content": _ACTION_SYSTEM_PROMPT},
+                    {
+                        "role": "user",
+                        "content": _format_action_context(focus_sentence, insights, edges),
+                    },
+                ],
+                "response_format": {
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": _ACTION_SCHEMA_NAME,
+                        "strict": True,
+                        "schema": _ACTION_SCHEMA,
+                    },
+                },
+            }
+        ).encode()
+        request = urllib.request.Request(
+            _CHAT_ENDPOINT,
+            data=body,
+            method="POST",
+            headers={
+                "Authorization": f"Bearer {self._api_key}",
+                "Content-Type": "application/json",
+            },
+        )
+
+        start = time.monotonic()
+        payload = _send_json(request, timeout=_ACTION_TIMEOUT_SECONDS)
+        duration_ms = int((time.monotonic() - start) * 1000)
+
+        usage = payload.get("usage", {})
+        logger.info(
+            "llm weekly plan action draft complete",
+            extra={
+                "model": payload.get("model"),
+                "input_tokens": usage.get("prompt_tokens"),
+                "output_tokens": usage.get("completion_tokens"),
+                "duration_ms": duration_ms,
+            },
+        )
+
+        content = json.loads(payload["choices"][0]["message"]["content"])
+        return [
+            Action(
+                title=raw["title"],
+                why=raw["why"],
+                supporting_insight_ids=tuple(raw["supporting_insight_ids"]),
+            )
+            for raw in content["actions"]
+        ]
+
+
+def _format_action_context(
+    focus_sentence: str, insights: list[Insight], edges: tuple[ContextEdge, ...]
+) -> str:
+    lines = [f"This week's focus: {focus_sentence}", "", "Highlights:"]
+    for insight in insights:
+        lines.append(f"- id: {insight.id}\n  text: {insight.text}")
+
+    if edges:
+        lines.append("\nRelationships between highlights:")
+        for edge in edges:
+            lines.append(
+                f"- {edge.from_insight_id} {edge.relation_type} {edge.to_insight_id}: "
+                f"{edge.rationale}"
+            )
+
+    return "\n".join(lines)
 
 
 def _send_json(request: urllib.request.Request, *, timeout: float) -> dict:

@@ -6,8 +6,10 @@ from dataclasses import dataclass, field
 import pytest
 
 from ipp_ai.adapters.inbound.event_subscription import Handler
+from ipp_ai.domain.action import Action
 from ipp_ai.domain.embedding import Embedding
 from ipp_ai.domain.insight import Insight
+from ipp_ai.domain.plan_context import ContextEdge
 from ipp_ai.domain.relationship import RelatedInsight, RelationJudgement, Relationship, RelationType
 
 
@@ -91,6 +93,22 @@ class SpyRelationshipWriter:
         self.puts.append(relationship)
 
 
+@dataclass
+class FakeActionGenerator:
+    actions: list[Action] | Exception | None = None
+    received: list[tuple[str, tuple[str, ...], int]] = field(default_factory=list)
+
+    def generate(
+        self, focus_sentence: str, insights: list[Insight], edges: tuple[ContextEdge, ...]
+    ) -> list[Action]:
+        self.received.append((focus_sentence, tuple(i.id for i in insights), len(edges)))
+        if isinstance(self.actions, Exception):
+            raise self.actions
+        if self.actions is None:
+            raise AssertionError("generate() called but no actions were configured")
+        return self.actions
+
+
 def _insight(insight_id: str = "i1", tenant_id: str = "t1") -> Insight:
     from datetime import datetime
 
@@ -172,6 +190,7 @@ def _handler(
     labeler: FakeLabeler | None = None,
     relationship_writer: SpyRelationshipWriter | None = None,
     relationship_reader: FakeRelationshipReader | None = None,
+    action_generator: FakeActionGenerator | None = None,
 ) -> tuple[
     Handler,
     SpyDlq,
@@ -182,6 +201,7 @@ def _handler(
     FakeLabeler,
     SpyRelationshipWriter,
     FakeRelationshipReader,
+    FakeActionGenerator,
 ]:
     dlq = dlq or SpyDlq()
     reader = reader or FakeReader()
@@ -191,6 +211,7 @@ def _handler(
     labeler = labeler or FakeLabeler()
     relationship_writer = relationship_writer or SpyRelationshipWriter()
     relationship_reader = relationship_reader or FakeRelationshipReader()
+    action_generator = action_generator or FakeActionGenerator()
     handler = Handler(
         dlq,
         reader,
@@ -200,6 +221,7 @@ def _handler(
         labeler,
         relationship_writer,
         relationship_reader,
+        action_generator,
     )
     return (
         handler,
@@ -211,6 +233,7 @@ def _handler(
         labeler,
         relationship_writer,
         relationship_reader,
+        action_generator,
     )
 
 
@@ -386,11 +409,13 @@ def test_handle_weekly_plan_requested_gathers_context_not_the_embed_pipeline(
     embedder = FakeEmbedder(error=AssertionError("embedder must not be called"))
     labeler = FakeLabeler(judgement=AssertionError("labeler must not be called"))
     relationship_writer = SpyRelationshipWriter()
+    action_generator = FakeActionGenerator(actions=[])
     handler, dlq, *_ = _handler(
         reader=reader,
         embedder=embedder,
         labeler=labeler,
         relationship_writer=relationship_writer,
+        action_generator=action_generator,
     )
 
     with caplog.at_level("INFO"):
@@ -407,6 +432,10 @@ def test_handle_weekly_plan_requested_gathers_context_not_the_embed_pipeline(
 def test_handle_weekly_plan_requested_too_few_insights_logs_insufficient_material(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
+    """FakeActionGenerator() with no configured actions would raise if
+    called — asserting the AC that InsufficientMaterial never reaches the
+    LLM call PLAN 3 adds.
+    """
     reader = FakeReader(insights={}, by_tag={("t1", "golang"): [_insight("i0")]})
     handler, dlq, *_ = _handler(reader=reader)
 
@@ -420,3 +449,42 @@ def test_handle_weekly_plan_requested_too_few_insights_logs_insufficient_materia
     assert record.tenant_id == "t1"
     assert record.tag == "golang"
     assert record.insight_count == 1
+
+
+def test_handle_weekly_plan_requested_generates_and_validates_actions(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """PLAN 3 (IPP-105): a selected context is handed to the action
+    generator with the event's focus sentence, and a hallucinated citation
+    is dropped before anything is logged as generated.
+    """
+    insights = [_insight(f"i{n}") for n in range(3)]
+    reader = FakeReader(insights={}, by_tag={("t1", "golang"): insights})
+    action_generator = FakeActionGenerator(
+        actions=[
+            Action(
+                title="Ship the draft",
+                why="Directly serves the focus.",
+                supporting_insight_ids=("i0",),
+            ),
+            Action(
+                title="Made up",
+                why="Cites nothing real.",
+                supporting_insight_ids=("does-not-exist",),
+            ),
+        ]
+    )
+    handler, dlq, *_ = _handler(reader=reader, action_generator=action_generator)
+
+    with caplog.at_level("INFO"):
+        handler.handle(_sqs_event(_weekly_plan_requested_envelope(tag="golang")))
+
+    assert dlq.sent == []
+    assert action_generator.received[0][0] == "ship things"
+    assert sorted(action_generator.received[0][1]) == ["i0", "i1", "i2"]
+
+    record = next(r for r in caplog.records if r.getMessage() == "generated weekly plan actions")
+    assert record.tenant_id == "t1"
+    assert record.tag == "golang"
+    assert record.drafted_count == 2
+    assert record.valid_count == 1

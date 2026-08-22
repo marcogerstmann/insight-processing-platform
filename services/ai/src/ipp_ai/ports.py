@@ -13,8 +13,10 @@ from __future__ import annotations
 
 from typing import Protocol
 
+from ipp_ai.domain.action import Action
 from ipp_ai.domain.embedding import Embedding
 from ipp_ai.domain.insight import Insight
+from ipp_ai.domain.plan_context import ContextEdge
 from ipp_ai.domain.relationship import RelatedInsight, RelationJudgement, Relationship
 
 
@@ -96,6 +98,21 @@ class RelationLabeler(Protocol):
     """
 
     def label(self, from_text: str, to_text: str) -> RelationJudgement: ...
+
+
+class ActionGenerator(Protocol):
+    """Drafts 3-5 candidate actions from a focus sentence and a bounded
+    context — the read side's counterpart to RelationLabeler.label's shape
+    (one bounded call in, one structured result out). Each draft's
+    `supporting_insight_ids` are unverified model output; checking them
+    against the ids `insights` actually contains is
+    application/action_generation.py's job, not this port's, same split
+    RelationLabeler/label_relationships draws for the confidence threshold.
+    """
+
+    def generate(
+        self, focus_sentence: str, insights: list[Insight], edges: tuple[ContextEdge, ...]
+    ) -> list[Action]: ...
 
 
 class RelationshipWriter(Protocol):

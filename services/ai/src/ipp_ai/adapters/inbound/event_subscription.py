@@ -20,6 +20,14 @@ Lambda by a second event source mapping): `WeeklyPlanRequested` branches to
 embed+relate pipeline above — a different event type, a different job, same
 handler and same DLQ-or-propagate branch either way.
 
+PLAN 3 (IPP-105) extends that branch: once `gather_context` returns a
+`SelectedContext` (not `InsufficientMaterial`, which has nothing to plan
+from), `application/action_generation.py`'s `generate_actions` makes the
+one LLM call that drafts and citation-validates the week's actions. PLAN 4
+is what will persist the result and PLAN 5 what will make that write
+idempotent; until then the generated actions are logged the same way
+`gather_context`'s own selection already is, not yet stored anywhere.
+
 `Handler` wires nothing itself (only depends on the ports its constructor
 takes, so it's testable without AWS); `lambda_handler` is the composition
 root that constructs the real adapters and is what the Dockerfile's CMD
@@ -38,18 +46,25 @@ from typing import Any
 from ipp_ai.adapters.outbound.cognito import CognitoServiceTokenClient
 from ipp_ai.adapters.outbound.dynamodb import DynamoDbInsightReader
 from ipp_ai.adapters.outbound.embedding_store import DynamoDbEmbeddingWriter
-from ipp_ai.adapters.outbound.openai import OpenAiEmbeddingClient, OpenAiRelationLabeler
+from ipp_ai.adapters.outbound.openai import (
+    OpenAiActionGenerator,
+    OpenAiEmbeddingClient,
+    OpenAiRelationLabeler,
+)
 from ipp_ai.adapters.outbound.relationship_api import GoApiRelationshipWriter
 from ipp_ai.adapters.outbound.sqs import SqsDlqPublisher
 from ipp_ai.adapters.outbound.ssm import SsmSecretProvider
+from ipp_ai.application.action_generation import generate_actions
 from ipp_ai.application.context_gathering import gather_context
 from ipp_ai.application.embedding import embed_insight
 from ipp_ai.application.relationship import discover_relationships
 from ipp_ai.application.secrets import resolve_secret
 from ipp_ai.domain.event import DomainEvent
+from ipp_ai.domain.plan_context import SelectedContext
 from ipp_ai.errors import PermanentError
 from ipp_ai.logging_config import configure
 from ipp_ai.ports import (
+    ActionGenerator,
     DlqPublisher,
     EmbeddingClient,
     EmbeddingReader,
@@ -84,6 +99,7 @@ class Handler:
         labeler: RelationLabeler,
         relationship_writer: RelationshipWriter,
         relationship_reader: RelationshipReader,
+        action_generator: ActionGenerator,
     ) -> None:
         self._dlq = dlq
         self._reader = reader
@@ -93,6 +109,7 @@ class Handler:
         self._labeler = labeler
         self._relationship_writer = relationship_writer
         self._relationship_reader = relationship_reader
+        self._action_generator = action_generator
 
     def handle(self, event: dict[str, Any]) -> None:
         for record in event["Records"]:
@@ -102,13 +119,20 @@ class Handler:
                 _log_event(domain_event)
 
                 if domain_event.event_type == "WeeklyPlanRequested":
-                    gather_context(
+                    context = gather_context(
                         domain_event.tenant_id,
                         domain_event.payload.get("tag"),
                         insight_reader=self._reader,
                         relationship_reader=self._relationship_reader,
                         now=datetime.now(UTC),
                     )
+                    if isinstance(context, SelectedContext):
+                        generate_actions(
+                            domain_event.tenant_id,
+                            domain_event.payload.get("focus_sentence", ""),
+                            context,
+                            generator=self._action_generator,
+                        )
                     continue
 
                 embedding = embed_insight(
@@ -176,6 +200,7 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> None:
         raise RuntimeError("OPENAI_API_KEY not configured")
     embedder = OpenAiEmbeddingClient(api_key)
     labeler = OpenAiRelationLabeler(api_key)
+    action_generator = OpenAiActionGenerator(api_key)
 
     agent_secret = resolve_secret("AGENT_CLIENT_SECRET", SsmSecretProvider())
     token_client = CognitoServiceTokenClient(
@@ -189,6 +214,14 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> None:
     # Same DynamoDbInsightReader instance also satisfies RelationshipReader
     # (REL 6) — one class, one table, same read-only boundary as InsightReader.
     handler = Handler(
-        dlq, reader, embedder, embeddings, embeddings, labeler, relationship_writer, reader
+        dlq,
+        reader,
+        embedder,
+        embeddings,
+        embeddings,
+        labeler,
+        relationship_writer,
+        reader,
+        action_generator,
     )
     handler.handle(event)
