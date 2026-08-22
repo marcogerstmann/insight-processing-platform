@@ -85,7 +85,7 @@ func main() {
 	insightHandler := restinsight.NewHandler(insightSvc)
 	relationshipSvc := apprelationship.NewService(insightAdapter, memory.NewDomainEventNoopAdapter())
 	relationshipHandler := restrelationship.NewHandler(relationshipSvc)
-	weeklyPlanSvc := appweeklyplan.NewService(insightAdapter, memory.NewDomainEventNoopAdapter())
+	weeklyPlanSvc := appweeklyplan.NewService(insightAdapter, insightAdapter, memory.NewDomainEventNoopAdapter())
 	weeklyPlanHandler := restweeklyplan.NewHandler(weeklyPlanSvc)
 	// Allow the web app's Vite dev server to call this local API from the
 	// browser. In AWS this is API Gateway's job; locally the Go server must do it.

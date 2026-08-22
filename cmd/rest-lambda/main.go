@@ -76,7 +76,7 @@ func init() {
 	insightHandler := restinsight.NewHandler(insightSvc)
 	relationshipSvc := apprelationship.NewService(insightAdapter, domainEvents)
 	relationshipHandler := restrelationship.NewHandler(relationshipSvc)
-	weeklyPlanSvc := appweeklyplan.NewService(insightAdapter, domainEvents)
+	weeklyPlanSvc := appweeklyplan.NewService(insightAdapter, insightAdapter, domainEvents)
 	weeklyPlanHandler := restweeklyplan.NewHandler(weeklyPlanSvc)
 
 	publisher, err := sqs.NewSQSEventPublisher(ctx)

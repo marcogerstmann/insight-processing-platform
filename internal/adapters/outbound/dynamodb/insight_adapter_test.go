@@ -69,18 +69,63 @@ func (f *fakeDynamo) UpdateItem(_ context.Context, in *dynamodb.UpdateItemInput,
 	if !exists {
 		return nil, &types.ConditionalCheckFailedException{}
 	}
+	if in.ConditionExpression != nil &&
+		!conditionHolds(item, *in.ConditionExpression, in.ExpressionAttributeNames, in.ExpressionAttributeValues) {
+		return nil, &types.ConditionalCheckFailedException{}
+	}
 
-	expr := strings.TrimPrefix(*in.UpdateExpression, "SET ")
-	for _, clause := range strings.Split(expr, ", ") {
+	// UpdateExpression is at most one SET clause and one REMOVE clause here
+	// (the only shapes InsightAdapter sends); split on " REMOVE " before
+	// handling each half, rather than a full expression parser.
+	setExpr, removeExpr, _ := strings.Cut(*in.UpdateExpression, " REMOVE ")
+	setExpr = strings.TrimPrefix(setExpr, "SET ")
+	for _, clause := range strings.Split(setExpr, ", ") {
 		parts := strings.SplitN(clause, " = ", 2)
 		attrName := in.ExpressionAttributeNames[parts[0]]
 		item[attrName] = in.ExpressionAttributeValues[parts[1]]
+	}
+	for _, alias := range strings.Split(removeExpr, ", ") {
+		if attrName := in.ExpressionAttributeNames[alias]; attrName != "" {
+			delete(item, attrName)
+		}
 	}
 
 	if _, ok := item["gsi1pk"]; ok {
 		f.index[compositeKey(item, "gsi1pk", "gsi1sk")] = item
 	}
 	return &dynamodb.UpdateItemOutput{}, nil
+}
+
+// conditionHolds fakes just enough of DynamoDB's condition-expression
+// evaluation for the clauses InsightAdapter actually sends: one or more
+// `attribute_exists(#alias)` / `#alias = :value` clauses joined by " AND ".
+func conditionHolds(
+	item map[string]types.AttributeValue, expr string, names map[string]string, values map[string]types.AttributeValue,
+) bool {
+	for _, clause := range strings.Split(expr, " AND ") {
+		clause = strings.TrimSpace(clause)
+		if rest, ok := strings.CutPrefix(clause, "attribute_exists("); ok {
+			alias := strings.TrimSuffix(rest, ")")
+			if _, exists := item[names[alias]]; !exists {
+				return false
+			}
+			continue
+		}
+
+		alias, valueRef, ok := strings.Cut(clause, " = ")
+		if !ok {
+			continue
+		}
+		want, ok := values[valueRef].(*types.AttributeValueMemberS)
+		if !ok {
+			continue
+		}
+		got, ok := item[names[alias]].(*types.AttributeValueMemberS)
+		if !ok || got.Value != want.Value {
+			return false
+		}
+	}
+	return true
 }
 
 func (f *fakeDynamo) DeleteItem(_ context.Context, in *dynamodb.DeleteItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error) {

@@ -49,6 +49,13 @@ func NewRouter(insightHandler *insight.Handler, readwiseHandler *restreadwise.Ha
 		// User route (PLAN 1, IPP-103): tenant scoping comes from the JWT,
 		// same as ListByInsightID above — see Handler.Create's doc comment.
 		v1.POST("/tenants/:tenantID/weekly-plans", auth.RequireUser(), weeklyPlanHandler.Create)
+		v1.GET("/tenants/:tenantID/weekly-plans", auth.RequireUser(), weeklyPlanHandler.List)
+		v1.GET("/tenants/:tenantID/weekly-plans/:planID", auth.RequireUser(), weeklyPlanHandler.Get)
+
+		// Agent-only (PLAN 4, IPP-106): the planning worker's machine token
+		// carries no tenant, same reasoning as the relationship write route
+		// above — tenant and plan both come from the URL.
+		v1.PUT("/tenants/:tenantID/weekly-plans/:planID/result", auth.RequireScope(auth.ScopeAgentWrite), weeklyPlanHandler.SubmitResult)
 	}
 
 	return r
