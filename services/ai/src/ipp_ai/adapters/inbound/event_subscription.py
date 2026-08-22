@@ -26,10 +26,13 @@ from), `application/action_generation.py`'s `generate_actions` makes the
 one LLM call that drafts and citation-validates the week's actions. PLAN 4
 (IPP-106) persists the result via `PlanResultWriter` — `set_ready` for a
 `SelectedContext` outcome, `set_failed` for `InsufficientMaterial`. PLAN 5
-(IPP-107) is what will make that write survive redelivery; until then a
-retried event can call `set_ready`/`set_failed` a second time and get the
-Go API's 409 (the plan is no longer pending), same as a genuinely duplicate
-delivery.
+(IPP-107)'s `_handle_weekly_plan_requested` is what makes that write survive
+redelivery: a `status` pre-check skips regeneration for an already-resolved
+plan before any LLM call, `_resolve_plan` swallows the underlying
+conditional write's 409 (`PlanAlreadyResolved`) as a lost race rather than
+an error, and a generation failure — bounded, since both the DynamoDB reads
+and the LLM call already retry internally — becomes a graceful `set_failed`
+instead of an event redelivered forever.
 
 `Handler` wires nothing itself (only depends on the ports its constructor
 takes, so it's testable without AWS); `lambda_handler` is the composition
@@ -63,9 +66,10 @@ from ipp_ai.application.context_gathering import gather_context
 from ipp_ai.application.embedding import embed_insight
 from ipp_ai.application.relationship import discover_relationships
 from ipp_ai.application.secrets import resolve_secret
+from ipp_ai.domain.action import Action
 from ipp_ai.domain.event import DomainEvent
 from ipp_ai.domain.plan_context import InsufficientMaterial
-from ipp_ai.errors import PermanentError
+from ipp_ai.errors import PermanentError, PlanAlreadyResolved
 from ipp_ai.logging_config import configure
 from ipp_ai.ports import (
     ActionGenerator,
@@ -126,30 +130,7 @@ class Handler:
                 _log_event(domain_event)
 
                 if domain_event.event_type == "WeeklyPlanRequested":
-                    plan_id = domain_event.payload["plan_id"]
-                    context = gather_context(
-                        domain_event.tenant_id,
-                        domain_event.payload.get("tag"),
-                        insight_reader=self._reader,
-                        relationship_reader=self._relationship_reader,
-                        now=datetime.now(UTC),
-                    )
-                    if isinstance(context, InsufficientMaterial):
-                        self._plan_result_writer.set_failed(
-                            domain_event.tenant_id,
-                            plan_id,
-                            f'not enough insights tagged "{context.tag}" to plan a week '
-                            f"(found {context.insight_count})",
-                        )
-                        continue
-
-                    actions = generate_actions(
-                        domain_event.tenant_id,
-                        domain_event.payload.get("focus_sentence", ""),
-                        context,
-                        generator=self._action_generator,
-                    )
-                    self._plan_result_writer.set_ready(domain_event.tenant_id, plan_id, actions)
+                    self._handle_weekly_plan_requested(domain_event)
                     continue
 
                 embedding = embed_insight(
@@ -170,6 +151,89 @@ class Handler:
             except PermanentError as exc:
                 self._route_to_dlq(body, exc)
                 continue
+
+    def _handle_weekly_plan_requested(self, domain_event: DomainEvent) -> None:
+        """PLAN 5/IPP-107: pre-checks the plan's status before spending an
+        LLM call, so a redelivered event for an already-resolved plan skips
+        gather_context/generate_actions entirely rather than just failing to
+        overwrite the result. `status` raises PermanentError for an unknown
+        plan_id (an event that will never resolve, straight to the DLQ via
+        the caller's own except clause) — everything else here is left to
+        propagate for the caller to redeliver, same as the InsightEnriched
+        branch, except a generation failure, which is bounded (both
+        gather_context's DynamoDB reads and generate_actions' LLM call
+        already retry internally) and turned into a graceful set_failed
+        instead of retrying the whole event forever.
+        """
+        tenant_id = domain_event.tenant_id
+        plan_id = domain_event.payload["plan_id"]
+
+        if self._plan_result_writer.status(tenant_id, plan_id) != "pending":
+            logger.info(
+                "weekly plan already resolved, skipping redelivered request",
+                extra={"tenant_id": tenant_id, "plan_id": plan_id},
+            )
+            return
+
+        try:
+            context = gather_context(
+                tenant_id,
+                domain_event.payload.get("tag"),
+                insight_reader=self._reader,
+                relationship_reader=self._relationship_reader,
+                now=datetime.now(UTC),
+            )
+            if isinstance(context, InsufficientMaterial):
+                self._resolve_plan(
+                    tenant_id,
+                    plan_id,
+                    failure_reason=(
+                        f'not enough insights tagged "{context.tag}" to plan a week '
+                        f"(found {context.insight_count})"
+                    ),
+                )
+                return
+
+            actions = generate_actions(
+                tenant_id,
+                domain_event.payload.get("focus_sentence", ""),
+                context,
+                generator=self._action_generator,
+            )
+        except PermanentError:
+            raise
+        except Exception as exc:
+            logger.warning(
+                "weekly plan generation failed after retries, marking plan failed",
+                extra={"tenant_id": tenant_id, "plan_id": plan_id, "err": str(exc)},
+            )
+            self._resolve_plan(tenant_id, plan_id, failure_reason=f"plan generation failed: {exc}")
+            return
+
+        self._resolve_plan(tenant_id, plan_id, actions=actions)
+
+    def _resolve_plan(
+        self,
+        tenant_id: str,
+        plan_id: str,
+        *,
+        actions: list[Action] | None = None,
+        failure_reason: str | None = None,
+    ) -> None:
+        """Writes the plan's outcome, swallowing PlanAlreadyResolved: a
+        concurrent duplicate delivery already won the write race, so losing
+        it here means there's nothing left to do, not a failure to retry.
+        """
+        try:
+            if failure_reason is not None:
+                self._plan_result_writer.set_failed(tenant_id, plan_id, failure_reason)
+            else:
+                self._plan_result_writer.set_ready(tenant_id, plan_id, actions or [])
+        except PlanAlreadyResolved:
+            logger.info(
+                "weekly plan result already recorded, skipping",
+                extra={"tenant_id": tenant_id, "plan_id": plan_id},
+            )
 
     def _route_to_dlq(self, body: str, reason: PermanentError) -> None:
         logger.error("permanent error, routed to DLQ", extra={"err": str(reason)})

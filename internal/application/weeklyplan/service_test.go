@@ -179,6 +179,30 @@ func TestService_List_DelegatesToRepo(t *testing.T) {
 	}
 }
 
+func TestService_Status_ReturnsThePlansStatusWithoutResolvingActions(t *testing.T) {
+	repo := &spyRepo{getPlan: domain.WeeklyPlan{ID: "p-1", TenantID: "t-1", Status: domain.PlanStatusReady}}
+	svc := NewService(repo, &fakeInsightRepo{}, &spyEventPublisher{})
+
+	status, err := svc.Status(context.Background(), "t-1", "p-1")
+	if err != nil {
+		t.Fatalf("Status: %v", err)
+	}
+	if status != domain.PlanStatusReady {
+		t.Fatalf("status = %q, want %q", status, domain.PlanStatusReady)
+	}
+}
+
+func TestService_Status_RepoError_Propagates(t *testing.T) {
+	wantErr := errors.New("not found")
+	repo := &spyRepo{getErr: wantErr}
+	svc := NewService(repo, &fakeInsightRepo{}, &spyEventPublisher{})
+
+	_, err := svc.Status(context.Background(), "t-1", "p-missing")
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("err = %v, want %v", err, wantErr)
+	}
+}
+
 func TestService_SetReady_DelegatesToRepo(t *testing.T) {
 	repo := &spyRepo{}
 	svc := NewService(repo, &fakeInsightRepo{}, &spyEventPublisher{})

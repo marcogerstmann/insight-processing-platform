@@ -15,3 +15,12 @@ class PermanentError(Exception):
 
     Wrap the underlying cause: `raise PermanentError("malformed item") from exc`.
     """
+
+
+class PlanAlreadyResolved(Exception):
+    """A weekly plan result write lost the conditional-write race: the plan
+    left `pending` before this write landed, so there is nothing left to
+    write. Mirrors internal/ports.ErrPlanNotPending — PLAN 5/IPP-107 leans
+    on that same conditional write as its only redelivery guard (see
+    weekly_plan_repository.go's doc comment), not a new lock or table.
+    """

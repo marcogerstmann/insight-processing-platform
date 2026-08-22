@@ -21,6 +21,12 @@ type Service interface {
 	// a feed of every action across all of them.
 	List(ctx context.Context, tenantID string) ([]domain.WeeklyPlan, error)
 
+	// Status returns just tenantID's plan's status — the Action Agent's
+	// redelivery pre-check (PLAN 5/IPP-107), cheap on purpose: unlike Get
+	// it never joins against insights, since the agent only needs to know
+	// whether to skip regenerating.
+	Status(ctx context.Context, tenantID, planID string) (domain.PlanStatus, error)
+
 	SetReady(ctx context.Context, tenantID, planID string, actions []domain.Action) error
 	SetFailed(ctx context.Context, tenantID, planID, reason string) error
 }
@@ -98,6 +104,14 @@ func (s *service) Get(ctx context.Context, tenantID, planID string) (domain.Plan
 
 func (s *service) List(ctx context.Context, tenantID string) ([]domain.WeeklyPlan, error) {
 	return s.repo.ListPlansByTenantID(ctx, tenantID)
+}
+
+func (s *service) Status(ctx context.Context, tenantID, planID string) (domain.PlanStatus, error) {
+	plan, err := s.repo.Get(ctx, tenantID, planID)
+	if err != nil {
+		return "", err
+	}
+	return plan.Status, nil
 }
 
 func (s *service) SetReady(ctx context.Context, tenantID, planID string, actions []domain.Action) error {

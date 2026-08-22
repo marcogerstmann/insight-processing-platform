@@ -11,6 +11,7 @@ from ipp_ai.domain.embedding import Embedding
 from ipp_ai.domain.insight import Insight
 from ipp_ai.domain.plan_context import ContextEdge
 from ipp_ai.domain.relationship import RelatedInsight, RelationJudgement, Relationship, RelationType
+from ipp_ai.errors import PermanentError, PlanAlreadyResolved
 
 
 @dataclass
@@ -95,13 +96,25 @@ class SpyRelationshipWriter:
 
 @dataclass
 class SpyPlanResultWriter:
+    status_value: str | Exception = "pending"
+    set_ready_error: Exception | None = None
+    set_failed_error: Exception | None = None
     ready: list[tuple[str, str, list[Action]]] = field(default_factory=list)
     failed: list[tuple[str, str, str]] = field(default_factory=list)
 
+    def status(self, tenant_id: str, plan_id: str) -> str:
+        if isinstance(self.status_value, Exception):
+            raise self.status_value
+        return self.status_value
+
     def set_ready(self, tenant_id: str, plan_id: str, actions: list[Action]) -> None:
+        if self.set_ready_error is not None:
+            raise self.set_ready_error
         self.ready.append((tenant_id, plan_id, actions))
 
     def set_failed(self, tenant_id: str, plan_id: str, reason: str) -> None:
+        if self.set_failed_error is not None:
+            raise self.set_failed_error
         self.failed.append((tenant_id, plan_id, reason))
 
 
@@ -527,3 +540,91 @@ def test_handle_weekly_plan_requested_generates_and_validates_actions(
     tenant_id, plan_id, persisted = plan_result_writer.ready[0]
     assert (tenant_id, plan_id) == ("t1", "p1")
     assert [a.title for a in persisted] == ["Ship the draft"]
+
+
+def test_handle_weekly_plan_requested_already_ready_skips_regeneration(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """PLAN 5 (IPP-107): a redelivered WeeklyPlanRequested for a plan the
+    status pre-check reports as no-longer-pending must never reach the
+    action generator — a FakeActionGenerator() with nothing configured
+    would raise AssertionError if .generate() were called.
+    """
+    reader = FakeReader(insights={}, by_tag={("t1", "golang"): [_insight("i0")]})
+    plan_result_writer = SpyPlanResultWriter(status_value="ready")
+    handler, dlq, *_ = _handler(reader=reader, plan_result_writer=plan_result_writer)
+
+    with caplog.at_level("INFO"):
+        handler.handle(_sqs_event(_weekly_plan_requested_envelope(tag="golang")))
+
+    assert dlq.sent == []
+    assert plan_result_writer.ready == []
+    assert plan_result_writer.failed == []
+    record = next(
+        r
+        for r in caplog.records
+        if r.getMessage() == "weekly plan already resolved, skipping redelivered request"
+    )
+    assert record.tenant_id == "t1"
+    assert record.plan_id == "p1"
+
+
+def test_handle_weekly_plan_requested_unknown_plan_routes_to_dlq() -> None:
+    """PLAN 5 (IPP-107): the status pre-check raising PermanentError for an
+    unknown plan_id (event references a plan the Go API has never heard of)
+    is a permanent failure, same as an unknown insight on the embed path.
+    """
+    plan_result_writer = SpyPlanResultWriter(status_value=PermanentError("unknown weekly plan p1"))
+    handler, dlq, *_ = _handler(plan_result_writer=plan_result_writer)
+
+    handler.handle(_sqs_event(_weekly_plan_requested_envelope()))
+
+    assert len(dlq.sent) == 1
+    assert "p1" in dlq.sent[0][1]
+
+
+def test_handle_weekly_plan_requested_generation_failure_marks_plan_failed_not_raised(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """PLAN 5 (IPP-107): once generate_actions' own bounded retries are
+    exhausted, the exception it raises must not propagate for SQS to retry
+    forever — it becomes a set_failed call, and the message still acks.
+    """
+    insights = [_insight(f"i{n}") for n in range(3)]
+    reader = FakeReader(insights={}, by_tag={("t1", "golang"): insights})
+    action_generator = FakeActionGenerator(actions=RuntimeError("llm unavailable"))
+    plan_result_writer = SpyPlanResultWriter()
+    handler, dlq, *_ = _handler(
+        reader=reader, action_generator=action_generator, plan_result_writer=plan_result_writer
+    )
+
+    with caplog.at_level("WARNING"):
+        handler.handle(_sqs_event(_weekly_plan_requested_envelope(tag="golang")))  # must not raise
+
+    assert dlq.sent == []
+    assert plan_result_writer.ready == []
+    assert len(plan_result_writer.failed) == 1
+    tenant_id, plan_id, reason = plan_result_writer.failed[0]
+    assert (tenant_id, plan_id) == ("t1", "p1")
+    assert "llm unavailable" in reason
+
+
+def test_handle_weekly_plan_requested_concurrent_write_conflict_is_swallowed() -> None:
+    """PLAN 5 (IPP-107): a race between two duplicate deliveries that both
+    passed the pending pre-check — the loser's set_ready gets
+    PlanAlreadyResolved from the conditional write, which must not raise
+    (there's nothing left to do, not a failure to redeliver).
+    """
+    insights = [_insight(f"i{n}") for n in range(3)]
+    reader = FakeReader(insights={}, by_tag={("t1", "golang"): insights})
+    action_generator = FakeActionGenerator(actions=[])
+    conflict = PlanAlreadyResolved("already resolved")
+    plan_result_writer = SpyPlanResultWriter(set_ready_error=conflict)
+    handler, dlq, *_ = _handler(
+        reader=reader, action_generator=action_generator, plan_result_writer=plan_result_writer
+    )
+
+    handler.handle(_sqs_event(_weekly_plan_requested_envelope(tag="golang")))  # must not raise
+
+    assert dlq.sent == []
+    assert plan_result_writer.ready == []

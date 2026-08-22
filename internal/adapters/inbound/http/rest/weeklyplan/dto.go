@@ -29,6 +29,13 @@ type SubmitPlanResultRequestDTO struct {
 	FailureReason string      `json:"failure_reason"`
 }
 
+// PlanStatusDTO is GET .../status's body (agent scope, PLAN 5/IPP-107): just
+// enough for the Action Agent's redelivery pre-check to decide whether to
+// skip regenerating.
+type PlanStatusDTO struct {
+	Status string `json:"status"`
+}
+
 type ResolvedInsightDTO struct {
 	InsightID string `json:"insight_id"`
 	Text      string `json:"text"`

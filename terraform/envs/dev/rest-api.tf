@@ -400,6 +400,18 @@ resource "aws_apigatewayv2_route" "put_weekly_plan_result" {
   target = "integrations/${aws_apigatewayv2_integration.rest_lambda.id}"
 }
 
+# Agent-only (PLAN 5, IPP-107): the Action Agent's redelivery pre-check,
+# same JWT authorizer + Gin RequireScope split as put_weekly_plan_result.
+resource "aws_apigatewayv2_route" "get_weekly_plan_status" {
+  api_id    = aws_apigatewayv2_api.rest.id
+  route_key = "GET /v1/tenants/{tenantID}/weekly-plans/{planID}/status"
+
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito_jwt.id
+
+  target = "integrations/${aws_apigatewayv2_integration.rest_lambda.id}"
+}
+
 resource "aws_lambda_permission" "allow_rest_apigw" {
   statement_id  = "AllowRestAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"

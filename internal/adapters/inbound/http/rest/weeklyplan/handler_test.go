@@ -28,6 +28,9 @@ type fakeService struct {
 	listPlans      []domain.WeeklyPlan
 	listCalledWith string
 
+	statusValue      domain.PlanStatus
+	statusCalledPlan string
+
 	setReadyCalled  bool
 	setReadyActions []domain.Action
 
@@ -50,6 +53,11 @@ func (f *fakeService) Get(_ context.Context, tenantID, planID string) (domain.Pl
 func (f *fakeService) List(_ context.Context, tenantID string) ([]domain.WeeklyPlan, error) {
 	f.listCalledWith = tenantID
 	return f.listPlans, f.err
+}
+
+func (f *fakeService) Status(_ context.Context, _, planID string) (domain.PlanStatus, error) {
+	f.statusCalledPlan = planID
+	return f.statusValue, f.err
 }
 
 func (f *fakeService) SetReady(_ context.Context, _, _ string, actions []domain.Action) error {
@@ -251,6 +259,49 @@ func TestHandler_SubmitResult_NotPending_MapsToConflict(t *testing.T) {
 
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusConflict)
+	}
+}
+
+func doStatusRequest(h *Handler, tenantID, planID string) (*httptest.ResponseRecorder, PlanStatusDTO) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+
+	c.Request = httptest.NewRequest(http.MethodGet, "/v1/tenants/"+tenantID+"/weekly-plans/"+planID+"/status", nil)
+	c.Params = gin.Params{{Key: "tenantID", Value: tenantID}, {Key: "planID", Value: planID}}
+
+	h.Status(c)
+
+	var body PlanStatusDTO
+	_ = json.Unmarshal(rec.Body.Bytes(), &body)
+	return rec, body
+}
+
+func TestHandler_Status_HappyPath_ReturnsStatus(t *testing.T) {
+	svc := &fakeService{statusValue: domain.PlanStatusReady}
+	h := NewHandler(svc)
+
+	rec, body := doStatusRequest(h, "t-1", "p-1")
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	if body.Status != "ready" {
+		t.Fatalf("body.Status = %q, want ready", body.Status)
+	}
+	if svc.statusCalledPlan != "p-1" {
+		t.Fatalf("svc.Status called with plan %q, want p-1", svc.statusCalledPlan)
+	}
+}
+
+func TestHandler_Status_UnknownPlan_MapsToNotFound(t *testing.T) {
+	svc := &fakeService{err: ports.ErrPlanNotFound}
+	h := NewHandler(svc)
+
+	rec, _ := doStatusRequest(h, "t-1", "p-missing")
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)
 	}
 }
 

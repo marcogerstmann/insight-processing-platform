@@ -56,6 +56,9 @@ func NewRouter(insightHandler *insight.Handler, readwiseHandler *restreadwise.Ha
 		// carries no tenant, same reasoning as the relationship write route
 		// above — tenant and plan both come from the URL.
 		v1.PUT("/tenants/:tenantID/weekly-plans/:planID/result", auth.RequireScope(auth.ScopeAgentWrite), weeklyPlanHandler.SubmitResult)
+		// Agent-only (PLAN 5, IPP-107): the redelivery pre-check, same
+		// URL-scoped trust boundary as SubmitResult above.
+		v1.GET("/tenants/:tenantID/weekly-plans/:planID/status", auth.RequireScope(auth.ScopeAgentWrite), weeklyPlanHandler.Status)
 	}
 
 	return r

@@ -112,6 +112,29 @@ func (h *Handler) SubmitResult(c *gin.Context) {
 	c.AbortWithStatus(http.StatusNoContent)
 }
 
+// Status is an agent-only route (PLAN 5, IPP-107): the Action Agent's
+// redelivery pre-check, same trust boundary as SubmitResult — tenant and
+// plan both come from the URL. Returns just the status, not Get's resolved
+// citations: the agent only needs to know whether to skip regenerating.
+func (h *Handler) Status(c *gin.Context) {
+	tenantID := c.Param("tenantID")
+	planID := c.Param("planID")
+
+	status, err := h.svc.Status(c.Request.Context(), tenantID, planID)
+	if err != nil {
+		if errors.Is(err, ports.ErrPlanNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "not_found"})
+			return
+		}
+		slog.ErrorContext(c.Request.Context(), "failed to get weekly plan status",
+			"tenant_id", tenantID, "plan_id", planID, "err", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal_server_error"})
+		return
+	}
+
+	c.JSON(http.StatusOK, PlanStatusDTO{Status: string(status)})
+}
+
 // Get is a user route (see router.go): the tenant comes from the JWT, same
 // as every other user route. Returns the plan with its actions' citations
 // resolved to the insights they refer to, so the UI can link straight to

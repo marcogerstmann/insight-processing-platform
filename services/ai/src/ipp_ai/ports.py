@@ -132,8 +132,20 @@ class PlanResultWriter(Protocol):
     Same boundary rule as RelationshipWriter: a WeeklyPlan's result is
     domain data, so it leaves this service's own AWS account through the Go
     API rather than being written to DynamoDB directly.
+
+    `status` is PLAN 5/IPP-107's redelivery pre-check: read before spending
+    an LLM call, so a redelivered event for an already-resolved plan skips
+    straight past generation. Raises `ipp_ai.errors.PermanentError` for a
+    plan_id the API doesn't know (event payload referencing a plan that was
+    never created — never becomes true on retry).
     """
 
+    def status(self, tenant_id: str, plan_id: str) -> str: ...
+
+    # set_ready/set_failed raise ipp_ai.errors.PlanAlreadyResolved when the
+    # underlying conditional write loses the race — the actual idempotency
+    # guard under concurrent duplicate delivery (see PlanAlreadyResolved's
+    # docstring), not something callers need a lock to prevent.
     def set_ready(self, tenant_id: str, plan_id: str, actions: list[Action]) -> None: ...
     def set_failed(self, tenant_id: str, plan_id: str, reason: str) -> None: ...
 
