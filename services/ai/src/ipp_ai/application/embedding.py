@@ -24,7 +24,7 @@ def embed_insight(
     reader: InsightReader,
     embedder: EmbeddingClient,
     writer: EmbeddingWriter,
-) -> None:
+) -> Embedding:
     if not insight_id:
         raise PermanentError("InsightEnriched payload missing insight_id")
 
@@ -41,12 +41,12 @@ def embed_insight(
 
     vector = embedder.embed(text)
 
-    writer.put(
-        Embedding(
-            insight_id=insight_id,
-            tenant_id=tenant_id,
-            model=embedder.model,
-            dimension=embedder.dimension,
-            vector=vector,
-        )
+    embedding = Embedding(
+        insight_id=insight_id,
+        tenant_id=tenant_id,
+        model=embedder.model,
+        dimension=embedder.dimension,
+        vector=vector,
     )
+    writer.put(embedding)
+    return embedding

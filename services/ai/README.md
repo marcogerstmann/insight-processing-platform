@@ -18,7 +18,8 @@ src/ipp_ai/
   application/       use-case orchestration; reads env vars directly (see below)
   adapters/inbound/  things that call into the service (the EventBridge subscription handler)
   adapters/outbound/ things the service calls out to (SSM, a read-only DynamoDB insight reader,
-                     a DynamoDB embedding writer, OpenAI embeddings, DLQ)
+                     a DynamoDB embedding reader/writer, OpenAI embeddings + relation labeling,
+                     Cognito machine-to-machine auth, a relationship writer calling the Go API, DLQ)
   errors.py          PermanentError: permanent failure -> DLQ, everything else -> retry
   logging_config.py  structured JSON logging, field names matching the Go service's
 ```
@@ -35,13 +36,18 @@ event source mapping.
 EventBridge envelope into a `domain.event.DomainEvent`, log it structurally (`tenant_id`, `insight_id`,
 `event_type` — matching the Go service's field names). IPP-97 adds the first real step after that:
 `application/embedding.py`'s `embed_insight` loads the insight the event names, embeds its tags (a summary
-of the highlight) plus its raw text, and stores the vector. A malformed envelope, or an event naming an
-insight that doesn't exist, raises `PermanentError`, caught here and routed to the subscription's own DLQ;
-anything else — including an OpenAI API failure — propagates so the runtime redelivers, the same taxonomy as
+of the highlight) plus its raw text, and stores the vector. Straight after that, in the same record, the
+handler runs `application/relationship.py`'s `discover_relationships` — REL 2's candidate selection, REL 3's
+LLM labeling, and REL 4's persistence through the Go API, one call each, see below. A malformed envelope, or
+an event naming an insight that doesn't exist, raises `PermanentError`, caught here and routed to the
+subscription's own DLQ; anything else — including an OpenAI API failure or a failed POST to the Go API —
+propagates so the runtime redelivers, the same taxonomy as
 `internal/adapters/inbound/sqs/worker.Handler` ([ADR-009](../../docs/adr/009-error-taxonomy-and-dlq-routing.md)).
-Unlike Go's LLM enrichment ([ADR-013](../../docs/adr/013-llm-as-optional-enrichment.md)), embedding failure
-isn't swallowed — there's no already-durable write it's protecting, so it's left to redeliver and, after this
-subscription's own retry budget, land on its DLQ. Either way it can never block an insight write: this
+Unlike Go's LLM enrichment ([ADR-013](../../docs/adr/013-llm-as-optional-enrichment.md)), neither embedding
+nor relationship persistence is swallowed on failure — there's no already-durable write either is protecting,
+so both are left to redeliver and, after this subscription's own retry budget, land on its DLQ. Redelivery is
+safe: the embedding upsert, the Go endpoint's write, and (per-pair) the labeling call are all idempotent by
+key, so a retry re-does work rather than duplicating it. Either way it can never block an insight write: this
 service is a subscriber off to the side of the Go core.
 The event source mapping's `batch_size` must stay `1` for the same reason the Go worker's does: this
 per-record loop only fails-safe with one record per invocation.
@@ -122,9 +128,22 @@ is a normal outcome rather than a DLQ-worthy one. `MAX_PAIRS_PER_RUN` bounds LLM
 separate from REL 2's `CANDIDATE_TOP_K`: candidate selection is free arithmetic and can afford to shortlist
 generously, LLM calls can't. Model, token usage and call duration are logged with the same field names
 (`model`, `input_tokens`, `output_tokens`, `duration_ms`) as the Go adapter's, so both services show up in one
-Logs Insights query (IPP-113). Not yet wired to the `InsightEnriched` subscription — REL 4 is what persists a
-`Relationship` through the Go API, and is the natural place to assemble REL 2 + REL 3 + persistence into one
-triggered flow.
+Logs Insights query (IPP-113).
+
+## Relationship persistence and the discovery pipeline (IPP-100)
+
+`application/relationship.py`'s `discover_relationships` is what assembles REL 2 + REL 3 + persistence into
+the one triggered flow the epic describes, and is what the Lambda handler calls right after `embed_insight`.
+It loads the query insight, lists the tenant's stored embeddings (`ports.EmbeddingReader`,
+`DynamoDbEmbeddingWriter.list_by_tenant` — the same adapter instance `embed_insight`'s writer uses, since it's
+one table), runs `select_candidates`, labels the shortlist via `label_relationships`, and `put`s each accepted
+`Relationship` through `ports.RelationshipWriter`. The concrete writer,
+`adapters/outbound/relationship_api.py`'s `GoApiRelationshipWriter`, POSTs to
+`/v1/tenants/:tenantID/insights/:insightID/relationships` using a `CognitoServiceTokenClient` bearer token —
+idempotent server-side (re-posting the same edge updates it), so no client-side dedup is needed. `already_linked`
+bookkeeping (skipping pairs that already have an edge) is intentionally not done here: `MAX_PAIRS_PER_RUN`
+already bounds cost per run, and a redelivery just re-labels and idempotently overwrites the same edges rather
+than duplicating them. Revisit only if a real corpus shows repeated LLM spend on already-linked pairs.
 
 ## Machine-to-machine auth (IPP-94)
 
@@ -137,8 +156,10 @@ request. The client secret follows the same `ssm:`-prefixed convention as every 
 (`application/secrets.py`), populated by Terraform because — unlike the OpenAI key — Cognito generates it as
 part of a Terraform-managed resource, so it's already in state regardless.
 
-Not wired to a caller yet: REL 4 (IPP-100) is what actually posts a discovered relationship through the Go
-API, and is the first thing that constructs this client for real.
+`GoApiRelationshipWriter` (above) is the caller: it takes a `token()`-shaped object as a structural type
+rather than importing this module directly — an adapter importing another adapter is banned by the same
+ruff rule that keeps domain/ports/application from importing adapters (ADR-017) — so only the composition
+root (`lambda_handler`) imports and wires the two together.
 
 ## Dev
 

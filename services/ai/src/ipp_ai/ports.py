@@ -15,7 +15,7 @@ from typing import Protocol
 
 from ipp_ai.domain.embedding import Embedding
 from ipp_ai.domain.insight import Insight
-from ipp_ai.domain.relationship import RelationJudgement
+from ipp_ai.domain.relationship import RelationJudgement, Relationship
 
 
 class SecretProvider(Protocol):
@@ -64,6 +64,16 @@ class EmbeddingWriter(Protocol):
     def put(self, embedding: Embedding) -> None: ...
 
 
+class EmbeddingReader(Protocol):
+    """Read-only access to this service's own embeddings table — REL 2's
+    candidate pool. Same table EmbeddingWriter.put writes to; kept as a
+    separate Protocol rather than folded into EmbeddingWriter because a
+    caller that only lists (REL 2) shouldn't have to depend on put too.
+    """
+
+    def list_by_tenant(self, tenant_id: str) -> list[Embedding]: ...
+
+
 class RelationLabeler(Protocol):
     """Labels a candidate pair via one bounded LLM call — the read side's
     counterpart to internal/adapters/outbound/openai.Client.Enrich's shape
@@ -75,6 +85,17 @@ class RelationLabeler(Protocol):
     """
 
     def label(self, from_text: str, to_text: str) -> RelationJudgement: ...
+
+
+class RelationshipWriter(Protocol):
+    """Persists a discovered relationship through the Go REST API (REL 4).
+
+    Unlike EmbeddingWriter, this write leaves the AI service's own AWS
+    account: a Relationship is domain data, so it goes through the Go API
+    rather than DynamoDB directly (services/ai/README.md's boundary rule).
+    """
+
+    def put(self, relationship: Relationship) -> None: ...
 
 
 class DlqPublisher(Protocol):

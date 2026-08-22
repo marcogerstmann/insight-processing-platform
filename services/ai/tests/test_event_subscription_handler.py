@@ -6,7 +6,9 @@ from dataclasses import dataclass, field
 import pytest
 
 from ipp_ai.adapters.inbound.event_subscription import Handler
+from ipp_ai.domain.embedding import Embedding
 from ipp_ai.domain.insight import Insight
+from ipp_ai.domain.relationship import RelationJudgement, Relationship, RelationType
 
 
 @dataclass
@@ -47,6 +49,34 @@ class SpyWriter:
 
     def put(self, embedding: object) -> None:
         self.puts.append(embedding)
+
+
+@dataclass
+class FakeEmbeddingReader:
+    embeddings: list[Embedding] = field(default_factory=list)
+
+    def list_by_tenant(self, tenant_id: str) -> list[Embedding]:
+        return [e for e in self.embeddings if e.tenant_id == tenant_id]
+
+
+@dataclass
+class FakeLabeler:
+    judgement: RelationJudgement | Exception | None = None
+
+    def label(self, from_text: str, to_text: str) -> RelationJudgement:
+        if isinstance(self.judgement, Exception):
+            raise self.judgement
+        if self.judgement is None:
+            raise AssertionError("label() called but no judgement was configured")
+        return self.judgement
+
+
+@dataclass
+class SpyRelationshipWriter:
+    puts: list[Relationship] = field(default_factory=list)
+
+    def put(self, relationship: Relationship) -> None:
+        self.puts.append(relationship)
 
 
 def _insight(insight_id: str = "i1", tenant_id: str = "t1") -> Insight:
@@ -97,12 +127,28 @@ def _handler(
     reader: FakeReader | None = None,
     embedder: FakeEmbedder | None = None,
     writer: SpyWriter | None = None,
-) -> tuple[Handler, SpyDlq, FakeReader, FakeEmbedder, SpyWriter]:
+    embedding_reader: FakeEmbeddingReader | None = None,
+    labeler: FakeLabeler | None = None,
+    relationship_writer: SpyRelationshipWriter | None = None,
+) -> tuple[
+    Handler,
+    SpyDlq,
+    FakeReader,
+    FakeEmbedder,
+    SpyWriter,
+    FakeEmbeddingReader,
+    FakeLabeler,
+    SpyRelationshipWriter,
+]:
     dlq = dlq or SpyDlq()
     reader = reader or FakeReader()
     embedder = embedder or FakeEmbedder()
     writer = writer or SpyWriter()
-    return Handler(dlq, reader, embedder, writer), dlq, reader, embedder, writer
+    embedding_reader = embedding_reader or FakeEmbeddingReader()
+    labeler = labeler or FakeLabeler()
+    relationship_writer = relationship_writer or SpyRelationshipWriter()
+    handler = Handler(dlq, reader, embedder, writer, embedding_reader, labeler, relationship_writer)
+    return handler, dlq, reader, embedder, writer, embedding_reader, labeler, relationship_writer
 
 
 def test_handle_valid_record_logs_embeds_and_skips_dlq(caplog: pytest.LogCaptureFixture) -> None:
@@ -127,6 +173,63 @@ def test_handle_valid_record_logs_embeds_and_skips_dlq(caplog: pytest.LogCapture
     assert stored.model == "text-embedding-3-small"
     assert stored.dimension == 3
     assert stored.vector == (0.1, 0.2, 0.3)
+
+
+def test_handle_discovers_and_persists_relationships_above_threshold() -> None:
+    """The REL 2 -> REL 3 -> REL 4 pipeline this handler is responsible for
+    wiring after embed_insight: an existing insight with a near-identical
+    embedding is a REL 2 candidate, the labeler's judgement clears REL 3's
+    confidence threshold, and the result is posted through relationship_writer.
+    """
+    reader = FakeReader(
+        {("t1", "i1"): _insight("i1"), ("t1", "i2"): _insight("i2", tenant_id="t1")}
+    )
+    embedder = FakeEmbedder(vector=(1.0, 0.0, 0.0))
+    embedding_reader = FakeEmbeddingReader(
+        [
+            Embedding(
+                insight_id="i2",
+                tenant_id="t1",
+                model="text-embedding-3-small",
+                dimension=3,
+                vector=(1.0, 0.0, 0.0),
+            )
+        ]
+    )
+    judgement = RelationJudgement(
+        relation_type=RelationType.SUPPORTS, confidence=0.9, rationale="same idea"
+    )
+    labeler = FakeLabeler(judgement=judgement)
+    relationship_writer = SpyRelationshipWriter()
+
+    handler, *_ = _handler(
+        reader=reader,
+        embedder=embedder,
+        embedding_reader=embedding_reader,
+        labeler=labeler,
+        relationship_writer=relationship_writer,
+    )
+
+    handler.handle(_sqs_event(_envelope()))
+
+    assert len(relationship_writer.puts) == 1
+    relationship = relationship_writer.puts[0]
+    assert relationship.tenant_id == "t1"
+    assert relationship.from_insight_id == "i1"
+    assert relationship.to_insight_id == "i2"
+    assert relationship.relation_type == RelationType.SUPPORTS
+    assert relationship.confidence == 0.9
+
+
+def test_handle_with_no_candidates_never_calls_the_labeler_or_writer() -> None:
+    reader = FakeReader({("t1", "i1"): _insight()})
+    relationship_writer = SpyRelationshipWriter()
+
+    handler, *_ = _handler(reader=reader, relationship_writer=relationship_writer)
+
+    handler.handle(_sqs_event(_envelope()))  # FakeLabeler() would raise if .label() were called
+
+    assert relationship_writer.puts == []
 
 
 def test_handle_malformed_json_routes_to_dlq_without_raising() -> None:

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+from botocore.stub import ANY
+
 from ipp_ai.domain.embedding import Embedding
 
 
@@ -64,3 +66,38 @@ def test_put_is_idempotent_by_key(stubbed_writer) -> None:
 
     stubbed_writer.writer.put(embedding)
     stubbed_writer.writer.put(embedding)
+
+
+def test_list_by_tenant_unmarshals_vector_back_to_float(stubbed_writer) -> None:
+    stubbed_writer.stubber.add_response(
+        "query",
+        {
+            "Items": [
+                {
+                    "pk": {"S": "TENANT#t1"},
+                    "sk": {"S": "EMBEDDING#i1"},
+                    "tenant_id": {"S": "t1"},
+                    "insight_id": {"S": "i1"},
+                    "model": {"S": "text-embedding-3-small"},
+                    "dimension": {"N": "3"},
+                    "vector": {"L": [{"N": "0.1"}, {"N": "0.2"}, {"N": "0.3"}]},
+                }
+            ]
+        },
+        {
+            "TableName": "test-embeddings",
+            "KeyConditionExpression": ANY,
+        },
+    )
+
+    result = stubbed_writer.writer.list_by_tenant("t1")
+
+    assert result == [
+        Embedding(
+            insight_id="i1",
+            tenant_id="t1",
+            model="text-embedding-3-small",
+            dimension=3,
+            vector=(0.1, 0.2, 0.3),
+        )
+    ]

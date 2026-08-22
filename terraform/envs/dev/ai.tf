@@ -193,9 +193,10 @@ resource "aws_iam_role_policy" "ai_dynamodb_read" {
   })
 }
 
-# Write access to this service's own embeddings table (IPP-97) — a
+# Read/write access to this service's own embeddings table (IPP-97) — a
 # separate policy from ai_dynamodb_read above, which is scoped to the
-# shared insights table and must stay GetItem/Query only.
+# shared insights table. Query is REL 2's candidate pool (IPP-98): listing
+# every embedding for the tenant to score against the new one.
 resource "aws_iam_role_policy" "ai_embeddings_write" {
   name = "${var.project}-${var.env}-ai-embeddings-write"
   role = module.ai_lambda_role.role_name
@@ -207,6 +208,12 @@ resource "aws_iam_role_policy" "ai_embeddings_write" {
         Sid      = "PutEmbedding"
         Effect   = "Allow"
         Action   = ["dynamodb:PutItem"]
+        Resource = module.dynamodb_ai_embeddings.table_arn
+      },
+      {
+        Sid      = "QueryEmbeddings"
+        Effect   = "Allow"
+        Action   = ["dynamodb:Query"]
         Resource = module.dynamodb_ai_embeddings.table_arn
       }
     ]
@@ -268,6 +275,17 @@ module "ai_lambda" {
     TABLE_NAME_INSIGHTS     = module.dynamodb_insights.table_name
     TABLE_NAME_EMBEDDINGS   = module.dynamodb_ai_embeddings.table_name
     OPENAI_API_KEY          = "ssm:/${var.project}/${var.env}/openai/api_key"
+
+    # REL 4 (IPP-100): this Lambda posting relationships back through the
+    # Go REST API. Same Cognito agent client + SSM secret IPP-94 already
+    # provisioned in rest-api.tf; ai_agent_secret_ssm_read below is the
+    # matching IAM grant. AGENT_CLIENT_SECRET uses the same "ssm:" prefix
+    # convention as OPENAI_API_KEY above (envutil.ResolveSecret's Python
+    # counterpart, application/secrets.py).
+    AGENT_TOKEN_ENDPOINT = "https://${aws_cognito_user_pool_domain.rest_api.domain}.auth.${data.aws_region.current.id}.amazoncognito.com/oauth2/token"
+    AGENT_CLIENT_ID      = aws_cognito_user_pool_client.agent.id
+    AGENT_CLIENT_SECRET  = "ssm:${aws_ssm_parameter.agent_client_secret.name}"
+    REST_API_BASE_URL    = "https://${var.api_domain_name}"
   }
 
   depends_on = [aws_iam_role_policy.ai_ecr_pull, aws_ecr_repository_policy.ai]

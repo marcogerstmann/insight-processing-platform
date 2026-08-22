@@ -18,9 +18,11 @@ from __future__ import annotations
 
 import logging
 
+from ipp_ai.domain.candidate import select_candidates
+from ipp_ai.domain.embedding import Embedding
 from ipp_ai.domain.insight import Insight
 from ipp_ai.domain.relationship import Relationship
-from ipp_ai.ports import RelationLabeler
+from ipp_ai.ports import EmbeddingReader, InsightReader, RelationLabeler, RelationshipWriter
 
 logger = logging.getLogger(__name__)
 
@@ -80,3 +82,36 @@ def label_relationships(
             )
         )
     return relationships
+
+
+def discover_relationships(
+    tenant_id: str,
+    query_embedding: Embedding,
+    *,
+    insight_reader: InsightReader,
+    embedding_reader: EmbeddingReader,
+    labeler: RelationLabeler,
+    relationship_writer: RelationshipWriter,
+) -> None:
+    """The REL 2 -> REL 3 -> REL 4 pipeline for one newly embedded insight.
+
+    Runs straight after embed_insight in the Lambda handler. Not itself
+    soft-fail: label_relationships already swallows per-pair LLM failures
+    (a candidate that can't be judged is not a bug), but a
+    relationship_writer.put failure propagates, same as embed_insight's own
+    failures, so the runtime redelivers the event. Safe to redeliver — both
+    the embedding upsert and the Go endpoint's write are idempotent by key.
+    """
+    query_insight = insight_reader.get_by_id(tenant_id, query_embedding.insight_id)
+    if query_insight is None:
+        return  # insight deleted since it was embedded; nothing to relate
+
+    candidate_ids = select_candidates(query_embedding, embedding_reader.list_by_tenant(tenant_id))
+    candidates = [
+        insight
+        for insight_id, _score in candidate_ids
+        if (insight := insight_reader.get_by_id(tenant_id, insight_id)) is not None
+    ]
+
+    for relationship in label_relationships(tenant_id, query_insight, candidates, labeler=labeler):
+        relationship_writer.put(relationship)

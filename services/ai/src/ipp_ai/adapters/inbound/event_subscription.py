@@ -6,9 +6,12 @@ EventBridge delivers events matching this service's rule
 its own SQS queue; each record's body is the full EventBridge envelope, and
 "detail" is the JSON of internal/domain.DomainEvent.
 
-IPP-95 did the minimum: unmarshal, log structurally, done. IPP-97 adds the
-first real business logic — embedding the insight the event names
-(`application/embedding.py`) — behind the same DLQ-or-propagate branch.
+IPP-95 did the minimum: unmarshal, log structurally, done. IPP-97 adds
+embedding (`application/embedding.py`), and REL 2-4 (IPP-98/99/100) add
+relationship discovery (`application/relationship.py`) straight after it —
+same event, same record, same DLQ-or-propagate branch. Those three tickets
+shipped as pure, independently-tested functions; this handler is what
+actually calls them in production.
 
 `Handler` wires nothing itself (only depends on the ports its constructor
 takes, so it's testable without AWS); `lambda_handler` is the composition
@@ -25,17 +28,28 @@ import os
 from datetime import datetime
 from typing import Any
 
+from ipp_ai.adapters.outbound.cognito import CognitoServiceTokenClient
 from ipp_ai.adapters.outbound.dynamodb import DynamoDbInsightReader
 from ipp_ai.adapters.outbound.embedding_store import DynamoDbEmbeddingWriter
-from ipp_ai.adapters.outbound.openai import OpenAiEmbeddingClient
+from ipp_ai.adapters.outbound.openai import OpenAiEmbeddingClient, OpenAiRelationLabeler
+from ipp_ai.adapters.outbound.relationship_api import GoApiRelationshipWriter
 from ipp_ai.adapters.outbound.sqs import SqsDlqPublisher
 from ipp_ai.adapters.outbound.ssm import SsmSecretProvider
 from ipp_ai.application.embedding import embed_insight
+from ipp_ai.application.relationship import discover_relationships
 from ipp_ai.application.secrets import resolve_secret
 from ipp_ai.domain.event import DomainEvent
 from ipp_ai.errors import PermanentError
 from ipp_ai.logging_config import configure
-from ipp_ai.ports import DlqPublisher, EmbeddingClient, EmbeddingWriter, InsightReader
+from ipp_ai.ports import (
+    DlqPublisher,
+    EmbeddingClient,
+    EmbeddingReader,
+    EmbeddingWriter,
+    InsightReader,
+    RelationLabeler,
+    RelationshipWriter,
+)
 
 configure()
 logger = logging.getLogger(__name__)
@@ -57,11 +71,17 @@ class Handler:
         reader: InsightReader,
         embedder: EmbeddingClient,
         writer: EmbeddingWriter,
+        embedding_reader: EmbeddingReader,
+        labeler: RelationLabeler,
+        relationship_writer: RelationshipWriter,
     ) -> None:
         self._dlq = dlq
         self._reader = reader
         self._embedder = embedder
         self._writer = writer
+        self._embedding_reader = embedding_reader
+        self._labeler = labeler
+        self._relationship_writer = relationship_writer
 
     def handle(self, event: dict[str, Any]) -> None:
         for record in event["Records"]:
@@ -69,12 +89,20 @@ class Handler:
             try:
                 domain_event = _parse_envelope(body)
                 _log_event(domain_event)
-                embed_insight(
+                embedding = embed_insight(
                     domain_event.tenant_id,
                     domain_event.payload.get("insight_id"),
                     reader=self._reader,
                     embedder=self._embedder,
                     writer=self._writer,
+                )
+                discover_relationships(
+                    domain_event.tenant_id,
+                    embedding,
+                    insight_reader=self._reader,
+                    embedding_reader=self._embedding_reader,
+                    labeler=self._labeler,
+                    relationship_writer=self._relationship_writer,
                 )
             except PermanentError as exc:
                 self._route_to_dlq(body, exc)
@@ -117,11 +145,24 @@ def _log_event(event: DomainEvent) -> None:
 def lambda_handler(event: dict[str, Any], _context: Any) -> None:
     dlq = SqsDlqPublisher(os.environ["AI_SUBSCRIPTION_DLQ_URL"])
     reader = DynamoDbInsightReader(os.environ["TABLE_NAME_INSIGHTS"])
-    writer = DynamoDbEmbeddingWriter(os.environ["TABLE_NAME_EMBEDDINGS"])
+    # One adapter instance serves both EmbeddingWriter (embed_insight) and
+    # EmbeddingReader (REL 2's candidate pool) — same table, same class.
+    embeddings = DynamoDbEmbeddingWriter(os.environ["TABLE_NAME_EMBEDDINGS"])
 
     api_key = resolve_secret("OPENAI_API_KEY", SsmSecretProvider())
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY not configured")
     embedder = OpenAiEmbeddingClient(api_key)
+    labeler = OpenAiRelationLabeler(api_key)
 
-    Handler(dlq, reader, embedder, writer).handle(event)
+    agent_secret = resolve_secret("AGENT_CLIENT_SECRET", SsmSecretProvider())
+    token_client = CognitoServiceTokenClient(
+        token_endpoint=os.environ["AGENT_TOKEN_ENDPOINT"],
+        client_id=os.environ["AGENT_CLIENT_ID"],
+        client_secret=agent_secret,
+        scope=os.environ.get("AGENT_SCOPE", "ipp/agent.write"),
+    )
+    relationship_writer = GoApiRelationshipWriter(os.environ["REST_API_BASE_URL"], token_client)
+
+    handler = Handler(dlq, reader, embedder, embeddings, embeddings, labeler, relationship_writer)
+    handler.handle(event)
