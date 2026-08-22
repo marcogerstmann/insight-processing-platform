@@ -230,9 +230,7 @@ def test_generate_sends_the_focus_edges_and_a_forced_json_schema(
     def fake_urlopen(request: urllib.request.Request, timeout: float) -> _FakeResponse:
         seen["request"] = request
         return _FakeResponse(
-            _actions_payload(
-                [{"title": "Ship it", "why": "why", "supporting_insight_ids": ["i1"]}]
-            )
+            _actions_payload([{"title": "Ship it", "why": "why", "supporting_insight_ids": ["i1"]}])
         )
 
     monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
