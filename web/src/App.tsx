@@ -6,6 +6,7 @@ import { CreateInsightSection } from "./sections/CreateInsightSection.tsx";
 import { ImportReadwiseSection } from "./sections/ImportReadwiseSection.tsx";
 import { ImportRaindropSection } from "./sections/ImportRaindropSection.tsx";
 import { KnowledgeSection } from "./sections/KnowledgeSection.tsx";
+import { WeeklyPlanSection } from "./sections/WeeklyPlanSection.tsx";
 import { ProfileSection } from "./sections/ProfileSection.tsx";
 
 // The authenticated sections of the demo client. We switch between them with
@@ -13,7 +14,14 @@ import { ProfileSection } from "./sections/ProfileSection.tsx";
 // URLs worth deep-linking to, so react-router would be dead weight here.
 // Login isn't a tab: it's what renders instead of this whole app when signed
 // out (see the `!token` branch below), so there's nothing to gate per-section.
-type SectionId = "insights" | "create" | "import-readwise" | "import-raindrop" | "knowledge" | "profile";
+type SectionId =
+  | "insights"
+  | "create"
+  | "import-readwise"
+  | "import-raindrop"
+  | "knowledge"
+  | "weekly-plan"
+  | "profile";
 
 const SECTIONS: { id: SectionId; label: string }[] = [
   { id: "insights", label: "Insights" },
@@ -21,6 +29,7 @@ const SECTIONS: { id: SectionId; label: string }[] = [
   { id: "import-readwise", label: "Import Readwise Highlights" },
   { id: "import-raindrop", label: "Import Raindrop Highlights" },
   { id: "knowledge", label: "Knowledge" },
+  { id: "weekly-plan", label: "Weekly Plan" },
   { id: "profile", label: "Profile" },
 ];
 
@@ -65,6 +74,7 @@ function App() {
         {active === "import-readwise" && <ImportReadwiseSection />}
         {active === "import-raindrop" && <ImportRaindropSection />}
         {active === "knowledge" && <KnowledgeSection />}
+        {active === "weekly-plan" && <WeeklyPlanSection />}
         {active === "profile" && <ProfileSection />}
       </main>
     </div>
