@@ -46,13 +46,12 @@ body {
 }
 
 .app {
-  max-width: 860px;
-  margin: 0 auto;
-  padding: 1.5rem 1.25rem 3rem;
+  display: flex;
+  min-height: 100vh;
+  align-items: stretch;
 }
 
 .app--centered {
-  max-width: none;
   min-height: 100vh;
   display: flex;
   align-items: center;
@@ -60,82 +59,127 @@ body {
   padding: 1.5rem;
 }
 
-.app-header {
+.sidebar {
+  width: 240px;
+  flex-shrink: 0;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-  border-bottom: 1px solid var(--color-border);
-  padding-bottom: 1.25rem;
-  margin-bottom: 1.5rem;
-}
-
-.app-header h1 {
-  font-size: 1.25rem;
-  font-weight: 700;
-  margin: 0;
-}
-
-.app-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
-.app-nav {
-  display: flex;
-  gap: 0.4rem;
-  overflow-x: auto;
-}
-
-.app-nav button {
-  padding: 0.45rem 0.9rem;
-  border: 1px solid var(--color-border);
-  border-radius: 999px;
+  flex-direction: column;
+  gap: 1.75rem;
+  padding: 1.5rem 1rem;
+  border-right: 1px solid var(--color-border);
   background: var(--color-surface);
-  color: var(--color-text);
-  cursor: pointer;
-  font-size: 0.85rem;
-  font-weight: 500;
-  white-space: nowrap;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
-.app-nav button:hover {
-  border-color: var(--color-primary);
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0 0.5rem;
+  font-weight: 700;
+  font-size: 0.95rem;
 }
 
-.app-nav button.active {
+.sidebar-brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 8px;
   background: var(--color-primary);
   color: var(--color-primary-text);
-  border-color: var(--color-primary);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
-.logout-btn {
-  padding: 0.45rem 0.9rem;
-  border: 1px solid var(--color-border);
-  border-radius: 999px;
-  background: transparent;
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.nav-group-label {
+  padding: 0 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   color: var(--color-text-muted);
-  cursor: pointer;
-  font-size: 0.85rem;
-  white-space: nowrap;
-  transition: border-color 0.15s ease, color 0.15s ease;
 }
 
-.logout-btn:hover {
-  border-color: var(--color-error);
-  color: var(--color-error);
+.nav-group-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.5rem 0.6rem;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.nav-item svg {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  transition: color 0.15s ease;
+}
+
+.nav-item:hover {
+  background: var(--color-bg);
+}
+
+.nav-item.active {
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+}
+
+.nav-item.active svg {
+  color: var(--color-primary-text);
+}
+
+.sidebar-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.nav-item--logout:hover {
+  background: var(--color-error);
+  color: #fff;
+}
+
+.nav-item--logout:hover svg {
+  color: #fff;
 }
 
 .app-main {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 1.5rem;
+  flex: 1;
+  min-width: 0;
+  padding: 2rem 2.5rem 3rem;
 }
 
 .app-main h2 {
@@ -233,6 +277,61 @@ body {
 .error {
   color: var(--color-error);
   margin: 0;
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.loading-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 1.25rem;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  flex-wrap: wrap;
+}
+
+.breadcrumb-link {
+  border: none;
+  background: none;
+  color: var(--color-primary);
+  cursor: pointer;
+  padding: 0;
+  font-size: inherit;
+}
+
+.breadcrumb-link:hover {
+  text-decoration: underline;
+}
+
+.breadcrumb-current {
+  color: var(--color-text);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 320px;
 }
 
 .table-wrap {
@@ -452,23 +551,64 @@ body {
   background: var(--color-text-muted);
 }
 
-@media (max-width: 640px) {
+@media (max-width: 760px) {
   .app {
-    padding: 1rem 0.75rem 2rem;
-  }
-
-  .app-header {
     flex-direction: column;
-    align-items: stretch;
   }
 
-  .app-header-actions {
-    justify-content: space-between;
+  .sidebar {
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+    overflow-x: auto;
+  }
+
+  .sidebar-brand {
+    display: none;
+  }
+
+  .sidebar-nav {
+    flex-direction: row;
+    flex: none;
+    overflow: visible;
+    gap: 0.5rem;
+  }
+
+  .nav-group {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  .nav-group-label {
+    display: none;
+  }
+
+  .nav-group-items {
+    flex-direction: row;
+    gap: 0.3rem;
+  }
+
+  .nav-item {
+    padding: 0.4rem 0.65rem;
+    border-radius: 999px;
+  }
+
+  .sidebar-footer {
+    flex-direction: row;
+    margin-left: auto;
+    padding-top: 0;
+    padding-left: 0.5rem;
+    border-top: none;
+    border-left: 1px solid var(--color-border);
   }
 
   .app-main {
-    padding: 1.1rem;
-    border-radius: 8px;
+    padding: 1.25rem 1rem 2rem;
   }
 
   .login-form {

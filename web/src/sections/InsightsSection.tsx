@@ -3,6 +3,7 @@ import { useAuth } from "../auth/AuthContext.tsx";
 import { listInsights, type Insight } from "../api/insights.ts";
 import type { RelatedInsight } from "../api/relationships.ts";
 import { InsightDetailSection } from "./InsightDetailSection.tsx";
+import { Loading } from "../components/Loading.tsx";
 
 interface InsightsSectionProps {
   // Optional tag filter (IPP-109 drill-down). Undefined shows every insight,
@@ -76,13 +77,23 @@ export function InsightsSection({ tag }: InsightsSectionProps = {}) {
 
   if (viewStack.length > 0) {
     const current = viewStack[viewStack.length - 1];
-    return <InsightDetailSection insight={current} onNavigate={navigateToRelated} onBack={goBack} />;
+    const previous = viewStack.length > 1 ? viewStack[viewStack.length - 2] : undefined;
+    return (
+      <InsightDetailSection
+        insight={current}
+        onNavigate={navigateToRelated}
+        onBack={goBack}
+        onHome={() => setViewStack([])}
+        rootLabel={tag ? `Insights tagged "${tag}"` : "Insights"}
+        previousLabel={previous?.text}
+      />
+    );
   }
 
   return (
     <section>
       <h2>{tag ? `Insights tagged "${tag}"` : "Insights"}</h2>
-      {loading && <p>Loading…</p>}
+      {loading && <Loading />}
       {error && (
         <p className="error" role="alert">
           {error}

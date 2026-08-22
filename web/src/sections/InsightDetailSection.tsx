@@ -2,11 +2,19 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthContext.tsx";
 import { listRelationships, type RelatedInsight } from "../api/relationships.ts";
 import type { Insight } from "../api/insights.ts";
+import { Loading } from "../components/Loading.tsx";
 
 interface InsightDetailSectionProps {
   insight: Insight;
   onNavigate: (related: RelatedInsight) => void;
   onBack: () => void;
+  // Breadcrumb (replaces the old plain "← Back" button): rootLabel/onHome
+  // jump straight back to the list this detail view was opened from;
+  // previousLabel/onBack step back one hop in the relation-walk stack, and
+  // is only present once the stack is more than one insight deep.
+  rootLabel: string;
+  onHome: () => void;
+  previousLabel?: string;
 }
 
 // Human-readable label per relation type. Falls back to the raw string for
@@ -33,7 +41,14 @@ function relationLabel(type: string): string {
 // rationale text readable.
 // Only ever mounted while signed in (InsightsSection gates this), so
 // `token` here is always set.
-export function InsightDetailSection({ insight, onNavigate, onBack }: InsightDetailSectionProps) {
+export function InsightDetailSection({
+  insight,
+  onNavigate,
+  onBack,
+  rootLabel,
+  onHome,
+  previousLabel,
+}: InsightDetailSectionProps) {
   const { token } = useAuth();
   const [related, setRelated] = useState<RelatedInsight[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -69,9 +84,21 @@ export function InsightDetailSection({ insight, onNavigate, onBack }: InsightDet
 
   return (
     <section>
-      <button type="button" className="tag-cloud-item" onClick={onBack}>
-        ← Back
-      </button>
+      <nav className="breadcrumb" aria-label="Breadcrumb">
+        <button type="button" className="breadcrumb-link" onClick={onHome}>
+          {rootLabel}
+        </button>
+        {previousLabel && (
+          <>
+            <span aria-hidden="true">/</span>
+            <button type="button" className="breadcrumb-link" onClick={onBack}>
+              {previousLabel}
+            </button>
+          </>
+        )}
+        <span aria-hidden="true">/</span>
+        <span className="breadcrumb-current">{insight.text}</span>
+      </nav>
 
       <div className="insight-detail">
         <p className="insight-detail-source">{insight.source}</p>
@@ -83,7 +110,7 @@ export function InsightDetailSection({ insight, onNavigate, onBack }: InsightDet
       </div>
 
       <h3>Related insights</h3>
-      {loading && <p>Loading…</p>}
+      {loading && <Loading />}
       {error && (
         <p className="error" role="alert">
           {error}

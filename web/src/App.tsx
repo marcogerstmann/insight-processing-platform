@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "./auth/AuthContext.tsx";
+import { Icon, type IconName } from "./icons.tsx";
 import { LoginSection } from "./sections/LoginSection.tsx";
 import { InsightsSection } from "./sections/InsightsSection.tsx";
 import { CreateInsightSection } from "./sections/CreateInsightSection.tsx";
@@ -23,14 +24,38 @@ type SectionId =
   | "weekly-plan"
   | "profile";
 
-const SECTIONS: { id: SectionId; label: string }[] = [
-  { id: "insights", label: "Insights" },
-  { id: "create", label: "Create Insight" },
-  { id: "import-readwise", label: "Import Readwise Highlights" },
-  { id: "import-raindrop", label: "Import Raindrop Highlights" },
-  { id: "knowledge", label: "Knowledge" },
-  { id: "weekly-plan", label: "Weekly Plan" },
-  { id: "profile", label: "Profile" },
+interface NavItem {
+  id: SectionId;
+  label: string;
+  icon: IconName;
+}
+
+// Grouped sidebar nav (IPP-68 follow-up): the two imports and the
+// browse/create insight actions were reading as seven equal-weight tabs in a
+// flat row. Grouping them under headings gives the same set of destinations
+// visible hierarchy without adding a router or any per-section URLs.
+const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
+  {
+    label: "Insights",
+    items: [
+      { id: "insights", label: "All Insights", icon: "insights" },
+      { id: "create", label: "Create Insight", icon: "create" },
+    ],
+  },
+  {
+    label: "Import",
+    items: [
+      { id: "import-readwise", label: "Readwise", icon: "import" },
+      { id: "import-raindrop", label: "Raindrop", icon: "import" },
+    ],
+  },
+  {
+    label: "Workspace",
+    items: [
+      { id: "knowledge", label: "Knowledge", icon: "knowledge" },
+      { id: "weekly-plan", label: "Weekly Plan", icon: "plan" },
+    ],
+  },
 ];
 
 function App() {
@@ -47,26 +72,48 @@ function App() {
 
   return (
     <div className="app">
-      <header className="app-header">
-        <h1>Insight Processing Platform</h1>
-        <div className="app-header-actions">
-          <nav className="app-nav">
-            {SECTIONS.map((section) => (
-              <button
-                key={section.id}
-                type="button"
-                className={section.id === active ? "active" : ""}
-                onClick={() => setActive(section.id)}
-              >
-                {section.label}
-              </button>
-            ))}
-          </nav>
-          <button type="button" className="logout-btn" onClick={logout}>
+      <aside className="sidebar">
+        <div className="sidebar-brand">
+          <span className="sidebar-brand-mark">IPP</span>
+          <span className="sidebar-brand-name">Insight Processing Platform</span>
+        </div>
+
+        <nav className="sidebar-nav">
+          {NAV_GROUPS.map((group) => (
+            <div className="nav-group" key={group.label}>
+              <div className="nav-group-label">{group.label}</div>
+              <div className="nav-group-items">
+                {group.items.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={item.id === active ? "nav-item active" : "nav-item"}
+                    onClick={() => setActive(item.id)}
+                  >
+                    <Icon name={item.icon} />
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </nav>
+
+        <div className="sidebar-footer">
+          <button
+            type="button"
+            className={active === "profile" ? "nav-item active" : "nav-item"}
+            onClick={() => setActive("profile")}
+          >
+            <Icon name="profile" />
+            Profile
+          </button>
+          <button type="button" className="nav-item nav-item--logout" onClick={logout}>
+            <Icon name="logout" />
             Log out
           </button>
         </div>
-      </header>
+      </aside>
 
       <main className="app-main">
         {active === "insights" && <InsightsSection />}

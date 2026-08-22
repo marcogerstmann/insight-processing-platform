@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthContext.tsx";
 import { listTags, type Tag } from "../api/tags.ts";
 import { InsightsSection } from "./InsightsSection.tsx";
+import { Loading } from "../components/Loading.tsx";
 
 // Tag cloud sized by relevance `score`, not `insight_count` — that's the
 // point of the underlying ranking (see tags.ts). No charting library: font
@@ -93,7 +94,7 @@ export function KnowledgeSection() {
   return (
     <section>
       <h2>Knowledge</h2>
-      {loading && <p>Loading…</p>}
+      {loading && <Loading />}
       {error && (
         <p className="error" role="alert">
           {error}

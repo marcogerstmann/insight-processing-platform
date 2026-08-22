@@ -149,7 +149,17 @@ export function WeeklyPlanSection() {
 
   if (viewStack.length > 0) {
     const current = viewStack[viewStack.length - 1];
-    return <InsightDetailSection insight={current} onNavigate={navigateToRelated} onBack={goBackFromInsight} />;
+    const previous = viewStack.length > 1 ? viewStack[viewStack.length - 2] : undefined;
+    return (
+      <InsightDetailSection
+        insight={current}
+        onNavigate={navigateToRelated}
+        onBack={goBackFromInsight}
+        onHome={() => setViewStack([])}
+        rootLabel="Weekly Plan"
+        previousLabel={previous?.text}
+      />
+    );
   }
 
   return (
