@@ -7,12 +7,13 @@ import (
 	restraindrop "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/raindrop"
 	restreadwise "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/readwise"
 	restrelationship "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/relationship"
+	restweeklyplan "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/weeklyplan"
 )
 
 // NewRouter builds the REST engine. allowedOrigins enables browser CORS for
 // those origins; pass nil in environments where CORS is handled upstream (AWS
 // API Gateway), and the Vite dev origin from the local runner.
-func NewRouter(insightHandler *insight.Handler, readwiseHandler *restreadwise.Handler, raindropHandler *restraindrop.Handler, relationshipHandler *restrelationship.Handler, authValidator *auth.CognitoValidator, allowedOrigins []string) *gin.Engine {
+func NewRouter(insightHandler *insight.Handler, readwiseHandler *restreadwise.Handler, raindropHandler *restraindrop.Handler, relationshipHandler *restrelationship.Handler, weeklyPlanHandler *restweeklyplan.Handler, authValidator *auth.CognitoValidator, allowedOrigins []string) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Recovery())
 
@@ -44,6 +45,10 @@ func NewRouter(insightHandler *insight.Handler, readwiseHandler *restreadwise.Ha
 		// but tenant scoping comes from the JWT like every other user
 		// route — see ListByInsightID's doc comment.
 		v1.GET("/tenants/:tenantID/insights/:insightID/relationships", auth.RequireUser(), relationshipHandler.ListByInsightID)
+
+		// User route (PLAN 1, IPP-103): tenant scoping comes from the JWT,
+		// same as ListByInsightID above — see Handler.Create's doc comment.
+		v1.POST("/tenants/:tenantID/weekly-plans", auth.RequireUser(), weeklyPlanHandler.Create)
 	}
 
 	return r

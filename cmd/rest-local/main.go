@@ -16,6 +16,7 @@ import (
 	restraindrop "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/raindrop"
 	restreadwise "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/readwise"
 	restrelationship "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/relationship"
+	restweeklyplan "github.com/marcogerstmann/insight-processing-platform/internal/adapters/inbound/http/rest/weeklyplan"
 	dynamodbadapter "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/dynamodb"
 	"github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/memory"
 	raindropclient "github.com/marcogerstmann/insight-processing-platform/internal/adapters/outbound/raindrop"
@@ -24,6 +25,7 @@ import (
 	"github.com/marcogerstmann/insight-processing-platform/internal/application/ingest"
 	"github.com/marcogerstmann/insight-processing-platform/internal/application/insight"
 	apprelationship "github.com/marcogerstmann/insight-processing-platform/internal/application/relationship"
+	appweeklyplan "github.com/marcogerstmann/insight-processing-platform/internal/application/weeklyplan"
 	"github.com/marcogerstmann/insight-processing-platform/internal/ports"
 )
 
@@ -83,9 +85,11 @@ func main() {
 	insightHandler := restinsight.NewHandler(insightSvc)
 	relationshipSvc := apprelationship.NewService(insightAdapter, memory.NewDomainEventNoopAdapter())
 	relationshipHandler := restrelationship.NewHandler(relationshipSvc)
+	weeklyPlanSvc := appweeklyplan.NewService(insightAdapter, memory.NewDomainEventNoopAdapter())
+	weeklyPlanHandler := restweeklyplan.NewHandler(weeklyPlanSvc)
 	// Allow the web app's Vite dev server to call this local API from the
 	// browser. In AWS this is API Gateway's job; locally the Go server must do it.
-	router := rest.NewRouter(insightHandler, readwiseHandler, raindropHandler, relationshipHandler, authValidator, []string{"http://localhost:5173"})
+	router := rest.NewRouter(insightHandler, readwiseHandler, raindropHandler, relationshipHandler, weeklyPlanHandler, authValidator, []string{"http://localhost:5173"})
 
 	addr := ":8081"
 	log.Printf("REST server listening on http://localhost%s", addr)

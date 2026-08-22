@@ -10,9 +10,10 @@ import (
 type EventType string
 
 const (
-	InsightCreated   EventType = "InsightCreated"
-	InsightEnriched  EventType = "InsightEnriched"
-	KnowledgeUpdated EventType = "KnowledgeUpdated"
+	InsightCreated      EventType = "InsightCreated"
+	InsightEnriched     EventType = "InsightEnriched"
+	KnowledgeUpdated    EventType = "KnowledgeUpdated"
+	WeeklyPlanRequested EventType = "WeeklyPlanRequested"
 )
 
 // domainEventVersion is the envelope schema version. It starts at 1; bump it
@@ -102,5 +103,26 @@ func NewKnowledgeUpdatedEvent(rel Relationship, occurredAt time.Time) DomainEven
 	return NewDomainEvent(KnowledgeUpdated, rel.TenantID, rel.FromInsightID+"|"+rel.ToInsightID, occurredAt, KnowledgeUpdatedPayload{
 		FromInsightID: rel.FromInsightID,
 		ToInsightID:   rel.ToInsightID,
+	})
+}
+
+// WeeklyPlanRequestedPayload is the WeeklyPlanRequested event's payload
+// (PLAN 1/IPP-103): what the async planning worker needs to start, without
+// re-reading the plan row.
+type WeeklyPlanRequestedPayload struct {
+	PlanID        string `json:"plan_id"`
+	Tag           string `json:"tag"`
+	FocusSentence string `json:"focus_sentence"`
+}
+
+// NewWeeklyPlanRequestedEvent builds the envelope published right after a
+// weekly plan is durably written. The subject ID is the plan's own id, since
+// (unlike relationship edges) a plan submission has no natural composite key
+// to dedupe on.
+func NewWeeklyPlanRequestedEvent(plan WeeklyPlan, occurredAt time.Time) DomainEvent {
+	return NewDomainEvent(WeeklyPlanRequested, plan.TenantID, plan.ID, occurredAt, WeeklyPlanRequestedPayload{
+		PlanID:        plan.ID,
+		Tag:           plan.Tag,
+		FocusSentence: plan.FocusSentence,
 	})
 }
