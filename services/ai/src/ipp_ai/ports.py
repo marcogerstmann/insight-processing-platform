@@ -126,6 +126,18 @@ class RelationshipWriter(Protocol):
     def put(self, relationship: Relationship) -> None: ...
 
 
+class PlanResultWriter(Protocol):
+    """Persists a weekly plan's outcome through the Go REST API (PLAN 4).
+
+    Same boundary rule as RelationshipWriter: a WeeklyPlan's result is
+    domain data, so it leaves this service's own AWS account through the Go
+    API rather than being written to DynamoDB directly.
+    """
+
+    def set_ready(self, tenant_id: str, plan_id: str, actions: list[Action]) -> None: ...
+    def set_failed(self, tenant_id: str, plan_id: str, reason: str) -> None: ...
+
+
 class DlqPublisher(Protocol):
     """Forwards a failed record's raw body to a dead-letter queue, tagged
     with the failure reason. Mirrors internal/ports.DLQPublisher — narrower,

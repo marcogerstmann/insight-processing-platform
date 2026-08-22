@@ -94,6 +94,18 @@ class SpyRelationshipWriter:
 
 
 @dataclass
+class SpyPlanResultWriter:
+    ready: list[tuple[str, str, list[Action]]] = field(default_factory=list)
+    failed: list[tuple[str, str, str]] = field(default_factory=list)
+
+    def set_ready(self, tenant_id: str, plan_id: str, actions: list[Action]) -> None:
+        self.ready.append((tenant_id, plan_id, actions))
+
+    def set_failed(self, tenant_id: str, plan_id: str, reason: str) -> None:
+        self.failed.append((tenant_id, plan_id, reason))
+
+
+@dataclass
 class FakeActionGenerator:
     actions: list[Action] | Exception | None = None
     received: list[tuple[str, tuple[str, ...], int]] = field(default_factory=list)
@@ -191,6 +203,7 @@ def _handler(
     relationship_writer: SpyRelationshipWriter | None = None,
     relationship_reader: FakeRelationshipReader | None = None,
     action_generator: FakeActionGenerator | None = None,
+    plan_result_writer: SpyPlanResultWriter | None = None,
 ) -> tuple[
     Handler,
     SpyDlq,
@@ -202,6 +215,7 @@ def _handler(
     SpyRelationshipWriter,
     FakeRelationshipReader,
     FakeActionGenerator,
+    SpyPlanResultWriter,
 ]:
     dlq = dlq or SpyDlq()
     reader = reader or FakeReader()
@@ -212,6 +226,7 @@ def _handler(
     relationship_writer = relationship_writer or SpyRelationshipWriter()
     relationship_reader = relationship_reader or FakeRelationshipReader()
     action_generator = action_generator or FakeActionGenerator()
+    plan_result_writer = plan_result_writer or SpyPlanResultWriter()
     handler = Handler(
         dlq,
         reader,
@@ -222,6 +237,7 @@ def _handler(
         relationship_writer,
         relationship_reader,
         action_generator,
+        plan_result_writer,
     )
     return (
         handler,
@@ -234,6 +250,7 @@ def _handler(
         relationship_writer,
         relationship_reader,
         action_generator,
+        plan_result_writer,
     )
 
 
@@ -410,7 +427,7 @@ def test_handle_weekly_plan_requested_gathers_context_not_the_embed_pipeline(
     labeler = FakeLabeler(judgement=AssertionError("labeler must not be called"))
     relationship_writer = SpyRelationshipWriter()
     action_generator = FakeActionGenerator(actions=[])
-    handler, dlq, *_ = _handler(
+    handler, dlq, *_, plan_result_writer = _handler(
         reader=reader,
         embedder=embedder,
         labeler=labeler,
@@ -428,6 +445,11 @@ def test_handle_weekly_plan_requested_gathers_context_not_the_embed_pipeline(
     assert record.tag == "golang"
     assert sorted(record.insight_ids) == ["i0", "i1", "i2"]
 
+    # Zero drafted-and-validated actions is still a "ready" outcome (IPP-105's
+    # AC: never pad to hit a count) — never left pending, never marked failed.
+    assert plan_result_writer.ready == [("t1", "p1", [])]
+    assert plan_result_writer.failed == []
+
 
 def test_handle_weekly_plan_requested_too_few_insights_logs_insufficient_material(
     caplog: pytest.LogCaptureFixture,
@@ -437,7 +459,7 @@ def test_handle_weekly_plan_requested_too_few_insights_logs_insufficient_materia
     LLM call PLAN 3 adds.
     """
     reader = FakeReader(insights={}, by_tag={("t1", "golang"): [_insight("i0")]})
-    handler, dlq, *_ = _handler(reader=reader)
+    handler, dlq, *_, plan_result_writer = _handler(reader=reader)
 
     with caplog.at_level("INFO"):
         handler.handle(_sqs_event(_weekly_plan_requested_envelope(tag="golang")))
@@ -449,6 +471,13 @@ def test_handle_weekly_plan_requested_too_few_insights_logs_insufficient_materia
     assert record.tenant_id == "t1"
     assert record.tag == "golang"
     assert record.insight_count == 1
+
+    assert plan_result_writer.ready == []
+    assert len(plan_result_writer.failed) == 1
+    tenant_id, plan_id, reason = plan_result_writer.failed[0]
+    assert (tenant_id, plan_id) == ("t1", "p1")
+    assert "golang" in reason
+    assert "1" in reason
 
 
 def test_handle_weekly_plan_requested_generates_and_validates_actions(
@@ -474,7 +503,9 @@ def test_handle_weekly_plan_requested_generates_and_validates_actions(
             ),
         ]
     )
-    handler, dlq, *_ = _handler(reader=reader, action_generator=action_generator)
+    handler, dlq, *_, plan_result_writer = _handler(
+        reader=reader, action_generator=action_generator
+    )
 
     with caplog.at_level("INFO"):
         handler.handle(_sqs_event(_weekly_plan_requested_envelope(tag="golang")))
@@ -488,3 +519,11 @@ def test_handle_weekly_plan_requested_generates_and_validates_actions(
     assert record.tag == "golang"
     assert record.drafted_count == 2
     assert record.valid_count == 1
+
+    # The hallucinated-citation action was dropped before ever reaching here
+    # (PLAN 3's own job) — only the surviving, validated action is persisted.
+    assert plan_result_writer.failed == []
+    assert len(plan_result_writer.ready) == 1
+    tenant_id, plan_id, persisted = plan_result_writer.ready[0]
+    assert (tenant_id, plan_id) == ("t1", "p1")
+    assert [a.title for a in persisted] == ["Ship the draft"]

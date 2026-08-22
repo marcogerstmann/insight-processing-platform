@@ -24,9 +24,12 @@ PLAN 3 (IPP-105) extends that branch: once `gather_context` returns a
 `SelectedContext` (not `InsufficientMaterial`, which has nothing to plan
 from), `application/action_generation.py`'s `generate_actions` makes the
 one LLM call that drafts and citation-validates the week's actions. PLAN 4
-is what will persist the result and PLAN 5 what will make that write
-idempotent; until then the generated actions are logged the same way
-`gather_context`'s own selection already is, not yet stored anywhere.
+(IPP-106) persists the result via `PlanResultWriter` — `set_ready` for a
+`SelectedContext` outcome, `set_failed` for `InsufficientMaterial`. PLAN 5
+(IPP-107) is what will make that write survive redelivery; until then a
+retried event can call `set_ready`/`set_failed` a second time and get the
+Go API's 409 (the plan is no longer pending), same as a genuinely duplicate
+delivery.
 
 `Handler` wires nothing itself (only depends on the ports its constructor
 takes, so it's testable without AWS); `lambda_handler` is the composition
@@ -51,6 +54,7 @@ from ipp_ai.adapters.outbound.openai import (
     OpenAiEmbeddingClient,
     OpenAiRelationLabeler,
 )
+from ipp_ai.adapters.outbound.plan_result_api import GoApiPlanResultWriter
 from ipp_ai.adapters.outbound.relationship_api import GoApiRelationshipWriter
 from ipp_ai.adapters.outbound.sqs import SqsDlqPublisher
 from ipp_ai.adapters.outbound.ssm import SsmSecretProvider
@@ -60,7 +64,7 @@ from ipp_ai.application.embedding import embed_insight
 from ipp_ai.application.relationship import discover_relationships
 from ipp_ai.application.secrets import resolve_secret
 from ipp_ai.domain.event import DomainEvent
-from ipp_ai.domain.plan_context import SelectedContext
+from ipp_ai.domain.plan_context import InsufficientMaterial
 from ipp_ai.errors import PermanentError
 from ipp_ai.logging_config import configure
 from ipp_ai.ports import (
@@ -70,6 +74,7 @@ from ipp_ai.ports import (
     EmbeddingReader,
     EmbeddingWriter,
     InsightReader,
+    PlanResultWriter,
     RelationLabeler,
     RelationshipReader,
     RelationshipWriter,
@@ -100,6 +105,7 @@ class Handler:
         relationship_writer: RelationshipWriter,
         relationship_reader: RelationshipReader,
         action_generator: ActionGenerator,
+        plan_result_writer: PlanResultWriter,
     ) -> None:
         self._dlq = dlq
         self._reader = reader
@@ -110,6 +116,7 @@ class Handler:
         self._relationship_writer = relationship_writer
         self._relationship_reader = relationship_reader
         self._action_generator = action_generator
+        self._plan_result_writer = plan_result_writer
 
     def handle(self, event: dict[str, Any]) -> None:
         for record in event["Records"]:
@@ -119,6 +126,7 @@ class Handler:
                 _log_event(domain_event)
 
                 if domain_event.event_type == "WeeklyPlanRequested":
+                    plan_id = domain_event.payload["plan_id"]
                     context = gather_context(
                         domain_event.tenant_id,
                         domain_event.payload.get("tag"),
@@ -126,13 +134,22 @@ class Handler:
                         relationship_reader=self._relationship_reader,
                         now=datetime.now(UTC),
                     )
-                    if isinstance(context, SelectedContext):
-                        generate_actions(
+                    if isinstance(context, InsufficientMaterial):
+                        self._plan_result_writer.set_failed(
                             domain_event.tenant_id,
-                            domain_event.payload.get("focus_sentence", ""),
-                            context,
-                            generator=self._action_generator,
+                            plan_id,
+                            f'not enough insights tagged "{context.tag}" to plan a week '
+                            f"(found {context.insight_count})",
                         )
+                        continue
+
+                    actions = generate_actions(
+                        domain_event.tenant_id,
+                        domain_event.payload.get("focus_sentence", ""),
+                        context,
+                        generator=self._action_generator,
+                    )
+                    self._plan_result_writer.set_ready(domain_event.tenant_id, plan_id, actions)
                     continue
 
                 embedding = embed_insight(
@@ -210,6 +227,11 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> None:
         scope=os.environ.get("AGENT_SCOPE", "ipp/agent.write"),
     )
     relationship_writer = GoApiRelationshipWriter(os.environ["REST_API_BASE_URL"], token_client)
+    # Shares token_client with relationship_writer above: both calls need the
+    # same agent.write-scoped machine token, and CognitoServiceTokenClient
+    # already caches it (see its own module) rather than re-authenticating
+    # per call.
+    plan_result_writer = GoApiPlanResultWriter(os.environ["REST_API_BASE_URL"], token_client)
 
     # Same DynamoDbInsightReader instance also satisfies RelationshipReader
     # (REL 6) — one class, one table, same read-only boundary as InsightReader.
@@ -223,5 +245,6 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> None:
         relationship_writer,
         reader,
         action_generator,
+        plan_result_writer,
     )
     handler.handle(event)
